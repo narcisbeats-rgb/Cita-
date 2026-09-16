@@ -1,0 +1,15 @@
+{
+  "name": "citanie-madrid",
+  "version": "0.2.0",
+  "private": true,
+  "description": "MVP de monitorización segura de disponibilidad NIE/TIE en Madrid",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "check:tie": "node scripts/check-tie.js",
+    "check": "node --check server.js && node --check src/icpplus.js && node --check scripts/check-tie.js"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}

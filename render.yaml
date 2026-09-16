@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: citanie-madrid
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npx playwright install --with-deps chromium
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: SAFE_MODE
+        value: "true"
+      - key: HEADLESS
+        value: "true"
+      - key: MONITOR_TEST_SECRET
+        generateValue: true
