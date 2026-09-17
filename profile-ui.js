@@ -5,6 +5,17 @@
   let saveTimer = null;
   let loading = false;
 
+  function updateBranding() {
+    const brand = document.querySelector('.brand');
+    const eyebrow = document.querySelector('.eyebrow');
+    const heroTitle = document.querySelector('.hero h1');
+    const heroText = document.querySelector('.hero p');
+    if (brand) brand.innerHTML = 'Detector de <span>Citas</span>';
+    if (eyebrow) eyebrow.innerHTML = '<span class="dot"></span> CitaNIE Madrid · Monitorización de citas';
+    if (heroTitle) heroTitle.textContent = 'Detectamos citas disponibles por ti.';
+    if (heroText) heroText.textContent = 'Monitorizamos el portal oficial de cita previa para trámites NIE/TIE en Madrid. Eliges tu trámite y guardas tus datos una sola vez; cuando detectamos disponibilidad, recibes una alerta inmediata en iPhone o Android y puedes intentar continuar con tus datos ya preparados. No vendemos citas ni saltamos CAPTCHA, Cl@ve, SMS u otras verificaciones personales.';
+  }
+
   const css = document.createElement('style');
   css.textContent = `
     .profile-card{margin:0 0 14px;background:#101620;border:1px solid #263044;border-radius:20px;padding:18px}
@@ -157,6 +168,7 @@
   }
 
   function mount() {
+    updateBranding();
     if (mounted || !token()) return;
     const section = document.querySelector('#s4');
     const dash = section?.querySelector('.dash');
@@ -204,6 +216,9 @@
     field('attemptAppointment').addEventListener('click', attemptAppointment);
     loadProfile();
   }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', updateBranding, { once: true });
+  else updateBranding();
 
   const observer = new MutationObserver(() => mount());
   observer.observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
