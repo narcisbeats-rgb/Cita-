@@ -1,36 +1,40 @@
 (() => {
-  const token = () => localStorage.getItem('citaNieAccessToken') || '';
-  const authHeaders = () => ({ authorization: `Bearer ${token()}`, 'content-type': 'application/json' });
+  const tokenKey = 'citaNieAccessToken';
+  const token = () => localStorage.getItem(tokenKey) || '';
+  const authHeaders = () => ({ ...(token() ? { authorization: `Bearer ${token()}` } : {}), 'content-type': 'application/json' });
   let mounted = false;
   let saveTimer = null;
   let loading = false;
 
-  function updateBranding() {
-    const brand = document.querySelector('.brand');
-    const eyebrow = document.querySelector('.eyebrow');
-    const heroTitle = document.querySelector('.hero h1');
-    const heroText = document.querySelector('.hero p');
-    if (brand) brand.innerHTML = 'Detector de <span>Citas</span>';
-    if (eyebrow) eyebrow.innerHTML = '<span class="dot"></span> CitaNIE Madrid · Monitorización de citas';
-    if (heroTitle) heroTitle.textContent = 'Detectamos citas disponibles por ti.';
-    if (heroText) heroText.textContent = 'Monitorizamos el portal oficial de cita previa para trámites NIE/TIE en Madrid. Eliges tu trámite y guardas tus datos una sola vez; cuando detectamos disponibilidad, recibes una alerta inmediata en iPhone o Android y puedes intentar continuar con tus datos ya preparados. No vendemos citas ni saltamos CAPTCHA, Cl@ve, SMS u otras verificaciones personales.';
-  }
-
   const css = document.createElement('style');
   css.textContent = `
-    .profile-card{margin:0 0 14px;background:#101620;border:1px solid #263044;border-radius:20px;padding:18px}
+    .profile-card{margin:14px 0 0;background:#101620;border:1px solid #263044;border-radius:20px;padding:18px}
     .profile-card h3{margin:0 0 6px;font-size:19px}.profile-card .lead{margin:0 0 16px;color:#9ca7b8;font-size:14px;line-height:1.5}
     .profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.profile-field{display:flex;flex-direction:column;gap:7px}
     .profile-field label{font-size:12px;color:#c8d0dc}.profile-field input,.profile-field select{width:100%;padding:13px;border-radius:13px;border:1px solid #263044;background:#0d121a;color:#f7f8fb;outline:none}
-    .profile-field input:focus,.profile-field select:focus{border-color:#725f22}.profile-wide{grid-column:1/-1}.profile-consent{display:flex;gap:10px;align-items:flex-start;margin:14px 0;color:#9ca7b8;font-size:12px;line-height:1.5}
+    .profile-wide{grid-column:1/-1}.profile-consent{display:flex;gap:10px;align-items:flex-start;margin:14px 0;color:#9ca7b8;font-size:12px;line-height:1.5}
     .profile-consent input{margin-top:3px}.profile-status{min-height:20px;font-size:12px;color:#9be7bd;margin-top:8px}.profile-status.err{color:#fca5a5}
     .profile-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.profile-btn{border:0;border-radius:13px;padding:12px 15px;font-weight:700;cursor:pointer;background:#f3c94b;color:#16130b}.profile-btn.secondary{background:#1b2230;color:#dce2ea}.profile-btn:disabled{opacity:.55;cursor:not-allowed}
-    .profile-result{margin-top:12px;padding:12px 14px;border-radius:13px;background:#111824;border:1px solid #263044;color:#c9d2df;font-size:13px;line-height:1.5}.profile-note{margin-top:12px;color:#7f8a9a;font-size:11px;line-height:1.45}
+    .profile-result{margin-top:12px;padding:12px 14px;border-radius:13px;background:#111824;border:1px solid #263044;color:#c9d2df;font-size:13px;line-height:1.5}
+    .profile-note{margin-top:12px;color:#7f8a9a;font-size:11px;line-height:1.45}
     @media(max-width:700px){.profile-grid{grid-template-columns:1fr}.profile-wide{grid-column:auto}.profile-actions .profile-btn{flex:1;min-width:140px}}
   `;
   document.head.appendChild(css);
 
-  function field(id) { return document.getElementById(id); }
+  const field = (id) => document.getElementById(id);
+
+  async function api(url, options = {}) {
+    const response = await fetch(url, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.error || 'internal_error');
+      error.code = data.error || 'internal_error';
+      error.data = data;
+      throw error;
+    }
+    return data;
+  }
+
   function setStatus(text, error = false) {
     const el = field('profileStatus');
     if (!el) return;
@@ -66,27 +70,12 @@
     loading = false;
   }
 
-  async function api(url, options = {}) {
-    const response = await fetch(url, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(data.error || 'internal_error');
-      error.code = data.error || 'internal_error';
-      error.data = data;
-      throw error;
-    }
-    return data;
-  }
-
   async function saveProfile() {
-    if (!token() || loading || !field('profileConsent')?.checked) return;
-    setStatus('Guardando…');
+    if (loading || !field('profileConsent')?.checked) return;
+    setStatus('Guardando...');
     try {
-      await api('/api/profile', {
-        method: 'PATCH',
-        body: JSON.stringify({ consent: true, profile: profileFromForm() })
-      });
-      setStatus('Guardado automáticamente ✓');
+      await api('/api/profile', { method: 'PATCH', body: JSON.stringify({ consent: true, profile: profileFromForm() }) });
+      setStatus('Datos cifrados y guardados');
     } catch (error) {
       setStatus(error.code === 'invalid_email' ? 'Revisa el email.' : 'No se pudieron guardar los datos.', true);
     }
@@ -99,13 +88,12 @@
   }
 
   async function loadProfile() {
-    if (!token()) return;
     try {
       const data = await api('/api/profile');
       fillForm(data.profile || {});
       if (data.saved) {
         field('profileConsent').checked = true;
-        setStatus('Datos cifrados y guardados ✓');
+        setStatus('Datos cifrados y guardados');
       }
     } catch (error) {
       if (error.code !== 'unauthorized') setStatus('No pudimos cargar tus datos guardados.', true);
@@ -113,7 +101,7 @@
   }
 
   async function deleteProfile() {
-    if (!confirm('¿Borrar los datos personales guardados para la cita?')) return;
+    if (!confirm('¿Borrar los datos personales guardados?')) return;
     try {
       await api('/api/profile', { method: 'DELETE' });
       fillForm({});
@@ -133,43 +121,31 @@
     }
     await saveProfile();
     button.disabled = true;
-    button.textContent = 'Intentando…';
-    resultBox.textContent = 'Abriendo el portal oficial, seleccionando tu trámite y rellenando tus datos cuando sea seguro…';
+    button.textContent = 'Abriendo portal...';
+    resultBox.textContent = 'Abrimos el portal oficial, elegimos el tramite compatible y rellenamos los campos seguros. Si aparece una verificacion humana, nos detenemos.';
     try {
       const data = await api('/api/attempt', { method: 'POST', body: '{}' });
-      const filled = Array.isArray(data.filledFields) && data.filledFields.length
-        ? ` Campos rellenados: ${data.filledFields.join(', ')}.`
-        : '';
-      if (data.state === 'HUMAN_GATE') {
-        resultBox.textContent = `El portal ha pedido CAPTCHA, SMS, Cl@ve o una comprobación humana. Nos hemos detenido.${filled}`;
-      } else if (data.state === 'AVAILABILITY_DETECTED') {
-        resultBox.textContent = `Se ha detectado una pantalla compatible con disponibilidad. Continúa cuanto antes; CitaNIE no confirma la cita automáticamente.${filled}`;
-      } else if (data.state === 'NO_AVAILABILITY') {
-        resultBox.textContent = `El portal indica que no hay citas disponibles ahora. Tus datos quedan guardados para el siguiente intento.${filled}`;
-      } else if (data.state === 'READY_FOR_IDENTITY') {
-        resultBox.textContent = 'El portal está listo para los datos de identidad. Tus datos ya están guardados para acelerar el siguiente paso.';
-      } else if (data.state === 'READY_FOR_HUMAN_CONTINUE') {
-        resultBox.textContent = `Tus datos se han rellenado. El portal pide una acción manual para seguir y CitaNIE se ha detenido.${filled}`;
-      } else if (data.state === 'PROCEDURE_AMBIGUOUS') {
-        resultBox.textContent = 'El portal muestra varias opciones parecidas. Para evitar pedir una cita incorrecta, CitaNIE no ha elegido ninguna automáticamente.';
-      } else {
-        resultBox.textContent = data.message || `Estado del portal: ${data.state || 'desconocido'}`;
-      }
+      const filled = Array.isArray(data.filledFields) && data.filledFields.length ? ` Campos rellenados: ${data.filledFields.join(', ')}.` : '';
+      if (data.state === 'HUMAN_GATE') resultBox.textContent = `El portal pide CAPTCHA, SMS, Cl@ve o una comprobacion humana. Continua tu desde ese punto.${filled}`;
+      else if (data.state === 'AVAILABILITY_DETECTED') resultBox.textContent = `Hay una pantalla compatible con disponibilidad. Continua cuanto antes; Detector de Citas no confirma la cita sin tu intervencion.${filled}`;
+      else if (data.state === 'NO_AVAILABILITY') resultBox.textContent = `No hay citas disponibles ahora. Tus datos quedan guardados para el siguiente aviso.${filled}`;
+      else if (data.state === 'READY_FOR_HUMAN_CONTINUE') resultBox.textContent = `Tus datos se han rellenado. El portal necesita una accion manual para seguir.${filled}`;
+      else if (data.state === 'PROCEDURE_AMBIGUOUS') resultBox.textContent = 'El portal muestra varias opciones parecidas y no hemos elegido ninguna para evitar una cita incorrecta.';
+      else resultBox.textContent = data.message || `Estado del portal: ${data.state || 'desconocido'}`;
     } catch (error) {
-      if (error.code === 'profile_incomplete') resultBox.textContent = 'Completa al menos documento/NIE y nombre antes de intentar.';
+      if (error.code === 'profile_incomplete') resultBox.textContent = 'Completa al menos documento/NIE y nombre.';
       else if (error.code === 'attempt_too_soon') resultBox.textContent = 'Espera un minuto antes de volver a intentarlo.';
-      else if (error.code === 'procedure_needs_clarification') resultBox.textContent = 'El número NIE no caduca. Para “Renovar NIE” primero hay que indicar si realmente necesitas renovar TIE, residencia o un certificado; así evitamos seleccionar un trámite equivocado.';
-      else if (error.code === 'procedure_automation_not_ready') resultBox.textContent = 'Tus datos están guardados, pero este trámite concreto todavía necesita configuración antes de poder rellenarlo automáticamente.';
-      else resultBox.textContent = 'No se pudo iniciar el intento ahora. Tus datos guardados no se han perdido.';
+      else if (error.code === 'subscription_inactive') resultBox.textContent = 'La monitorizacion no esta activa.';
+      else if (error.code === 'procedure_automation_not_ready') resultBox.textContent = 'Este tramite concreto todavia necesita configuracion antes de rellenarlo automaticamente.';
+      else resultBox.textContent = 'No se pudo iniciar el intento ahora. Tus datos no se han perdido.';
     } finally {
       button.disabled = false;
-      button.textContent = 'Intentar cita con mis datos';
+      button.textContent = new URLSearchParams(location.search).get('resume') === '1' ? 'Finalizar cita' : 'Intentar cita con mis datos';
     }
   }
 
   function mount() {
-    updateBranding();
-    if (mounted || !token()) return;
+    if (mounted) return;
     const section = document.querySelector('#s4');
     const dash = section?.querySelector('.dash');
     if (!section || !dash) return;
@@ -179,26 +155,26 @@
     card.className = 'profile-card';
     card.innerHTML = `
       <h3>Tus datos para la cita</h3>
-      <p class="lead">Escríbelos una sola vez. CitaNIE los guarda cifrados y puede reutilizarlos para Sacar NIE, Toma de huellas TIE, Renovar TIE, Duplicado TIE y pérdida/robo, siempre que el portal muestre una opción compatible.</p>
+      <p class="lead">Guardalos una vez. Se almacenan cifrados y solo se reutilizan para intentar completar el tramite que has elegido.</p>
       <div class="profile-grid">
         <div class="profile-field"><label>Documento</label><select id="pDocumentType"><option value="NIE">NIE</option><option value="PASSPORT">Pasaporte</option></select></div>
-        <div class="profile-field"><label>Número de documento / NIE</label><input id="pDocumentNumber" autocomplete="off" placeholder="X1234567A"></div>
+        <div class="profile-field"><label>Numero de documento / NIE</label><input id="pDocumentNumber" autocomplete="off" placeholder="X1234567A"></div>
         <div class="profile-field"><label>Nombre</label><input id="pFirstName" autocomplete="given-name"></div>
         <div class="profile-field"><label>Primer apellido</label><input id="pSurname1" autocomplete="family-name"></div>
-        <div class="profile-field"><label>Segundo apellido</label><input id="pSurname2" autocomplete="additional-name"></div>
+        <div class="profile-field"><label>Segundo apellido</label><input id="pSurname2"></div>
         <div class="profile-field"><label>Fecha de nacimiento</label><input id="pBirthDate" type="date" autocomplete="bday"></div>
-        <div class="profile-field"><label>Nacionalidad</label><input id="pNationality" autocomplete="country-name"></div>
-        <div class="profile-field"><label>Teléfono</label><input id="pMobile" inputmode="tel" autocomplete="tel"></div>
-        <div class="profile-field profile-wide"><label>Email</label><input id="pEmail" type="email" autocomplete="email"></div>
+        <div class="profile-field"><label>Nacionalidad</label><input id="pNationality"></div>
+        <div class="profile-field"><label>Telefono</label><input id="pMobile" inputmode="tel" autocomplete="tel"></div>
+        <div class="profile-field profile-wide"><label>Email (solo si el formulario oficial lo necesita)</label><input id="pEmail" type="email" autocomplete="email"></div>
       </div>
-      <label class="profile-consent"><input id="profileConsent" type="checkbox"> <span>Acepto que CitaNIE guarde estos datos cifrados durante la vigencia del servicio para agilizar mis intentos de cita. No guardamos contraseñas, PIN de Cl@ve ni códigos SMS.</span></label>
+      <label class="profile-consent"><input id="profileConsent" type="checkbox"> <span>Acepto que Detector de Citas guarde estos datos cifrados durante la vigencia del servicio. No guardamos contrasenas, PIN de Cl@ve ni codigos SMS.</span></label>
       <div id="profileStatus" class="profile-status"></div>
       <div class="profile-actions">
-        <button id="attemptAppointment" class="profile-btn">Intentar cita con mis datos</button>
+        <button id="attemptAppointment" class="profile-btn">${new URLSearchParams(location.search).get('resume') === '1' ? 'Finalizar cita' : 'Intentar cita con mis datos'}</button>
         <button id="deleteProfile" class="profile-btn secondary">Borrar mis datos</button>
       </div>
-      <div id="profileResult" class="profile-result">CitaNIE rellena únicamente campos compatibles y no confirma una cita sin tu intervención. Si aparece CAPTCHA, SMS, Cl@ve, varias opciones ambiguas o una comprobación personal, se detiene.</div>
-      <div class="profile-note">Los datos personales no se guardan en este navegador: viajan por HTTPS y se almacenan cifrados en el servidor. Al borrar tus datos, se elimina también este perfil. “Renovar NIE” requiere clasificación previa porque el número NIE en sí no caduca.</div>
+      <div id="profileResult" class="profile-result">Detector de Citas rellena solo campos compatibles. Si aparece CAPTCHA, Cl@ve, SMS oficial, una opcion ambigua o una confirmacion personal, se detiene para que continues tu.</div>
+      <div class="profile-note">Los datos viajan por HTTPS y se almacenan cifrados. La suscripcion completa se elimina automaticamente al expirar el servicio.</div>
     `;
     section.insertBefore(card, dash);
 
@@ -210,19 +186,19 @@
     });
     field('profileConsent').addEventListener('change', () => {
       if (field('profileConsent').checked) queueSave();
-      else setStatus('Marca la casilla para guardar automáticamente.');
+      else setStatus('Marca la casilla para guardar automaticamente.');
     });
     field('deleteProfile').addEventListener('click', deleteProfile);
     field('attemptAppointment').addEventListener('click', attemptAppointment);
     loadProfile();
+
+    if (new URLSearchParams(location.search).get('resume') === '1') {
+      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
+    }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', updateBranding, { once: true });
-  else updateBranding();
-
-  const observer = new MutationObserver(() => mount());
+  const observer = new MutationObserver(mount);
   observer.observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
-  window.addEventListener('storage', mount);
-  setInterval(mount, 1000);
+  setInterval(mount, 900);
   mount();
 })();
