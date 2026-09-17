@@ -8,6 +8,56 @@
   let handoffFrameBusy = false;
   let handoffObjectUrl = null;
 
+  const COUNTRY_CODES = `AD AE AF AG AL AM AO AR AT AU AZ BA BB BD BE BF BG BH BI BJ BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CL CM CN CO CR CU CV CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FR GA GB GD GE GH GM GN GQ GR GT GW GY HN HR HT HU ID IE IL IN IQ IR IS IT JM JO JP KE KG KH KI KM KN KP KR KW KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MR MT MU MV MW MX MY MZ NA NE NG NI NL NO NP NR NZ OM PA PE PG PH PK PL PS PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SY SZ TD TG TH TJ TL TM TN TO TR TT TV TZ UA UG US UY UZ VA VC VE VN VU WS YE ZA ZM ZW`.split(' ');
+  const COMMUNITIES = [
+    'Andalucía', 'Aragón', 'Principado de Asturias', 'Illes Balears', 'Canarias', 'Cantabria',
+    'Castilla-La Mancha', 'Castilla y León', 'Cataluña', 'Comunitat Valenciana', 'Extremadura',
+    'Galicia', 'Comunidad de Madrid', 'Región de Murcia', 'Comunidad Foral de Navarra',
+    'País Vasco', 'La Rioja', 'Ceuta', 'Melilla'
+  ];
+  const GEO_SEPARATOR = '||';
+
+  function countryDisplayName(code) {
+    try { return new Intl.DisplayNames(['es'], { type: 'region' }).of(code) || code; }
+    catch { return code; }
+  }
+
+  function encodeGeo(nationality, community) {
+    return `${String(nationality || '').trim()}${GEO_SEPARATOR}${String(community || 'Comunidad de Madrid').trim()}`.slice(0, 80);
+  }
+
+  function decodeGeo(stored) {
+    const value = String(stored || '').trim();
+    if (value.includes(GEO_SEPARATOR)) {
+      const [nationality = '', community = 'Comunidad de Madrid'] = value.split(GEO_SEPARATOR);
+      return { nationality, community: community || 'Comunidad de Madrid' };
+    }
+    if (!value) return { nationality: '', community: 'Comunidad de Madrid' };
+    const normalized = value.toLocaleLowerCase('es');
+    const match = COUNTRY_CODES.find((code) => countryDisplayName(code).toLocaleLowerCase('es') === normalized);
+    return { nationality: match || value, community: 'Comunidad de Madrid' };
+  }
+
+  function populateLocationSelects() {
+    const nationality = field('pNationality');
+    const community = field('pCommunity');
+    if (nationality && !nationality.dataset.ready) {
+      const current = nationality.value;
+      const countries = COUNTRY_CODES
+        .map((code) => ({ code, name: countryDisplayName(code) }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      nationality.innerHTML = '<option value="">Selecciona nacionalidad</option>' + countries
+        .map(({ code, name }) => `<option value="${code}">${name}</option>`).join('');
+      nationality.dataset.ready = '1';
+      if (current) nationality.value = current;
+    }
+    if (community && !community.dataset.ready) {
+      community.innerHTML = COMMUNITIES.map((name) => `<option value="${name}">${name}</option>`).join('');
+      community.dataset.ready = '1';
+      community.value = 'Comunidad de Madrid';
+    }
+  }
+
   function updateBranding() {
     const brand = document.querySelector('.brand');
     const eyebrow = document.querySelector('.eyebrow');
@@ -52,7 +102,7 @@
       surname1: field('pSurname1')?.value || '',
       surname2: field('pSurname2')?.value || '',
       birthDate: field('pBirthDate')?.value || '',
-      nationality: field('pNationality')?.value || '',
+      nationality: encodeGeo(field('pNationality')?.value || '', field('pCommunity')?.value || 'Comunidad de Madrid'),
       email: field('pEmail')?.value || '',
       mobile: field('pMobile')?.value || ''
     };
@@ -60,13 +110,16 @@
 
   function fillForm(profile = {}) {
     loading = true;
+    populateLocationSelects();
+    const geo = decodeGeo(profile.nationality || '');
     if (field('pDocumentType')) field('pDocumentType').value = profile.documentType || 'NIE';
     if (field('pDocumentNumber')) field('pDocumentNumber').value = profile.documentNumber || '';
     if (field('pFirstName')) field('pFirstName').value = profile.firstName || '';
     if (field('pSurname1')) field('pSurname1').value = profile.surname1 || '';
     if (field('pSurname2')) field('pSurname2').value = profile.surname2 || '';
     if (field('pBirthDate')) field('pBirthDate').value = profile.birthDate || '';
-    if (field('pNationality')) field('pNationality').value = profile.nationality || '';
+    if (field('pNationality')) field('pNationality').value = COUNTRY_CODES.includes(geo.nationality) ? geo.nationality : '';
+    if (field('pCommunity')) field('pCommunity').value = COMMUNITIES.includes(geo.community) ? geo.community : 'Comunidad de Madrid';
     if (field('pEmail')) field('pEmail').value = profile.email || '';
     if (field('pMobile')) field('pMobile').value = profile.mobile || '';
     loading = false;
@@ -278,7 +331,8 @@
         <div class="profile-field"><label>Primer apellido</label><input id="pSurname1" autocomplete="family-name"></div>
         <div class="profile-field"><label>Segundo apellido</label><input id="pSurname2" autocomplete="additional-name"></div>
         <div class="profile-field"><label>Fecha de nacimiento</label><input id="pBirthDate" type="date" autocomplete="bday"></div>
-        <div class="profile-field"><label>Nacionalidad</label><input id="pNationality" autocomplete="country-name"></div>
+        <div class="profile-field"><label>Nacionalidad</label><select id="pNationality" autocomplete="country-name"><option value="">Selecciona nacionalidad</option></select></div>
+        <div class="profile-field"><label>Comunidad autónoma</label><select id="pCommunity"><option value="Comunidad de Madrid">Comunidad de Madrid</option></select></div>
         <div class="profile-field"><label>Teléfono</label><input id="pMobile" inputmode="tel" autocomplete="tel"></div>
         <div class="profile-field profile-wide"><label>Email</label><input id="pEmail" type="email" autocomplete="email"></div>
       </div>
@@ -297,9 +351,10 @@
         <div class="handoff-keys"><button data-hkey="Tab">Tab</button><button data-hkey="Enter">Enter</button><button data-hkey="Backspace">⌫</button><button data-scroll="-600">↑ Subir</button><button data-scroll="600">↓ Bajar</button></div>
         <div id="handoffState" class="handoff-state"></div>
       </div>
-      <div class="profile-note">Los datos personales no se guardan en este navegador: viajan por HTTPS y se almacenan cifrados en el servidor. La sesión interactiva expira automáticamente. Al borrar tus datos, se elimina también este perfil. “Renovar NIE” requiere clasificación previa porque el número NIE en sí no caduca.</div>
+      <div class="profile-note">La comunidad seleccionada se guarda junto con el perfil. La monitorización automática actual sigue disponible en Madrid; iremos activando más comunidades progresivamente. Los datos personales viajan por HTTPS y se almacenan cifrados en el servidor.</div>
     `;
     section.insertBefore(card, dash);
+    populateLocationSelects();
 
     card.querySelectorAll('input,select').forEach((el) => {
       if (el.id !== 'profileConsent' && !el.id.startsWith('handoff')) {
