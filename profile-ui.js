@@ -123,24 +123,32 @@
     await saveProfile();
     button.disabled = true;
     button.textContent = 'Intentando…';
-    resultBox.textContent = 'Abriendo el portal oficial y rellenando los datos que el portal permita…';
+    resultBox.textContent = 'Abriendo el portal oficial, seleccionando tu trámite y rellenando tus datos cuando sea seguro…';
     try {
       const data = await api('/api/attempt', { method: 'POST', body: '{}' });
+      const filled = Array.isArray(data.filledFields) && data.filledFields.length
+        ? ` Campos rellenados: ${data.filledFields.join(', ')}.`
+        : '';
       if (data.state === 'HUMAN_GATE') {
-        resultBox.textContent = 'El portal ha pedido CAPTCHA, SMS, Cl@ve o una comprobación humana. Tus datos siguen guardados y no se ha confirmado ninguna cita.';
+        resultBox.textContent = `El portal ha pedido CAPTCHA, SMS, Cl@ve o una comprobación humana. Nos hemos detenido.${filled}`;
       } else if (data.state === 'AVAILABILITY_DETECTED') {
-        resultBox.textContent = 'Se ha detectado una pantalla compatible con disponibilidad. Revisa la alerta y continúa cuanto antes; CitaNIE no confirma la cita automáticamente.';
+        resultBox.textContent = `Se ha detectado una pantalla compatible con disponibilidad. Continúa cuanto antes; CitaNIE no confirma la cita automáticamente.${filled}`;
       } else if (data.state === 'NO_AVAILABILITY') {
-        resultBox.textContent = 'El portal indica que no hay citas disponibles ahora. Tus datos quedan guardados para el siguiente intento.';
+        resultBox.textContent = `El portal indica que no hay citas disponibles ahora. Tus datos quedan guardados para el siguiente intento.${filled}`;
       } else if (data.state === 'READY_FOR_IDENTITY') {
         resultBox.textContent = 'El portal está listo para los datos de identidad. Tus datos ya están guardados para acelerar el siguiente paso.';
+      } else if (data.state === 'READY_FOR_HUMAN_CONTINUE') {
+        resultBox.textContent = `Tus datos se han rellenado. El portal pide una acción manual para seguir y CitaNIE se ha detenido.${filled}`;
+      } else if (data.state === 'PROCEDURE_AMBIGUOUS') {
+        resultBox.textContent = 'El portal muestra varias opciones parecidas. Para evitar pedir una cita incorrecta, CitaNIE no ha elegido ninguna automáticamente.';
       } else {
         resultBox.textContent = data.message || `Estado del portal: ${data.state || 'desconocido'}`;
       }
     } catch (error) {
       if (error.code === 'profile_incomplete') resultBox.textContent = 'Completa al menos documento/NIE y nombre antes de intentar.';
       else if (error.code === 'attempt_too_soon') resultBox.textContent = 'Espera un minuto antes de volver a intentarlo.';
-      else if (error.code === 'procedure_automation_not_ready') resultBox.textContent = 'Tus datos ya están guardados. El autocompletado automático está activado primero para “Toma de huellas TIE”; ampliaremos el resto de trámites sin que tengas que volver a escribir tus datos.';
+      else if (error.code === 'procedure_needs_clarification') resultBox.textContent = 'El número NIE no caduca. Para “Renovar NIE” primero hay que indicar si realmente necesitas renovar TIE, residencia o un certificado; así evitamos seleccionar un trámite equivocado.';
+      else if (error.code === 'procedure_automation_not_ready') resultBox.textContent = 'Tus datos están guardados, pero este trámite concreto todavía necesita configuración antes de poder rellenarlo automáticamente.';
       else resultBox.textContent = 'No se pudo iniciar el intento ahora. Tus datos guardados no se han perdido.';
     } finally {
       button.disabled = false;
@@ -159,7 +167,7 @@
     card.className = 'profile-card';
     card.innerHTML = `
       <h3>Tus datos para la cita</h3>
-      <p class="lead">Escríbelos una sola vez. Se guardan cifrados y se rellenan automáticamente cuando nuestro servidor puede llegar al formulario oficial.</p>
+      <p class="lead">Escríbelos una sola vez. CitaNIE los guarda cifrados y puede reutilizarlos para Sacar NIE, Toma de huellas TIE, Renovar TIE, Duplicado TIE y pérdida/robo, siempre que el portal muestre una opción compatible.</p>
       <div class="profile-grid">
         <div class="profile-field"><label>Documento</label><select id="pDocumentType"><option value="NIE">NIE</option><option value="PASSPORT">Pasaporte</option></select></div>
         <div class="profile-field"><label>Número de documento / NIE</label><input id="pDocumentNumber" autocomplete="off" placeholder="X1234567A"></div>
@@ -177,8 +185,8 @@
         <button id="attemptAppointment" class="profile-btn">Intentar cita con mis datos</button>
         <button id="deleteProfile" class="profile-btn secondary">Borrar mis datos</button>
       </div>
-      <div id="profileResult" class="profile-result">CitaNIE no confirma una cita sin tu intervención. Si aparece CAPTCHA, SMS, Cl@ve o una comprobación personal, nos detenemos.</div>
-      <div class="profile-note">Los datos personales no se guardan en este navegador: viajan por HTTPS y se almacenan cifrados en el servidor. Al detener el servicio y borrar tus datos, se elimina también este perfil.</div>
+      <div id="profileResult" class="profile-result">CitaNIE rellena únicamente campos compatibles y no confirma una cita sin tu intervención. Si aparece CAPTCHA, SMS, Cl@ve, varias opciones ambiguas o una comprobación personal, se detiene.</div>
+      <div class="profile-note">Los datos personales no se guardan en este navegador: viajan por HTTPS y se almacenan cifrados en el servidor. Al borrar tus datos, se elimina también este perfil. “Renovar NIE” requiere clasificación previa porque el número NIE en sí no caduca.</div>
     `;
     section.insertBefore(card, dash);
 

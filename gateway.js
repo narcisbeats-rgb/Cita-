@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkMadridTieAvailability } from './src/icpplus.js';
+import { checkMadridTieAvailability, assistedServiceSupported } from './src/icpplus.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicPort = Number(process.env.PORT || 10000);
@@ -209,17 +209,34 @@ async function handleAttempt(req, res) {
     return json(res, 400, { error: 'profile_incomplete' });
   }
 
-  if (record.service_key !== 'tie_fingerprint') {
+  if (record.service_key === 'nie_renew') {
+    return json(res, 409, {
+      error: 'procedure_needs_clarification',
+      serviceKey: record.service_key,
+      message: 'El número NIE no caduca. Primero hay que identificar si necesitas renovar TIE, residencia o un certificado.'
+    });
+  }
+
+  if (!assistedServiceSupported(record.service_key)) {
     return json(res, 409, { error: 'procedure_automation_not_ready', serviceKey: record.service_key });
   }
 
   const client = {
+    documentType: profile.documentType,
     document: profile.documentNumber,
+    firstName: profile.firstName,
+    surname1: profile.surname1,
+    surname2: profile.surname2,
+    birthDate: profile.birthDate,
+    nationality: profile.nationality,
+    email: profile.email,
+    mobile: profile.mobile,
     name: [profile.firstName, profile.surname1, profile.surname2].filter(Boolean).join(' ')
   };
 
   const result = await checkMadridTieAvailability({
     safeMode: false,
+    serviceKey: record.service_key,
     client,
     timeoutMs: 45_000
   });
@@ -227,10 +244,12 @@ async function handleAttempt(req, res) {
   return json(res, 200, {
     ok: result.ok,
     state: result.state,
+    serviceKey: record.service_key,
     message: result.message,
     province: result.province,
     procedure: result.procedure,
-    url: result.url
+    url: result.url,
+    filledFields: result.filledFields || []
   });
 }
 
