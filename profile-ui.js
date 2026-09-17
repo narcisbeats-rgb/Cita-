@@ -4,6 +4,9 @@
   let mounted = false;
   let saveTimer = null;
   let loading = false;
+  let handoffTimer = null;
+  let handoffFrameBusy = false;
+  let handoffObjectUrl = null;
 
   function updateBranding() {
     const brand = document.querySelector('.brand');
@@ -13,7 +16,7 @@
     if (brand) brand.innerHTML = 'Detector de <span>Citas</span>';
     if (eyebrow) eyebrow.innerHTML = '<span class="dot"></span> CitaNIE Madrid · Monitorización de citas';
     if (heroTitle) heroTitle.textContent = 'Detectamos citas disponibles por ti.';
-    if (heroText) heroText.textContent = 'Monitorizamos el portal oficial de cita previa para trámites NIE/TIE en Madrid. Eliges tu trámite y guardas tus datos una sola vez; cuando detectamos disponibilidad, recibes una alerta inmediata en iPhone o Android y puedes intentar continuar con tus datos ya preparados. No vendemos citas ni saltamos CAPTCHA, Cl@ve, SMS u otras verificaciones personales.';
+    if (heroText) heroText.textContent = 'Monitorizamos el portal oficial de cita previa para trámites NIE/TIE en Madrid. Eliges tu trámite y guardas tus datos una sola vez; cuando detectamos disponibilidad, recibes una alerta inmediata en iPhone o Android y puedes intentar continuar con tus datos ya preparados. Las verificaciones CAPTCHA, Cl@ve o SMS las completa siempre una persona.';
   }
 
   const css = document.createElement('style');
@@ -26,7 +29,10 @@
     .profile-consent input{margin-top:3px}.profile-status{min-height:20px;font-size:12px;color:#9be7bd;margin-top:8px}.profile-status.err{color:#fca5a5}
     .profile-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.profile-btn{border:0;border-radius:13px;padding:12px 15px;font-weight:700;cursor:pointer;background:#f3c94b;color:#16130b}.profile-btn.secondary{background:#1b2230;color:#dce2ea}.profile-btn:disabled{opacity:.55;cursor:not-allowed}
     .profile-result{margin-top:12px;padding:12px 14px;border-radius:13px;background:#111824;border:1px solid #263044;color:#c9d2df;font-size:13px;line-height:1.5}.profile-note{margin-top:12px;color:#7f8a9a;font-size:11px;line-height:1.45}
-    @media(max-width:700px){.profile-grid{grid-template-columns:1fr}.profile-wide{grid-column:auto}.profile-actions .profile-btn{flex:1;min-width:140px}}
+    .handoff{display:none;margin-top:14px;padding:14px;border-radius:16px;background:#0b1018;border:1px solid #42516c}.handoff.open{display:block}.handoff-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}.handoff-head b{font-size:16px}.handoff-head p{margin:4px 0 0;color:#9ca7b8;font-size:12px;line-height:1.4}.handoff-close{border:0;border-radius:10px;background:#1b2230;color:#dce2ea;padding:8px 10px;font-weight:700}
+    .handoff-screen{position:relative;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #39445a;min-height:180px}.handoff-screen img{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none;touch-action:manipulation;cursor:crosshair}.handoff-loading{position:absolute;inset:0;display:grid;place-items:center;color:#1d2735;background:#f8fafccc;font-weight:700;font-size:13px}.handoff-loading.hidden{display:none}
+    .handoff-help{margin:9px 0;color:#9ca7b8;font-size:11px;line-height:1.45}.handoff-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:9px}.handoff-tools input{min-width:0;width:100%;padding:11px 12px;border-radius:11px;border:1px solid #263044;background:#0d121a;color:#f7f8fb}.handoff-tools button,.handoff-keys button{border:0;border-radius:11px;background:#1b2230;color:#dce2ea;padding:10px 12px;font-weight:700}.handoff-tools button.primary{background:#f3c94b;color:#16130b}.handoff-keys{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.handoff-state{margin-top:8px;color:#9ca7b8;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    @media(max-width:700px){.profile-grid{grid-template-columns:1fr}.profile-wide{grid-column:auto}.profile-actions .profile-btn{flex:1;min-width:140px}.handoff{margin-left:-4px;margin-right:-4px;padding:10px}.handoff-tools{grid-template-columns:1fr auto}.handoff-head{align-items:center}}
   `;
   document.head.appendChild(css);
 
@@ -115,6 +121,7 @@
   async function deleteProfile() {
     if (!confirm('¿Borrar los datos personales guardados para la cita?')) return;
     try {
+      await closeHandoff(true);
       await api('/api/profile', { method: 'DELETE' });
       fillForm({});
       field('profileConsent').checked = false;
@@ -122,6 +129,87 @@
     } catch {
       setStatus('No se pudieron borrar los datos.', true);
     }
+  }
+
+  function handoffPanel(open) {
+    const panel = field('handoffPanel');
+    if (panel) panel.classList.toggle('open', Boolean(open));
+  }
+
+  function setHandoffState(text) {
+    const el = field('handoffState');
+    if (el) el.textContent = text || '';
+  }
+
+  async function refreshHandoffFrame() {
+    if (handoffFrameBusy || !field('handoffPanel')?.classList.contains('open') || !token()) return;
+    handoffFrameBusy = true;
+    try {
+      const response = await fetch(`/api/handoff/frame?t=${Date.now()}`, {
+        headers: { authorization: `Bearer ${token()}` },
+        cache: 'no-store'
+      });
+      if (response.status === 410 || response.status === 401) {
+        await closeHandoff(false);
+        setHandoffState('La sesión ha caducado. Vuelve a intentar la cita.');
+        return;
+      }
+      if (!response.ok) return;
+      const blob = await response.blob();
+      if (handoffObjectUrl) URL.revokeObjectURL(handoffObjectUrl);
+      handoffObjectUrl = URL.createObjectURL(blob);
+      const image = field('handoffImage');
+      if (image) image.src = handoffObjectUrl;
+      field('handoffLoading')?.classList.add('hidden');
+    } catch {}
+    finally { handoffFrameBusy = false; }
+  }
+
+  function startHandoffPolling() {
+    clearInterval(handoffTimer);
+    refreshHandoffFrame();
+    handoffTimer = setInterval(refreshHandoffFrame, 900);
+  }
+
+  async function sendHandoffInput(payload) {
+    try {
+      const status = await api('/api/handoff/input', { method: 'POST', body: JSON.stringify(payload) });
+      setHandoffState(status.url ? `Portal oficial · ${status.url}` : 'Sesión interactiva activa');
+      setTimeout(refreshHandoffFrame, 150);
+      return status;
+    } catch (error) {
+      if (error.code === 'handoff_expired') await closeHandoff(false);
+      setHandoffState(error.code === 'handoff_expired' ? 'La sesión ha caducado.' : 'No se pudo enviar esa acción.');
+      return null;
+    }
+  }
+
+  async function openHandoff(status = null) {
+    try {
+      const current = status?.active ? status : await api('/api/handoff/status');
+      if (!current?.active) {
+        setHandoffState('No hay una sesión humana activa.');
+        return;
+      }
+      handoffPanel(true);
+      field('handoffLoading')?.classList.remove('hidden');
+      setHandoffState(current.url ? `Portal oficial · ${current.url}` : 'Sesión interactiva activa');
+      startHandoffPolling();
+      field('handoffPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch {
+      setHandoffState('No pudimos abrir la sesión interactiva.');
+    }
+  }
+
+  async function closeHandoff(send = true) {
+    clearInterval(handoffTimer);
+    handoffTimer = null;
+    if (handoffObjectUrl) {
+      URL.revokeObjectURL(handoffObjectUrl);
+      handoffObjectUrl = null;
+    }
+    if (send && token()) await api('/api/handoff/close', { method: 'POST', body: '{}' }).catch(() => {});
+    handoffPanel(false);
   }
 
   async function attemptAppointment() {
@@ -132,6 +220,7 @@
       return;
     }
     await saveProfile();
+    await closeHandoff(true);
     button.disabled = true;
     button.textContent = 'Intentando…';
     resultBox.textContent = 'Abriendo el portal oficial, seleccionando tu trámite y rellenando tus datos cuando sea seguro…';
@@ -141,7 +230,8 @@
         ? ` Campos rellenados: ${data.filledFields.join(', ')}.`
         : '';
       if (data.state === 'HUMAN_GATE') {
-        resultBox.textContent = `El portal ha pedido CAPTCHA, SMS, Cl@ve o una comprobación humana. Nos hemos detenido.${filled}`;
+        resultBox.textContent = `El portal ha pedido CAPTCHA, SMS, Cl@ve o una comprobación humana.${filled} Abriendo una sesión para que la completes tú dentro de CitaNIE.`;
+        if (data.handoff?.active) await openHandoff(data.handoff);
       } else if (data.state === 'AVAILABILITY_DETECTED') {
         resultBox.textContent = `Se ha detectado una pantalla compatible con disponibilidad. Continúa cuanto antes; CitaNIE no confirma la cita automáticamente.${filled}`;
       } else if (data.state === 'NO_AVAILABILITY') {
@@ -149,7 +239,8 @@
       } else if (data.state === 'READY_FOR_IDENTITY') {
         resultBox.textContent = 'El portal está listo para los datos de identidad. Tus datos ya están guardados para acelerar el siguiente paso.';
       } else if (data.state === 'READY_FOR_HUMAN_CONTINUE') {
-        resultBox.textContent = `Tus datos se han rellenado. El portal pide una acción manual para seguir y CitaNIE se ha detenido.${filled}`;
+        resultBox.textContent = `Tus datos se han rellenado y el portal pide una acción manual.${filled} Puedes continuar dentro de CitaNIE.`;
+        if (data.handoff?.active) await openHandoff(data.handoff);
       } else if (data.state === 'PROCEDURE_AMBIGUOUS') {
         resultBox.textContent = 'El portal muestra varias opciones parecidas. Para evitar pedir una cita incorrecta, CitaNIE no ha elegido ninguna automáticamente.';
       } else {
@@ -197,13 +288,21 @@
         <button id="attemptAppointment" class="profile-btn">Intentar cita con mis datos</button>
         <button id="deleteProfile" class="profile-btn secondary">Borrar mis datos</button>
       </div>
-      <div id="profileResult" class="profile-result">CitaNIE rellena únicamente campos compatibles y no confirma una cita sin tu intervención. Si aparece CAPTCHA, SMS, Cl@ve, varias opciones ambiguas o una comprobación personal, se detiene.</div>
-      <div class="profile-note">Los datos personales no se guardan en este navegador: viajan por HTTPS y se almacenan cifrados en el servidor. Al borrar tus datos, se elimina también este perfil. “Renovar NIE” requiere clasificación previa porque el número NIE en sí no caduca.</div>
+      <div id="profileResult" class="profile-result">CitaNIE rellena únicamente campos compatibles. Si aparece una verificación humana, puedes completarla tú mismo dentro de la sesión interactiva de CitaNIE.</div>
+      <div id="handoffPanel" class="handoff">
+        <div class="handoff-head"><div><b>Completa la verificación</b><p>Esta es la sesión real del portal oficial. Toca la pantalla como si fuera el navegador. CAPTCHA, Cl@ve y códigos SMS los introduces tú.</p></div><button id="handoffClose" class="handoff-close">Cerrar</button></div>
+        <div class="handoff-screen"><img id="handoffImage" alt="Portal oficial interactivo"><div id="handoffLoading" class="handoff-loading">Cargando sesión…</div></div>
+        <div class="handoff-help">Para escribir: toca primero el campo dentro de la imagen, escribe abajo y pulsa “Enviar texto”.</div>
+        <div class="handoff-tools"><input id="handoffText" autocomplete="off" placeholder="Texto para el campo seleccionado"><button id="handoffSendText" class="primary">Enviar texto</button></div>
+        <div class="handoff-keys"><button data-hkey="Tab">Tab</button><button data-hkey="Enter">Enter</button><button data-hkey="Backspace">⌫</button><button data-scroll="-600">↑ Subir</button><button data-scroll="600">↓ Bajar</button></div>
+        <div id="handoffState" class="handoff-state"></div>
+      </div>
+      <div class="profile-note">Los datos personales no se guardan en este navegador: viajan por HTTPS y se almacenan cifrados en el servidor. La sesión interactiva expira automáticamente. Al borrar tus datos, se elimina también este perfil. “Renovar NIE” requiere clasificación previa porque el número NIE en sí no caduca.</div>
     `;
     section.insertBefore(card, dash);
 
     card.querySelectorAll('input,select').forEach((el) => {
-      if (el.id !== 'profileConsent') {
+      if (el.id !== 'profileConsent' && !el.id.startsWith('handoff')) {
         el.addEventListener('input', queueSave);
         el.addEventListener('change', queueSave);
       }
@@ -214,6 +313,30 @@
     });
     field('deleteProfile').addEventListener('click', deleteProfile);
     field('attemptAppointment').addEventListener('click', attemptAppointment);
+    field('handoffClose').addEventListener('click', () => closeHandoff(true));
+    field('handoffImage').addEventListener('click', (event) => {
+      const img = event.currentTarget;
+      const rect = img.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const x = ((event.clientX - rect.left) / rect.width) * 1280;
+      const y = ((event.clientY - rect.top) / rect.height) * 900;
+      sendHandoffInput({ type: 'click', x, y });
+    });
+    field('handoffSendText').addEventListener('click', async () => {
+      const input = field('handoffText');
+      const text = input.value;
+      if (!text) return;
+      await sendHandoffInput({ type: 'text', text });
+      input.value = '';
+    });
+    field('handoffText').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        field('handoffSendText').click();
+      }
+    });
+    card.querySelectorAll('[data-hkey]').forEach((button) => button.addEventListener('click', () => sendHandoffInput({ type: 'key', key: button.dataset.hkey })));
+    card.querySelectorAll('[data-scroll]').forEach((button) => button.addEventListener('click', () => sendHandoffInput({ type: 'scroll', dy: Number(button.dataset.scroll) })));
     loadProfile();
   }
 
@@ -223,6 +346,7 @@
   const observer = new MutationObserver(() => mount());
   observer.observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
   window.addEventListener('storage', mount);
+  window.addEventListener('beforeunload', () => clearInterval(handoffTimer));
   setInterval(mount, 1000);
   mount();
 })();
