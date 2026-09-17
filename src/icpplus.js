@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-export const ICP_URL = 'https://icp.administracionelectronica.gob.es/icpplus/index.html';
+export const ICP_URL = 'https://sede.administracionespublicas.gob.es/icpplustiej/citar?i=es';
 
 const HUMAN_GATE_PATTERNS = [
   /captcha/i,
