@@ -18,6 +18,7 @@ if (clicksendReady) {
 }
 
 const originalFetch = globalThis.fetch.bind(globalThis);
+const appUrl = String(process.env.PUBLIC_APP_URL || 'https://cita-fd42.onrender.com').replace(/\/$/, '');
 
 function isLegacySmsRequest(input) {
   const url = typeof input === 'string' || input instanceof URL ? String(input) : String(input?.url || '');
@@ -31,13 +32,27 @@ function jsonResponse(payload, status = 200) {
   });
 }
 
+function asciiSms(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function customizeSms(body) {
+  const availabilityPrefix = 'Detector de Citas: posible cita disponible para ';
+  if (body.startsWith(availabilityPrefix)) {
+    const rest = body.slice(availabilityPrefix.length);
+    const label = asciiSms(rest.split('. Entra ahora')[0] || 'tu tramite');
+    return `Detector de Citas: hemos localizado una cita para ${label}. Entra ahora en la app y finaliza el proceso: ${appUrl}`;
+  }
+  return asciiSms(body);
+}
+
 if (clicksendReady) {
   globalThis.fetch = async (input, init = {}) => {
     if (!isLegacySmsRequest(input)) return originalFetch(input, init);
 
     const params = new URLSearchParams(typeof init.body === 'string' ? init.body : String(init.body || ''));
     const to = String(params.get('To') || '').trim();
-    const body = String(params.get('Body') || '').trim();
+    const body = customizeSms(String(params.get('Body') || '').trim());
 
     if (!to || !body) {
       return jsonResponse({ message: 'invalid_sms_payload', code: 'CLICKSEND_INVALID_PAYLOAD' }, 400);
