@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Detector de Citas · Admin</title>
+<style>
+:root{--bg:#0b0d12;--card:#121722;--line:#263044;--text:#f7f8fb;--muted:#9ca7b8;--accent:#f3c94b;--ok:#32d583}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}.wrap{max-width:1100px;margin:auto;padding:24px 16px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{font-size:22px;font-weight:800}.brand span{color:var(--accent)}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:16px}.login{max-width:460px;margin:80px auto}.row{display:flex;gap:10px;flex-wrap:wrap}input,button{font:inherit;border-radius:12px;padding:12px;border:1px solid var(--line)}input{background:#0d121a;color:var(--text);width:100%}button{background:var(--accent);font-weight:800;cursor:pointer}.secondary{background:#1b2230;color:var(--text)}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.kpi{background:#0d131c;border:1px solid var(--line);border-radius:14px;padding:13px}.kpi b{font-size:24px;display:block}.kpi small,.muted{color:var(--muted)}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid #20293a}th{color:#cbd3df}td{color:#dce2ea}.status{display:inline-flex;padding:4px 8px;border-radius:999px;background:#163222;color:#a7ebc3}.pending{background:#352c12;color:#f1da88}.err{color:#fca5a5;font-size:13px;margin-top:8px}@media(max-width:800px){.kpis{grid-template-columns:1fr 1fr}.tablewrap{overflow:auto}.top{align-items:flex-start;flex-direction:column}}</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="login" class="card login">
+    <div class="brand">Detector de <span>Citas</span> · Admin</div>
+    <p class="muted">Introduce la clave de administrador.</p>
+    <input id="token" type="password" autocomplete="current-password" placeholder="Clave admin">
+    <div class="row" style="margin-top:12px"><button id="enter">Entrar</button></div>
+    <div id="loginErr" class="err"></div>
+  </div>
+
+  <div id="app" class="hidden" style="display:none">
+    <div class="top"><div><div class="brand">Detector de <span>Citas</span> · Admin</div><div class="muted">Sin mostrar datos personales completos</div></div><div class="row"><button id="checkNow">Comprobar ahora</button><button id="refresh" class="secondary">Actualizar</button></div></div>
+    <div class="card">
+      <div class="kpis">
+        <div class="kpi"><b id="active">0</b><small>activos</small></div>
+        <div class="kpi"><b id="pending">0</b><small>pendientes</small></div>
+        <div class="kpi"><b id="total">0</b><small>total</small></div>
+        <div class="kpi"><b id="checks">0</b><small>comprobaciones</small></div>
+        <div class="kpi"><b id="next">—</b><small>proxima revision</small></div>
+      </div>
+    </div>
+    <div class="card"><b>Suscripciones por tramite</b><div id="services" class="muted" style="margin-top:10px">—</div></div>
+    <div class="card tablewrap">
+      <table><thead><tr><th>Telefono</th><th>Tramite</th><th>Estado</th><th>Checks</th><th>Expira</th><th>Ultimo SMS</th></tr></thead><tbody id="rows"></tbody></table>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+</div>
+<script>
+(() => {
+  const key='dcAdminToken';
+  const $=(id)=>document.getElementById(id);
+  const fmt=(v)=>v?new Date(v).toLocaleString('es-ES'):'—';
+  function token(){return sessionStorage.getItem(key)||''}
+  async function api(url,options={}) {
+    const r=await fetch(url,{...options,headers:{'x-admin-token':token(),'content-type':'application/json',...(options.headers||{})}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||'error');
+    return d;
+  }
+  async function load(){
+    try{
+      const d=await api('/api/admin/summary');
+      $('login').style.display='none';$('app').style.display='block';
+      $('active').textContent=d.active||0;$('pending').textContent=d.pending||0;$('total').textContent=d.total||0;$('checks').textContent=d.totalChecks||0;
+      $('next').textContent=d.nextSweepAt?new Date(d.nextSweepAt).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}):'—';
+      $('services').textContent=Object.entries(d.byService||{}).map(([k,v])=>`${k}: ${v}`).join(' · ')||'Sin suscripciones activas';
+      $('rows').innerHTML=(d.records||[]).map(r=>`<tr><td>${r.phone||'—'}</td><td>${r.serviceLabel||r.serviceKey}</td><td><span class="${r.active?'status':'status pending'}">${r.active?'Activo':r.pending?'Pendiente':'Inactivo'}</span></td><td>${r.checks||0}</td><td>${fmt(r.expiresAt)}</td><td>${r.smsStatus||'—'}</td></tr>`).join('');
+      $('err').textContent='';
+    }catch(e){$('err').textContent='No se pudo cargar el panel.'; if(e.message==='unauthorized'){sessionStorage.removeItem(key);$('login').style.display='block';$('app').style.display='none';}}
+  }
+  $('enter').onclick=()=>{sessionStorage.setItem(key,$('token').value.trim());$('loginErr').textContent='';load().catch(()=>{$('loginErr').textContent='Clave incorrecta.'})};
+  $('refresh').onclick=load;
+  $('checkNow').onclick=async()=>{ $('checkNow').disabled=true; try{await api('/api/admin/check',{method:'POST',body:'{}'});await load();}catch{$('err').textContent='No se pudo iniciar la comprobacion.'}finally{$('checkNow').disabled=false}};
+  if(token()) load();
+})();
+</script>
+</body>
+</html>
