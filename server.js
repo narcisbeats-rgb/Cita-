@@ -10,8 +10,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 3000);
 const madridTimeZone = 'Europe/Madrid';
 const scheduledTimes = new Set((process.env.MONITOR_HOURS || '09:00,10:00,11:00').split(',').map((v) => v.trim()).filter(Boolean));
+const monitorableServices = new Set(['nie_new', 'lost', 'tie_fingerprint', 'tie_renew', 'tie_duplicate']);
 let running = false;
 let lastResult = null;
+const lastResultsByService = {};
 let lastAlert = null;
 const completedScheduleSlots = new Set();
 const requestWindows = new Map();
@@ -350,7 +352,7 @@ async function getSubscription(req, res) {
     expiresAt: record.subscription_expires_at,
     checks: record.check_count || 0,
     lastAlertAt: record.last_alert_at,
-    lastResult
+    lastResult: lastResultsByService[record.service_key] || null
   });
 }
 
@@ -400,11 +402,11 @@ async function activeSubscribers() {
   return dbRequest(`subscriptions?active=eq.true&subscription_expires_at=gt.${encodeURIComponent(now)}&select=*`);
 }
 
-async function recordChecks() {
+async function recordChecks(serviceKey, rows) {
   if (!dbConfigured()) return;
-  const rows = await activeSubscribers();
   const now = new Date().toISOString();
   for (const subscriber of rows || []) {
+    if (subscriber.service_key !== serviceKey) continue;
     if (!unpackPushSubscription(subscriber.phone) && !unpackSmsNumber(subscriber.phone)) continue;
     await dbRequest(`subscriptions?id=eq.${subscriber.id}`, {
       method: 'PATCH', prefer: 'return=minimal',
@@ -413,21 +415,21 @@ async function recordChecks() {
   }
 }
 
-async function notifySubscribers(result) {
+async function notifySubscribers(result, serviceKey, rows) {
   if (!pushConfigured() && !smsConfigured()) {
-    lastAlert = { ok: false, skipped: true, at: new Date().toISOString(), error: 'notifications_not_configured' };
+    lastAlert = { ok: false, skipped: true, at: new Date().toISOString(), serviceKey, error: 'notifications_not_configured' };
     return;
   }
   const now = new Date();
-  const alertKey = `${madridDateTime(now).date}:${result.state}`;
-  const rows = await activeSubscribers();
+  const alertKey = `${madridDateTime(now).date}:${serviceKey}:${result.state}`;
+  const matchingRows = (rows || []).filter((subscriber) => subscriber.service_key === serviceKey);
   let sent = 0;
   let failed = 0;
   let skipped = 0;
   const seenRecipients = new Set();
-  for (const subscriber of rows || []) {
+  for (const subscriber of matchingRows) {
     if (subscriber.last_alert_key === alertKey) { skipped += 1; continue; }
-    const label = serviceLabel(subscriber.service_key);
+    const label = serviceLabel(serviceKey);
     const isAvailable = result.state === 'AVAILABILITY_DETECTED';
     const smsPhone = unpackSmsNumber(subscriber.phone);
     const pushSubscription = unpackPushSubscription(subscriber.phone);
@@ -454,31 +456,106 @@ async function notifySubscribers(result) {
       });
     } catch (error) {
       failed += 1;
-      console.error('[Detector de Citas] Notification failed:', error.statusCode || '', error.message);
+      console.error('[Detector de Citas] Notification failed:', serviceKey, error.statusCode || '', error.message);
       if (pushSubscription && [404, 410].includes(Number(error.statusCode))) {
         await dbRequest(`subscriptions?id=eq.${subscriber.id}`, { method: 'PATCH', prefer: 'return=minimal', body: { active: false, updated_at: now.toISOString() } }).catch(() => {});
       }
     }
   }
-  lastAlert = { ok: failed === 0, skipped: false, at: now.toISOString(), recipients: rows?.length || 0, sent, failed, ignored: skipped };
+  lastAlert = { ok: failed === 0, skipped: false, at: now.toISOString(), serviceKey, recipients: matchingRows.length, sent, failed, ignored: skipped };
 }
 
-async function runMonitor(trigger = 'manual') {
+async function runServiceMonitor(serviceKey, trigger, rows) {
+  let result;
+  try {
+    result = await checkMadridTieAvailability({ safeMode: true, serviceKey });
+  } catch (error) {
+    result = {
+      ok: false,
+      state: 'ERROR',
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      message: error?.message || String(error)
+    };
+  }
+  result.trigger = trigger;
+  result.serviceKey = serviceKey;
+  lastResult = result;
+  lastResultsByService[serviceKey] = result;
+
+  try {
+    await recordChecks(serviceKey, rows);
+    if (['HUMAN_GATE', 'AVAILABILITY_DETECTED'].includes(result.state)) {
+      await notifySubscribers(result, serviceKey, rows);
+    }
+  } catch (error) {
+    lastAlert = { ok: false, skipped: false, at: new Date().toISOString(), serviceKey, error: error?.message || String(error) };
+  }
+  return result;
+}
+
+async function runMonitor(trigger = 'manual', forcedServiceKey = null) {
   if (running) return { status: 409, payload: { error: 'check_already_running' } };
   running = true;
   try {
-    try { lastResult = await checkMadridTieAvailability({ safeMode: true }); }
-    catch (error) {
-      lastResult = { ok: false, state: 'ERROR', startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), message: error?.message || String(error) };
+    const rows = dbConfigured() ? await activeSubscribers() : [];
+
+    if (forcedServiceKey) {
+      if (!monitorableServices.has(forcedServiceKey)) {
+        return { status: 400, payload: { error: 'procedure_not_monitorable', serviceKey: forcedServiceKey } };
+      }
+      const result = await runServiceMonitor(forcedServiceKey, trigger, rows);
+      return { status: 200, payload: { ...result, alert: lastAlert } };
     }
-    lastResult.trigger = trigger;
-    try {
-      await recordChecks();
-      if (['HUMAN_GATE', 'AVAILABILITY_DETECTED'].includes(lastResult.state)) await notifySubscribers(lastResult);
-    } catch (error) {
-      lastAlert = { ok: false, skipped: false, at: new Date().toISOString(), error: error?.message || String(error) };
+
+    const subscribedServices = [...new Set(
+      (rows || [])
+        .map((subscriber) => subscriber.service_key)
+        .filter((serviceKey) => monitorableServices.has(serviceKey))
+    )];
+
+    const needsClarification = (rows || []).some((subscriber) => subscriber.service_key === 'nie_renew');
+    if (needsClarification) {
+      lastResultsByService.nie_renew = {
+        ok: false,
+        state: 'PROCEDURE_NEEDS_CLARIFICATION',
+        serviceKey: 'nie_renew',
+        trigger,
+        finishedAt: new Date().toISOString(),
+        message: 'El número NIE no caduca. Hay que identificar si el trámite real es TIE, residencia o certificado antes de monitorizar.'
+      };
     }
-    return { status: 200, payload: { ...lastResult, alert: lastAlert } };
+
+    if (!subscribedServices.length) {
+      const payload = {
+        ok: true,
+        state: 'NO_MONITORABLE_SUBSCRIPTIONS',
+        trigger,
+        checkedServices: [],
+        skippedServices: needsClarification ? ['nie_renew'] : []
+      };
+      lastResult = payload;
+      return { status: 200, payload };
+    }
+
+    const results = [];
+    for (const serviceKey of subscribedServices) {
+      console.log(`[Detector de Citas] Checking subscribed procedure ${serviceKey}`);
+      results.push(await runServiceMonitor(serviceKey, trigger, rows));
+    }
+
+    return {
+      status: 200,
+      payload: {
+        ok: results.every((result) => result.state !== 'ERROR'),
+        state: 'MULTI_SERVICE_CHECK_COMPLETE',
+        trigger,
+        checkedServices: subscribedServices,
+        skippedServices: needsClarification ? ['nie_renew'] : [],
+        results,
+        alert: lastAlert
+      }
+    };
   } finally { running = false; }
 }
 
@@ -501,6 +578,7 @@ function publicConfig() {
     pushReady: pushConfigured(),
     vapidPublicKey: VAPID_PUBLIC_KEY || null,
     scheduledTimes: [...scheduledTimes],
+    monitorableServices: [...monitorableServices],
     timeZone: madridTimeZone
   };
 }
@@ -530,7 +608,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/health') return json(res, 200, { ok: true, running, lastState: lastResult?.state || null, ...publicConfig() });
     if (url.pathname === '/api/config') return json(res, 200, publicConfig());
-    if (url.pathname === '/api/status') return json(res, 200, { running, lastResult, lastAlert, ...publicConfig() });
+    if (url.pathname === '/api/status') return json(res, 200, { running, lastResult, lastResultsByService, lastAlert, ...publicConfig() });
     if (url.pathname === '/api/push/subscribe' && req.method === 'POST') return await beginPushSubscription(req, res);
     if (url.pathname === '/api/push/test' && req.method === 'POST') return await testPush(req, res);
     if (url.pathname === '/api/sms/subscribe' && req.method === 'POST') return await beginSmsSubscription(req, res);
@@ -540,7 +618,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/check/tie' && req.method === 'POST') {
       const expected = process.env.MONITOR_TEST_SECRET;
       if (expected && req.headers['x-monitor-secret'] !== expected) return json(res, 401, { error: 'unauthorized' });
-      const outcome = await runMonitor('manual');
+      const outcome = await runMonitor('manual', 'tie_fingerprint');
       return json(res, outcome.status, outcome.payload);
     }
     if (req.method === 'GET' && await serveStatic(url.pathname, res)) return;
