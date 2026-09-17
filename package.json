@@ -2,12 +2,12 @@
   "name": "citanie-madrid",
   "version": "0.4.0",
   "private": true,
-  "description": "MVP de monitorización segura de disponibilidad NIE/TIE en Madrid con alertas push PWA y perfil cifrado",
+  "description": "Detector de Citas para NIE/TIE en Madrid con alertas SMS y perfil cifrado",
   "type": "module",
   "scripts": {
-    "start": "node gateway.js",
+    "start": "node --import ./clicksend-fetch-shim.js gateway.js",
     "check:tie": "node scripts/check-tie.js",
-    "check": "node --check gateway.js && node --check profile-ui.js && node --check server.js && node --check src/icpplus.js && node --check scripts/check-tie.js && node --check sw.js"
+    "check": "node --check clicksend-fetch-shim.js && node --check gateway.js && node --check profile-ui.js && node --check server.js && node --check src/icpplus.js && node --check scripts/check-tie.js && node --check sw.js"
   },
   "dependencies": {
     "playwright": "^1.55.0",
