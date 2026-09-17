@@ -5,6 +5,10 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { checkMadridTieAvailability, assistedServiceSupported } from './src/icpplus.js';
+import {
+  startBrowserHandoff, browserHandoffStatus, browserHandoffFrame,
+  browserHandoffInput, stopBrowserHandoff, stopAllBrowserHandoffs
+} from './lib/handoff-browser.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicPort = Number(process.env.PORT || 10000);
@@ -179,6 +183,7 @@ async function handleProfile(req, res) {
   }
 
   if (req.method === 'DELETE') {
+    await stopBrowserHandoff(record.id).catch(() => {});
     await dbRequest(`subscriptions?id=eq.${record.id}`, {
       method: 'PATCH',
       prefer: 'return=minimal',
@@ -196,6 +201,21 @@ function attemptRateLimited(id) {
   if (now - last < 60_000) return true;
   attemptWindows.set(id, now);
   return false;
+}
+
+function clientFromProfile(profile) {
+  return {
+    documentType: profile.documentType,
+    document: profile.documentNumber,
+    firstName: profile.firstName,
+    surname1: profile.surname1,
+    surname2: profile.surname2,
+    birthDate: profile.birthDate,
+    nationality: profile.nationality,
+    email: profile.email,
+    mobile: profile.mobile,
+    name: [profile.firstName, profile.surname1, profile.surname2].filter(Boolean).join(' ')
+  };
 }
 
 async function handleAttempt(req, res) {
@@ -221,25 +241,22 @@ async function handleAttempt(req, res) {
     return json(res, 409, { error: 'procedure_automation_not_ready', serviceKey: record.service_key });
   }
 
-  const client = {
-    documentType: profile.documentType,
-    document: profile.documentNumber,
-    firstName: profile.firstName,
-    surname1: profile.surname1,
-    surname2: profile.surname2,
-    birthDate: profile.birthDate,
-    nationality: profile.nationality,
-    email: profile.email,
-    mobile: profile.mobile,
-    name: [profile.firstName, profile.surname1, profile.surname2].filter(Boolean).join(' ')
-  };
-
+  const client = clientFromProfile(profile);
   const result = await checkMadridTieAvailability({
     safeMode: false,
     serviceKey: record.service_key,
     client,
     timeoutMs: 45_000
   });
+
+  let handoff = null;
+  if (result.state === 'HUMAN_GATE' || result.state === 'READY_FOR_HUMAN_CONTINUE') {
+    try {
+      handoff = await startBrowserHandoff({ ownerId: record.id, serviceKey: record.service_key, client });
+    } catch (error) {
+      console.error('[CitaNIE Handoff] Could not start:', error.message);
+    }
+  }
 
   return json(res, 200, {
     ok: result.ok,
@@ -249,8 +266,56 @@ async function handleAttempt(req, res) {
     province: result.province,
     procedure: result.procedure,
     url: result.url,
-    filledFields: result.filledFields || []
+    filledFields: result.filledFields || [],
+    handoff
   });
+}
+
+async function handoffOwner(req, res) {
+  const record = await authenticatedSubscription(req);
+  if (!record) {
+    json(res, 401, { error: 'unauthorized' });
+    return null;
+  }
+  return record;
+}
+
+async function handleHandoffStatus(req, res) {
+  if (req.method !== 'GET') return json(res, 405, { error: 'method_not_allowed' });
+  const record = await handoffOwner(req, res);
+  if (!record) return;
+  return json(res, 200, await browserHandoffStatus(record.id));
+}
+
+async function handleHandoffFrame(req, res) {
+  if (req.method !== 'GET') return json(res, 405, { error: 'method_not_allowed' });
+  const record = await handoffOwner(req, res);
+  if (!record) return;
+  const frame = await browserHandoffFrame(record.id);
+  if (!frame) return json(res, 410, { error: 'handoff_expired' });
+  res.writeHead(200, {
+    'content-type': 'image/jpeg',
+    'content-length': frame.length,
+    'cache-control': 'no-store, no-cache, must-revalidate',
+    'x-content-type-options': 'nosniff'
+  });
+  res.end(frame);
+}
+
+async function handleHandoffInput(req, res) {
+  if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
+  const record = await handoffOwner(req, res);
+  if (!record) return;
+  const body = await readJson(req);
+  const status = await browserHandoffInput(record.id, body);
+  return json(res, 200, status);
+}
+
+async function handleHandoffClose(req, res) {
+  if (req.method !== 'POST') return json(res, 405, { error: 'method_not_allowed' });
+  const record = await handoffOwner(req, res);
+  if (!record) return;
+  return json(res, 200, await stopBrowserHandoff(record.id));
 }
 
 async function serveProfileUi(res) {
@@ -324,16 +389,24 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/profile-ui.js' && req.method === 'GET') return await serveProfileUi(res);
     if (url.pathname === '/api/profile') return await handleProfile(req, res);
     if (url.pathname === '/api/attempt') return await handleAttempt(req, res);
+    if (url.pathname === '/api/handoff/status') return await handleHandoffStatus(req, res);
+    if (url.pathname === '/api/handoff/frame') return await handleHandoffFrame(req, res);
+    if (url.pathname === '/api/handoff/input') return await handleHandoffInput(req, res);
+    if (url.pathname === '/api/handoff/close') return await handleHandoffClose(req, res);
     return proxyRequest(req, res);
   } catch (error) {
-    const known = new Set(['invalid_json', 'payload_too_large', 'invalid_email', 'profile_encryption_not_configured']);
-    const status = known.has(error.message) ? 400 : 500;
+    const known = new Set([
+      'invalid_json', 'payload_too_large', 'invalid_email', 'profile_encryption_not_configured',
+      'handoff_expired', 'invalid_handoff_key', 'invalid_handoff_input'
+    ]);
+    const status = error.message === 'handoff_expired' ? 410 : (known.has(error.message) ? 400 : 500);
     console.error('[CitaNIE Gateway] Request error:', error.message);
     return json(res, status, { error: status === 500 ? 'internal_error' : error.message });
   }
 });
 
-function shutdown() {
+async function shutdown() {
+  await stopAllBrowserHandoffs().catch(() => {});
   child.kill('SIGTERM');
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
