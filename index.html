@@ -31,11 +31,11 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="nav"><div class="brand">Cita<span>NIE</span> Madrid</div><div class="pill">App instalable · Alertas push</div></div>
+  <div class="nav"><div class="brand">Cita<span>NIE</span> Madrid</div><div class="pill">iPhone + Android · Alertas push</div></div>
   <section class="hero">
     <div class="eyebrow"><span class="dot"></span> Monitorización de citas</div>
     <h1>Te avisamos en el móvil.</h1>
-    <p>Instala CitaNIE como una app y recibe una notificación push cuando detectemos un cambio relevante. Sin WhatsApp y sin depender de Meta.</p>
+    <p>Recibe una notificación push cuando detectemos un cambio relevante. Funciona en iPhone y Android, sin WhatsApp y sin depender de Meta.</p>
   </section>
 
   <main class="shell">
@@ -68,7 +68,7 @@
       <section id="s3" class="hidden">
         <div class="pushbox">
           <div class="pushicon">🔔</div>
-          <div><h3>Activa las alertas de CitaNIE</h3><p>Las notificaciones llegan directamente al teléfono, incluso cuando no tienes la web abierta.</p></div>
+          <div><h3>Activa las alertas en iPhone y Android</h3><p>Pulsa “Activar alertas” y el teléfono te pedirá permiso automáticamente cuando el sistema lo permita.</p></div>
         </div>
         <div id="installSteps" class="installSteps hidden"></div>
         <label class="consent"><input id="consent" type="checkbox" /> <span>Acepto recibir notificaciones push sobre la disponibilidad de este trámite durante 30 días. Puedo cancelar y borrar mis datos cuando quiera.</span></label>
@@ -130,21 +130,31 @@ function show(n){state.step=n;for(let i=1;i<=4;i++)qs('#s'+i).classList.toggle('
 async function api(url,options={}){const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'internal_error');error.code=data.error;throw error}return data}
 function busy(button,on,label){button.disabled=on;if(label)button.textContent=label}
 function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent)}
+function isAndroid(){return /android/i.test(navigator.userAgent)}
 function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
 function urlBase64ToUint8Array(base64String){const padding='='.repeat((4-base64String.length%4)%4);const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
-function installHelp(){const box=qs('#installSteps');box.classList.remove('hidden');if(isIOS()&&!isStandalone()){box.innerHTML='<b>En iPhone:</b> toca el botón Compartir de Safari → <b>Añadir a pantalla de inicio</b> → abre CitaNIE desde el nuevo icono → vuelve a pulsar “Activar alertas”.';}else{box.innerHTML='<b>Consejo:</b> instala CitaNIE en la pantalla de inicio para abrirla como una app y recibir alertas con mayor comodidad.'}}
+function installHelp(){
+  const box=qs('#installSteps');box.classList.remove('hidden');
+  if(isIOS()&&!isStandalone()){
+    box.innerHTML='<b>iPhone:</b> abre esta página en Safari normal (no navegación privada) → Compartir → <b>Añadir a pantalla de inicio</b> → abre CitaNIE desde el icono → pulsa “Activar alertas”. iPhone mostrará automáticamente <b>Permitir notificaciones</b>.';
+  }else if(isAndroid()){
+    box.innerHTML='<b>Android:</b> pulsa “Activar alertas”. Chrome/Edge mostrará automáticamente <b>Permitir notificaciones</b>. No necesitas entrar en Ajustes. Instalar CitaNIE es opcional.';
+  }else{
+    box.innerHTML='<b>Alertas push:</b> pulsa “Activar alertas” y acepta el permiso de notificaciones cuando aparezca.';
+  }
+}
 
-window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();state.deferredInstall=event;qs('#installApp').classList.remove('hidden')});
+window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();state.deferredInstall=event;if(isAndroid())qs('#installApp').classList.remove('hidden')});
 qs('#installApp').onclick=async()=>{if(state.deferredInstall){state.deferredInstall.prompt();await state.deferredInstall.userChoice;state.deferredInstall=null;qs('#installApp').classList.add('hidden')}else installHelp()};
 
 qsa('.choice').forEach(b=>b.onclick=()=>{qsa('.choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.key=b.dataset.key;qs('#next1').disabled=false});
 qs('#next1').onclick=()=>{const m=MAP[state.key];qs('#mapping').innerHTML=`<strong>${m.official}</strong><p>${m.desc}</p><span class="tag">Madrid</span>`;show(2)};
-qs('#next2').onclick=()=>{show(3);if(isIOS()&&!isStandalone())installHelp()};
+qs('#next2').onclick=()=>{show(3);installHelp()};
 qsa('.back').forEach(b=>b.onclick=()=>show(Math.max(1,state.step-1)));
 
 async function registerPush(){
-  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))throw Object.assign(new Error('unsupported'),{code:'unsupported'});
   if(isIOS()&&!isStandalone()){installHelp();throw Object.assign(new Error('install_first'),{code:'install_first'})}
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))throw Object.assign(new Error('unsupported'),{code:'unsupported'});
   const permission=await Notification.requestPermission();
   if(permission!=='granted')throw Object.assign(new Error('permission_denied'),{code:'permission_denied'});
   const config=await api('/api/config');
@@ -168,9 +178,10 @@ qs('#enablePush').onclick=async()=>{
     try{await api('/api/push/test',{method:'POST',headers:{authorization:`Bearer ${data.accessToken}`},body:'{}'})}catch{}
     await loadDashboard();
   }catch(error){
-    if(error.code==='install_first')msg.textContent='Primero añade CitaNIE a la pantalla de inicio y ábrela desde su icono.';
-    else if(error.code==='permission_denied')msg.textContent='Las notificaciones están bloqueadas. Permítelas en los ajustes del navegador o de la app.';
-    else if(error.code==='unsupported')msg.textContent='Este navegador no admite notificaciones push. Prueba Safari/Chrome actualizado.';
+    if(error.code==='install_first')msg.textContent='En iPhone, abre Safari normal, añade CitaNIE a la pantalla de inicio y ábrela desde su icono. Después pulsa “Activar alertas” y aparecerá automáticamente “Permitir notificaciones”.';
+    else if(error.code==='permission_denied')msg.textContent='Has rechazado o bloqueado las notificaciones. Si cambias de idea, el sistema del teléfono puede pedirte habilitarlas de nuevo.';
+    else if(error.code==='unsupported'&&isAndroid())msg.textContent='Abre CitaNIE en Chrome o Edge actualizado, fuera del modo incógnito, y vuelve a pulsar “Activar alertas”.';
+    else if(error.code==='unsupported')msg.textContent='Este navegador no permite notificaciones push en este modo. Usa Safari/Chrome actualizado y navegación normal.';
     else msg.textContent=errors[error.code]||errors.internal_error;
   }finally{busy(button,false,'Activar alertas')}
 };
