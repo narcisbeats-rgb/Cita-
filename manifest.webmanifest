@@ -1,0 +1,19 @@
+{
+  "name": "CitaNIE Madrid",
+  "short_name": "CitaNIE",
+  "description": "Monitorización de disponibilidad NIE/TIE en Madrid con alertas push.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

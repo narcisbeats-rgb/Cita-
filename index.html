@@ -2,38 +2,45 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d12" />
+  <meta name="description" content="Monitorización de disponibilidad para trámites NIE/TIE en Madrid con alertas push." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CitaNIE" />
   <title>CitaNIE Madrid</title>
-  <meta name="description" content="Monitorización de disponibilidad para trámites NIE/TIE en Madrid." />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root{--bg:#0b0d12;--card:#121722;--card2:#171e2b;--text:#f7f8fb;--muted:#9ca7b8;--line:#263044;--accent:#f3c94b;--ok:#32d583;--warn:#f79009;--danger:#f04438}
-    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#172033 0,#0b0d12 42%);color:var(--text);min-height:100vh}
-    .wrap{max-width:980px;margin:0 auto;padding:22px 18px 70px}.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:34px}.brand{font-weight:800;letter-spacing:-.6px}.brand span{color:var(--accent)}.pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:13px}
-    .hero{text-align:center;padding:28px 0 30px}.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border-radius:999px;background:#1a2230;border:1px solid var(--line);color:#cbd3df;font-size:13px}.dot{width:8px;height:8px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 4px #32d58320}.hero h1{font-size:clamp(38px,8vw,68px);line-height:.98;margin:18px auto 16px;letter-spacing:-2.6px;max-width:850px}.hero p{max-width:720px;margin:0 auto;color:var(--muted);font-size:18px;line-height:1.55}
-    .shell{background:linear-gradient(180deg,#141a25,#0f141e);border:1px solid var(--line);border-radius:28px;padding:20px;box-shadow:0 20px 70px #0007}.stephead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.stephead small{color:var(--muted)}.progress{height:6px;background:#202838;border-radius:99px;overflow:hidden;margin-bottom:24px}.progress i{display:block;height:100%;width:20%;background:var(--accent);transition:.25s}
+    *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#172033 0,#0b0d12 42%);color:var(--text);min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+    button,input,select{font:inherit}.wrap{max-width:980px;margin:0 auto;padding:22px 18px 70px}.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}.brand{font-weight:800;letter-spacing:-.6px}.brand span{color:var(--accent)}.pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:13px}
+    .hero{text-align:center;padding:22px 0 28px}.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border-radius:999px;background:#1a2230;border:1px solid var(--line);color:#cbd3df;font-size:13px}.dot{width:8px;height:8px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 4px #32d58320}.hero h1{font-size:clamp(38px,8vw,68px);line-height:.98;margin:18px auto 16px;letter-spacing:-2.6px;max-width:850px}.hero p{max-width:720px;margin:0 auto;color:var(--muted);font-size:18px;line-height:1.55}
+    .shell{background:linear-gradient(180deg,#141a25,#0f141e);border:1px solid var(--line);border-radius:28px;padding:20px;box-shadow:0 20px 70px #0007}.stephead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.stephead small{color:var(--muted)}.progress{height:6px;background:#202838;border-radius:99px;overflow:hidden;margin-bottom:24px}.progress i{display:block;height:100%;width:25%;background:var(--accent);transition:.25s}
     .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.choice{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:var(--text);transition:.15s;min-height:116px}.choice:hover,.choice.active{transform:translateY(-2px);border-color:#725f22;background:#1b2130}.choice b{display:block;font-size:17px;margin-bottom:7px}.choice span{color:var(--muted);font-size:13px;line-height:1.45}.choice .ico{font-size:23px;margin-bottom:12px;display:block}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:15px}.field label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.field input,.field select{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);font:inherit;outline:none}.field input:focus,.field select:focus{border-color:#6a5a25}.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer}.btn.secondary{background:#1b2230;color:#dce2ea}.btn.primary{background:var(--accent);color:#16130b}.hidden{display:none!important}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:15px}.field label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.field input,.field select{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);outline:none}.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.btn.secondary{background:#1b2230;color:#dce2ea}.btn.primary{background:var(--accent);color:#16130b}.hidden{display:none!important}
     .mapping{background:#0e141d;border:1px solid var(--line);padding:16px;border-radius:16px;margin:15px 0}.mapping strong{display:block;margin-bottom:5px}.mapping p{color:var(--muted);margin:0;font-size:14px;line-height:1.5}.tag{display:inline-flex;padding:5px 9px;border:1px solid #3a455c;border-radius:999px;font-size:12px;color:#c7d0dd;margin-top:10px}
-    .summary{display:grid;gap:10px}.summary div{display:flex;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid #20293a}.summary span{color:var(--muted)}.notice{margin-top:15px;padding:14px;border-radius:14px;background:#1a1609;border:1px solid #5a4918;color:#e9d992;font-size:13px;line-height:1.5}.consent{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5;margin-top:10px}.consent input{margin-top:3px}.formmsg{min-height:22px;margin-top:10px;color:#fca5a5;font-size:13px}.otp{font-size:26px!important;letter-spacing:8px;text-align:center;font-weight:800}.dangerbtn{background:#35171a!important;color:#fecaca!important}
-    .dash{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}.panel{background:#101620;border:1px solid var(--line);border-radius:20px;padding:18px}.statusline{display:flex;gap:11px;align-items:center;margin-bottom:14px}.statusdot{width:12px;height:12px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 6px #32d58317}.big{font-size:28px;font-weight:800;letter-spacing:-1px}.muted{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.kpi{background:#0d131c;border:1px solid #20293a;border-radius:15px;padding:13px}.kpi b{display:block;font-size:18px}.kpi small{color:var(--muted)}.alert{padding:14px;border-radius:14px;background:#10261c;border:1px solid #205b3c;margin-top:15px;color:#b7efcf}.human{padding:14px;border-radius:14px;background:#281c0d;border:1px solid #704713;margin-top:12px;color:#f3d19a}.footer{margin-top:28px;text-align:center;color:#6f7b8c;font-size:12px;line-height:1.6}
-    @media(max-width:700px){.grid,.row,.dash{grid-template-columns:1fr}.hero{padding-top:8px}.hero h1{font-size:44px}.hero p{font-size:16px}.shell{padding:15px;border-radius:22px}.kpis{grid-template-columns:1fr 1fr 1fr}.nav .pill{display:none}}
+    .notice{margin-top:15px;padding:14px;border-radius:14px;background:#1a1609;border:1px solid #5a4918;color:#e9d992;font-size:13px;line-height:1.5}.consent{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px}.consent input{margin-top:3px}.formmsg{min-height:22px;margin-top:10px;color:#fca5a5;font-size:13px}.formmsg.ok{color:#9be7bd}
+    .pushbox{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;padding:17px;background:#0e141d;border:1px solid var(--line);border-radius:18px}.pushicon{width:64px;height:64px;border-radius:18px;background:#f3c94b;color:#16130b;display:grid;place-items:center;font-size:30px}.pushbox h3{margin:0 0 6px;font-size:18px}.pushbox p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}.installSteps{margin:14px 0 0;padding:14px 16px;background:#111824;border:1px solid var(--line);border-radius:16px;color:#c9d2df;font-size:14px;line-height:1.55}.installSteps b{color:#fff}
+    .dash{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}.panel{background:#101620;border:1px solid var(--line);border-radius:20px;padding:18px}.statusline{display:flex;gap:11px;align-items:center;margin-bottom:14px}.statusdot{width:12px;height:12px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 6px #32d58317}.big{font-size:28px;font-weight:800;letter-spacing:-1px}.muted{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.kpi{background:#0d131c;border:1px solid #20293a;border-radius:15px;padding:13px}.kpi b{display:block;font-size:18px}.kpi small{color:var(--muted)}.alert{padding:14px;border-radius:14px;background:#10261c;border:1px solid #205b3c;margin-top:15px;color:#b7efcf}.human{padding:14px;border-radius:14px;background:#281c0d;border:1px solid #704713;margin-top:12px;color:#f3d19a}.dangerbtn{background:#35171a!important;color:#fecaca!important}.footer{margin-top:28px;text-align:center;color:#6f7b8c;font-size:12px;line-height:1.6}
+    @media(max-width:700px){.wrap{padding:16px 13px 54px}.grid,.row,.dash{grid-template-columns:1fr}.hero{padding-top:8px}.hero h1{font-size:43px}.hero p{font-size:16px}.shell{padding:15px;border-radius:22px}.kpis{grid-template-columns:1fr 1fr 1fr}.nav .pill{display:none}.pushbox{grid-template-columns:54px 1fr}.pushicon{width:54px;height:54px;border-radius:15px}.actions .btn{flex:1;min-width:130px}}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="nav"><div class="brand">Cita<span>NIE</span> Madrid</div><div class="pill">Monitorización de citas • Madrid</div></div>
+  <div class="nav"><div class="brand">Cita<span>NIE</span> Madrid</div><div class="pill">App instalable · Alertas push</div></div>
   <section class="hero">
-    <div class="eyebrow"><span class="dot"></span> Servicio de monitorización</div>
-    <h1>No revises la web cada día.</h1>
-    <p>Selecciona lo que necesitas y monitorizamos la disponibilidad de tu cita NIE/TIE en Madrid durante 30 días. Te avisamos cuando detectemos disponibilidad.</p>
+    <div class="eyebrow"><span class="dot"></span> Monitorización de citas</div>
+    <h1>Te avisamos en el móvil.</h1>
+    <p>Instala CitaNIE como una app y recibe una notificación push cuando detectemos un cambio relevante. Sin WhatsApp y sin depender de Meta.</p>
   </section>
 
   <main class="shell">
     <div id="wizard">
-      <div class="stephead"><b id="stepTitle">¿Qué necesitas?</b><small id="stepCounter">Paso 1 de 5</small></div>
+      <div class="stephead"><b id="stepTitle">¿Qué necesitas?</b><small id="stepCounter">Paso 1 de 4</small></div>
       <div class="progress"><i id="bar"></i></div>
 
       <section id="s1">
@@ -59,38 +66,35 @@
       </section>
 
       <section id="s3" class="hidden">
-        <div class="field"><label>Tu número de WhatsApp</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="+34 600 000 000" /></div>
-        <label class="consent"><input id="consent" type="checkbox" /> <span>Acepto recibir por WhatsApp el código de verificación y las alertas de disponibilidad de este trámite durante 30 días. Puedo cancelar y borrar mis datos cuando quiera.</span></label>
-        <div class="notice">Solo guardamos el número, el trámite seleccionado y el consentimiento. No pedimos NIE, pasaporte, nombre ni contraseña.</div>
-        <div class="formmsg" id="startMsg"></div>
-        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="sendCode">Enviar código</button></div>
+        <div class="pushbox">
+          <div class="pushicon">🔔</div>
+          <div><h3>Activa las alertas de CitaNIE</h3><p>Las notificaciones llegan directamente al teléfono, incluso cuando no tienes la web abierta.</p></div>
+        </div>
+        <div id="installSteps" class="installSteps hidden"></div>
+        <label class="consent"><input id="consent" type="checkbox" /> <span>Acepto recibir notificaciones push sobre la disponibilidad de este trámite durante 30 días. Puedo cancelar y borrar mis datos cuando quiera.</span></label>
+        <div class="notice">No pedimos número de teléfono, NIE, pasaporte ni contraseña. La cita oficial sigue siendo gratuita.</div>
+        <div class="formmsg" id="pushMsg"></div>
+        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn secondary hidden" id="installApp">Instalar app</button><button class="btn primary" id="enablePush">Activar alertas</button></div>
       </section>
 
       <section id="s4" class="hidden">
-        <div class="mapping"><strong>Verifica tu WhatsApp</strong><p>Introduce el código de 6 cifras enviado a <span id="maskedPhone"></span>. Caduca en 10 minutos.</p></div>
-        <div class="field"><label>Código de verificación</label><input id="otp" class="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" /></div>
-        <div class="formmsg" id="verifyMsg"></div>
-        <div class="actions"><button class="btn secondary" id="changePhone">Cambiar número</button><button class="btn primary" id="activate">Verificar y activar</button></div>
-      </section>
-
-      <section id="s5" class="hidden">
         <div class="dash">
           <div class="panel">
             <div class="statusline"><span class="statusdot"></span><div><b>Monitorización activa</b><div class="muted" style="font-size:13px">Madrid · 30 días</div></div></div>
-            <div class="big" id="dashService">TIE / NIE</div>
-            <p class="muted">El sistema comprobará periódicamente la disponibilidad. Si detecta un cambio, enviará una alerta inmediata.</p>
+            <div class="big" id="dashService">NIE / TIE</div>
+            <p class="muted">Comprobamos periódicamente la disponibilidad. Cuando detectemos un cambio relevante, recibirás una notificación push.</p>
             <div class="kpis">
               <div class="kpi"><b id="checks">0</b><small>comprobaciones</small></div>
               <div class="kpi"><b>30</b><small>días</small></div>
               <div class="kpi"><b>Madrid</b><small>provincia</small></div>
             </div>
             <div class="alert" id="monitorMessage">✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.</div>
-            <div class="human"><b>Intervención humana:</b> si el portal solicita CAPTCHA, Cl@ve, SMS o confirmación personal, la automatización se detiene y avisa al usuario.</div>
+            <div class="human"><b>Intervención humana:</b> si el portal solicita CAPTCHA, Cl@ve, SMS o confirmación personal, la automatización se detiene y te avisa.</div>
           </div>
           <div class="panel">
             <b>Alertas</b>
-            <p class="muted" style="font-size:14px" id="verifiedPhone">WhatsApp verificado</p>
-            <p class="muted" style="font-size:14px">Alertas individuales activadas</p>
+            <p class="muted" style="font-size:14px">🔔 Push activado en este dispositivo</p>
+            <p class="muted" style="font-size:14px" id="lastAlert">Sin alertas enviadas todavía</p>
             <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
             <b>Próxima comprobación</b>
             <div class="big" style="font-size:22px;margin-top:8px">Programada</div>
@@ -101,7 +105,7 @@
       </section>
     </div>
   </main>
-  <div class="footer">La cita oficial es gratuita. CitaNIE solo monitoriza y avisa; no vende ni reserva citas. Si el portal solicita CAPTCHA o confirmación personal, se requiere intervención humana.</div>
+  <div class="footer">CitaNIE monitoriza y avisa; no vende ni reserva citas. Si el portal requiere CAPTCHA o confirmación personal, la acción debe completarla una persona.</div>
 </div>
 <script>
 const MAP={
@@ -110,46 +114,91 @@ const MAP={
   lost:{label:'He perdido mi NIE/TIE',official:'Duplicado / expedición según documento',desc:'Distinguimos entre pérdida de TIE, certificado u otro documento.'},
   tie_fingerprint:{label:'Toma de huellas TIE',official:'Toma de huellas / expedición de tarjeta',desc:'Para expedición de la TIE cuando ya puedes solicitar la tarjeta.'},
   tie_renew:{label:'Renovar TIE',official:'Renovación / expedición de TIE correspondiente',desc:'Monitorización del flujo de tarjeta adecuado.'},
-  tie_duplicate:{label:'Duplicado TIE',official:'Duplicado de TIE',desc:'Pérdida, robo, destrucción o deterioro del documento.'}
+  tie_duplicate:{label:'Duplicado TIE',official:'Duplicado de TIE',desc:'Para pérdida, robo, deterioro o inutilización de la tarjeta.'}
 };
-let state={step:1,key:null,phone:''};
-const qs=s=>document.querySelector(s), qsa=s=>[...document.querySelectorAll(s)];
+const state={step:1,key:null,deferredInstall:null};
+const qs=(s)=>document.querySelector(s),qsa=(s)=>[...document.querySelectorAll(s)];
 const errors={
-  invalid_phone:'Introduce un número válido con prefijo, por ejemplo +34.',consent_required:'Debes aceptar las alertas para continuar.',
-  too_many_requests:'Demasiados intentos. Espera 15 minutos.',whatsapp_not_configured:'WhatsApp aún no está configurado por el administrador.',
-  service_not_configured:'El registro aún no está configurado.',invalid_code:'El código no es correcto.',code_expired:'El código ha caducado. Solicita uno nuevo.',
+  push_not_configured:'Las alertas push todavía no están configuradas en el servidor.',
+  invalid_push_subscription:'No se pudo registrar este dispositivo.',
+  consent_required:'Debes aceptar las alertas para continuar.',
+  too_many_requests:'Demasiados intentos. Espera unos minutos.',
+  push_send_failed:'La alerta se activó, pero no pudimos enviar la notificación de prueba.',
   internal_error:'No se pudo completar. Inténtalo de nuevo.'
 };
-function show(n){state.step=n;for(let i=1;i<=5;i++)qs('#s'+i).classList.toggle('hidden',i!==n);qs('#stepCounter').textContent=`Paso ${n} de 5`;qs('#bar').style.width=(n*20)+'%';qs('#stepTitle').textContent=['','¿Qué necesitas?','Confirmamos el trámite','Tu WhatsApp','Verifica el número','Monitorización'][n];}
+function show(n){state.step=n;for(let i=1;i<=4;i++)qs('#s'+i).classList.toggle('hidden',i!==n);qs('#stepCounter').textContent=`Paso ${n} de 4`;qs('#bar').style.width=(n*25)+'%';qs('#stepTitle').textContent=['','¿Qué necesitas?','Confirmamos el trámite','Activa las alertas','Monitorización'][n];}
 async function api(url,options={}){const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'internal_error');error.code=data.error;throw error}return data}
 function busy(button,on,label){button.disabled=on;if(label)button.textContent=label}
+function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent)}
+function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
+function urlBase64ToUint8Array(base64String){const padding='='.repeat((4-base64String.length%4)%4);const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
+function installHelp(){const box=qs('#installSteps');box.classList.remove('hidden');if(isIOS()&&!isStandalone()){box.innerHTML='<b>En iPhone:</b> toca el botón Compartir de Safari → <b>Añadir a pantalla de inicio</b> → abre CitaNIE desde el nuevo icono → vuelve a pulsar “Activar alertas”.';}else{box.innerHTML='<b>Consejo:</b> instala CitaNIE en la pantalla de inicio para abrirla como una app y recibir alertas con mayor comodidad.'}}
+
+window.addEventListener('beforeinstallprompt',(event)=>{event.preventDefault();state.deferredInstall=event;qs('#installApp').classList.remove('hidden')});
+qs('#installApp').onclick=async()=>{if(state.deferredInstall){state.deferredInstall.prompt();await state.deferredInstall.userChoice;state.deferredInstall=null;qs('#installApp').classList.add('hidden')}else installHelp()};
+
 qsa('.choice').forEach(b=>b.onclick=()=>{qsa('.choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.key=b.dataset.key;qs('#next1').disabled=false});
 qs('#next1').onclick=()=>{const m=MAP[state.key];qs('#mapping').innerHTML=`<strong>${m.official}</strong><p>${m.desc}</p><span class="tag">Madrid</span>`;show(2)};
-qs('#next2').onclick=()=>show(3);
+qs('#next2').onclick=()=>{show(3);if(isIOS()&&!isStandalone())installHelp()};
 qsa('.back').forEach(b=>b.onclick=()=>show(Math.max(1,state.step-1)));
-qs('#sendCode').onclick=async()=>{
-  const button=qs('#sendCode');qs('#startMsg').textContent='';state.phone=qs('#phone').value.trim();
-  if(!state.phone){qs('#startMsg').textContent='Introduce tu número de WhatsApp.';return}
-  if(!qs('#consent').checked){qs('#startMsg').textContent=errors.consent_required;return}
-  busy(button,true,'Enviando…');
-  try{const data=await api('/api/subscriptions/start',{method:'POST',body:JSON.stringify({phone:state.phone,serviceKey:state.key,consent:true})});qs('#maskedPhone').textContent=data.phone;show(4);qs('#otp').focus()}
-  catch(error){qs('#startMsg').textContent=errors[error.code]||errors.internal_error}
-  finally{busy(button,false,'Enviar código')}
+
+async function registerPush(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))throw Object.assign(new Error('unsupported'),{code:'unsupported'});
+  if(isIOS()&&!isStandalone()){installHelp();throw Object.assign(new Error('install_first'),{code:'install_first'})}
+  const permission=await Notification.requestPermission();
+  if(permission!=='granted')throw Object.assign(new Error('permission_denied'),{code:'permission_denied'});
+  const config=await api('/api/config');
+  if(!config.pushReady||!config.vapidPublicKey)throw Object.assign(new Error('push_not_configured'),{code:'push_not_configured'});
+  await navigator.serviceWorker.register('/sw.js',{scope:'/'});
+  const registration=await navigator.serviceWorker.ready;
+  let subscription=await registration.pushManager.getSubscription();
+  if(!subscription){subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(config.vapidPublicKey)})}
+  return subscription;
+}
+
+qs('#enablePush').onclick=async()=>{
+  const button=qs('#enablePush'),msg=qs('#pushMsg');msg.className='formmsg';msg.textContent='';
+  if(!qs('#consent').checked){msg.textContent=errors.consent_required;return}
+  busy(button,true,'Activando…');
+  try{
+    const subscription=await registerPush();
+    const data=await api('/api/push/subscribe',{method:'POST',body:JSON.stringify({subscription:subscription.toJSON(),serviceKey:state.key,consent:true})});
+    localStorage.setItem('citaNieAccessToken',data.accessToken);
+    msg.className='formmsg ok';msg.textContent='Alertas activadas. Enviando una notificación de prueba…';
+    try{await api('/api/push/test',{method:'POST',headers:{authorization:`Bearer ${data.accessToken}`},body:'{}'})}catch{}
+    await loadDashboard();
+  }catch(error){
+    if(error.code==='install_first')msg.textContent='Primero añade CitaNIE a la pantalla de inicio y ábrela desde su icono.';
+    else if(error.code==='permission_denied')msg.textContent='Las notificaciones están bloqueadas. Permítelas en los ajustes del navegador o de la app.';
+    else if(error.code==='unsupported')msg.textContent='Este navegador no admite notificaciones push. Prueba Safari/Chrome actualizado.';
+    else msg.textContent=errors[error.code]||errors.internal_error;
+  }finally{busy(button,false,'Activar alertas')}
 };
-qs('#changePhone').onclick=()=>show(3);
-qs('#activate').onclick=async()=>{
-  const button=qs('#activate');qs('#verifyMsg').textContent='';busy(button,true,'Verificando…');
-  try{const data=await api('/api/subscriptions/verify',{method:'POST',body:JSON.stringify({phone:state.phone,code:qs('#otp').value})});localStorage.setItem('citaNieAccessToken',data.accessToken);await loadDashboard()}
-  catch(error){qs('#verifyMsg').textContent=errors[error.code]||errors.internal_error}
-  finally{busy(button,false,'Verificar y activar')}
-};
+
 async function loadDashboard(){
   const token=localStorage.getItem('citaNieAccessToken');if(!token)return;
-  try{const data=await api('/api/subscription',{headers:{authorization:`Bearer ${token}`}});state.key=data.serviceKey;qs('#dashService').textContent=MAP[data.serviceKey]?.label||'NIE / TIE';qs('#verifiedPhone').textContent=`WhatsApp: ${data.phone}`;qs('#checks').textContent=data.checks||0;const status=data.lastResult?.state;if(status==='AVAILABILITY_DETECTED')qs('#monitorMessage').textContent='¡Disponibilidad detectada! Revisa WhatsApp y entra al portal oficial.';else if(status==='HUMAN_GATE')qs('#monitorMessage').textContent='El portal requiere intervención humana. Te avisamos por WhatsApp.';else qs('#monitorMessage').textContent='✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.';show(5)}
-  catch{localStorage.removeItem('citaNieAccessToken')}
+  try{
+    const data=await api('/api/subscription',{headers:{authorization:`Bearer ${token}`}});
+    state.key=data.serviceKey;qs('#dashService').textContent=MAP[data.serviceKey]?.label||'NIE / TIE';qs('#checks').textContent=data.checks||0;
+    qs('#lastAlert').textContent=data.lastAlertAt?`Última alerta: ${new Date(data.lastAlertAt).toLocaleString('es-ES')}`:'Sin alertas enviadas todavía';
+    const status=data.lastResult?.state;
+    if(status==='AVAILABILITY_DETECTED')qs('#monitorMessage').textContent='¡Posible disponibilidad detectada! Revisa el portal oficial cuanto antes.';
+    else if(status==='HUMAN_GATE')qs('#monitorMessage').textContent='El portal requiere intervención humana. Te hemos avisado por notificación push.';
+    else qs('#monitorMessage').textContent='✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.';
+    show(4);
+  }catch{localStorage.removeItem('citaNieAccessToken')}
 }
+
 qs('#refreshStatus').onclick=async()=>{busy(qs('#refreshStatus'),true,'Actualizando…');await loadDashboard();busy(qs('#refreshStatus'),false,'Actualizar estado')};
-qs('#unsubscribe').onclick=async()=>{if(!confirm('¿Quieres detener las alertas y borrar tu número?'))return;const token=localStorage.getItem('citaNieAccessToken');try{await api('/api/subscription',{method:'DELETE',headers:{authorization:`Bearer ${token}`}})}finally{localStorage.removeItem('citaNieAccessToken');location.reload()}};
+qs('#unsubscribe').onclick=async()=>{
+  if(!confirm('¿Quieres detener las alertas y borrar tus datos?'))return;
+  const token=localStorage.getItem('citaNieAccessToken');
+  try{if(token)await api('/api/subscription',{method:'DELETE',headers:{authorization:`Bearer ${token}`}})}catch{}
+  try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe()}catch{}
+  localStorage.removeItem('citaNieAccessToken');location.reload();
+};
+
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});
 loadDashboard();
 </script>
 </body>

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import webpush from 'web-push';
 import { checkMadridTieAvailability } from './src/icpplus.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,8 +16,19 @@ let lastAlert = null;
 const completedScheduleSlots = new Set();
 const requestWindows = new Map();
 
+const VAPID_PUBLIC_KEY = String(process.env.VAPID_PUBLIC_KEY || '').trim();
+const VAPID_PRIVATE_KEY = String(process.env.VAPID_PRIVATE_KEY || '').trim();
+const VAPID_SUBJECT = String(process.env.VAPID_SUBJECT || 'mailto:admin@citanie.app').trim();
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
+
 function json(res, status, payload) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff'
+  });
   res.end(JSON.stringify(payload));
 }
 
@@ -24,7 +36,7 @@ async function readJson(req) {
   let body = '';
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 16_384) throw new Error('payload_too_large');
+    if (body.length > 32_768) throw new Error('payload_too_large');
   }
   try { return JSON.parse(body || '{}'); } catch { throw new Error('invalid_json'); }
 }
@@ -44,23 +56,27 @@ function rateLimited(key, limit, windowMs) {
   return current.count > limit;
 }
 
-function normalizePhone(value) {
-  let phone = String(value || '').trim().replace(/[\s().-]/g, '');
-  if (phone.startsWith('00')) phone = `+${phone.slice(2)}`;
-  if (!phone.startsWith('+')) phone = `+34${phone.replace(/^0+/, '')}`;
-  if (!/^\+[1-9]\d{7,14}$/.test(phone)) throw new Error('invalid_phone');
-  return phone;
-}
-
-function maskPhone(phone) { return `${phone.slice(0, 3)}••••${phone.slice(-3)}`; }
 function appSecret() {
   const secret = process.env.APP_SECRET;
   if (!secret || secret.length < 32) throw new Error('app_secret_not_configured');
   return secret;
 }
-function digest(value) { return crypto.createHmac('sha256', appSecret()).update(value).digest('hex'); }
-function dbKey() { return process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''; }
-function dbConfigured() { return Boolean(process.env.SUPABASE_URL && dbKey()); }
+
+function digest(value) {
+  return crypto.createHmac('sha256', appSecret()).update(value).digest('hex');
+}
+
+function dbKey() {
+  return process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+}
+
+function dbConfigured() {
+  return Boolean(process.env.SUPABASE_URL && dbKey());
+}
+
+function pushConfigured() {
+  return dbConfigured() && Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+}
 
 async function dbRequest(resource, { method = 'GET', body, prefer } = {}) {
   if (!dbConfigured()) throw new Error('database_not_configured');
@@ -86,122 +102,146 @@ async function dbRequest(resource, { method = 'GET', body, prefer } = {}) {
 
 function madridDateTime(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: madridTimeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: madridTimeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return { date: `${values.year}-${values.month}-${values.day}`, time: `${values.hour}:${values.minute}` };
 }
 
-async function sendWhatsAppTemplate(recipient, templateName, parameters = []) {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const languageCode = process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'es';
-  const apiVersion = process.env.WHATSAPP_API_VERSION || 'v23.0';
-  if (!token || !phoneNumberId || !templateName) throw new Error('whatsapp_not_configured');
-  const template = { name: templateName, language: { code: languageCode } };
-  if (parameters.length) {
-    template.components = [{ type: 'body', parameters: parameters.map((text) => ({ type: 'text', text: String(text) })) }];
-  }
-  const response = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: recipient.replace('+', ''), type: 'template', template })
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    console.error('[CitaNIE] WhatsApp request failed:', response.status, payload?.error?.message || 'unknown');
-    throw new Error('whatsapp_request_failed');
-  }
-  return payload?.messages?.[0]?.id || null;
+function validPushSubscription(subscription) {
+  return Boolean(
+    subscription &&
+    typeof subscription.endpoint === 'string' &&
+    subscription.endpoint.startsWith('https://') &&
+    subscription.keys &&
+    typeof subscription.keys.p256dh === 'string' &&
+    typeof subscription.keys.auth === 'string'
+  );
 }
 
-async function beginSubscription(req, res) {
-  if (!dbConfigured()) return json(res, 503, { error: 'service_not_configured' });
+function packPushSubscription(subscription) {
+  return `push:${Buffer.from(JSON.stringify(subscription), 'utf8').toString('base64url')}`;
+}
+
+function unpackPushSubscription(value) {
+  const stored = String(value || '');
+  if (!stored.startsWith('push:')) return null;
+  try {
+    const subscription = JSON.parse(Buffer.from(stored.slice(5), 'base64url').toString('utf8'));
+    return validPushSubscription(subscription) ? subscription : null;
+  } catch {
+    return null;
+  }
+}
+
+function serviceLabel(serviceKey) {
+  const labels = {
+    nie_new: 'Sacar NIE',
+    nie_renew: 'Renovar documentación NIE/TIE',
+    lost: 'NIE/TIE perdido',
+    tie_fingerprint: 'Toma de huellas TIE',
+    tie_renew: 'Renovar TIE',
+    tie_duplicate: 'Duplicado TIE'
+  };
+  return labels[serviceKey] || 'tu trámite NIE/TIE';
+}
+
+async function sendPush(subscription, payload) {
+  if (!pushConfigured()) throw new Error('push_not_configured');
+  return webpush.sendNotification(subscription, JSON.stringify(payload), {
+    TTL: 120,
+    urgency: 'high'
+  });
+}
+
+async function beginPushSubscription(req, res) {
+  if (!pushConfigured()) return json(res, 503, { error: 'push_not_configured' });
   const body = await readJson(req);
   if (body.consent !== true) return json(res, 400, { error: 'consent_required' });
-  const phone = normalizePhone(body.phone);
+  if (!validPushSubscription(body.subscription)) return json(res, 400, { error: 'invalid_push_subscription' });
+  if (rateLimited(`push-start:${clientIp(req)}`, 8, 15 * 60_000)) return json(res, 429, { error: 'too_many_requests' });
+
   const allowedServices = new Set(['nie_new', 'nie_renew', 'lost', 'tie_fingerprint', 'tie_renew', 'tie_duplicate']);
   const serviceKey = allowedServices.has(body.serviceKey) ? body.serviceKey : 'tie_fingerprint';
-  if (rateLimited(`start:${clientIp(req)}:${phone}`, 3, 15 * 60_000)) return json(res, 429, { error: 'too_many_requests' });
-  const code = String(crypto.randomInt(100000, 1_000_000));
+  const accessToken = crypto.randomBytes(32).toString('base64url');
   const now = new Date();
+  const packedSubscription = packPushSubscription(body.subscription);
+
   await dbRequest('subscriptions?on_conflict=phone', {
-    method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
+    method: 'POST',
+    prefer: 'resolution=merge-duplicates,return=minimal',
     body: {
-      phone, service_key: serviceKey, consent_at: now.toISOString(),
-      otp_hash: digest(`${phone}:${code}`),
-      otp_expires_at: new Date(now.getTime() + 10 * 60_000).toISOString(),
+      phone: packedSubscription,
+      service_key: serviceKey,
+      consent_at: now.toISOString(),
+      active: true,
+      verified_at: now.toISOString(),
+      access_token_hash: digest(accessToken),
+      otp_hash: null,
+      otp_expires_at: null,
       otp_attempts: 0,
       subscription_expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60_000).toISOString(),
-      active: false, updated_at: now.toISOString()
+      updated_at: now.toISOString()
     }
   });
-  try {
-    await sendWhatsAppTemplate(phone, process.env.WHATSAPP_VERIFY_TEMPLATE_NAME, [code]);
-  } catch (error) {
-    if (error.message === 'whatsapp_not_configured') return json(res, 503, { error: 'whatsapp_not_configured' });
-    throw error;
-  }
-  return json(res, 200, { ok: true, phone: maskPhone(phone), expiresInMinutes: 10 });
-}
 
-async function verifySubscription(req, res) {
-  const body = await readJson(req);
-  const phone = normalizePhone(body.phone);
-  const code = String(body.code || '').trim();
-  if (!/^\d{6}$/.test(code)) return json(res, 400, { error: 'invalid_code' });
-  if (rateLimited(`verify:${clientIp(req)}:${phone}`, 6, 15 * 60_000)) return json(res, 429, { error: 'too_many_requests' });
-  const rows = await dbRequest(`subscriptions?phone=eq.${encodeURIComponent(phone)}&select=*`);
-  const record = rows?.[0];
-  if (!record || record.otp_attempts >= 6 || !record.otp_expires_at || new Date(record.otp_expires_at).getTime() < Date.now()) {
-    return json(res, 400, { error: 'code_expired' });
-  }
-  const received = Buffer.from(record.otp_hash || '');
-  const expected = Buffer.from(digest(`${phone}:${code}`));
-  if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
-    await dbRequest(`subscriptions?id=eq.${record.id}`, {
-      method: 'PATCH', prefer: 'return=minimal',
-      body: { otp_attempts: record.otp_attempts + 1, updated_at: new Date().toISOString() }
-    });
-    return json(res, 400, { error: 'invalid_code' });
-  }
-  const accessToken = crypto.randomBytes(32).toString('base64url');
-  await dbRequest(`subscriptions?id=eq.${record.id}`, {
-    method: 'PATCH', prefer: 'return=minimal',
-    body: {
-      active: true, verified_at: new Date().toISOString(), access_token_hash: digest(accessToken),
-      otp_hash: null, otp_expires_at: null, otp_attempts: 0, updated_at: new Date().toISOString()
-    }
-  });
-  return json(res, 200, { ok: true, accessToken });
+  return json(res, 200, { ok: true, accessToken, expiresInDays: 30 });
 }
 
 function bearerToken(req) {
   const value = String(req.headers.authorization || '');
   return value.startsWith('Bearer ') ? value.slice(7).trim() : '';
 }
+
 async function authenticatedSubscription(req) {
   const token = bearerToken(req);
   if (!token) return null;
   const rows = await dbRequest(`subscriptions?access_token_hash=eq.${digest(token)}&select=*`);
   return rows?.[0] || null;
 }
+
 async function getSubscription(req, res) {
   const record = await authenticatedSubscription(req);
   if (!record) return json(res, 401, { error: 'unauthorized' });
   const expired = new Date(record.subscription_expires_at).getTime() <= Date.now();
   return json(res, 200, {
-    active: record.active && !expired, phone: maskPhone(record.phone), serviceKey: record.service_key,
-    verifiedAt: record.verified_at, expiresAt: record.subscription_expires_at,
-    checks: record.check_count || 0, lastAlertAt: record.last_alert_at, lastResult
+    active: Boolean(record.active) && !expired,
+    channel: 'push',
+    serviceKey: record.service_key,
+    verifiedAt: record.verified_at,
+    expiresAt: record.subscription_expires_at,
+    checks: record.check_count || 0,
+    lastAlertAt: record.last_alert_at,
+    lastResult
   });
 }
+
 async function deleteSubscription(req, res) {
   const record = await authenticatedSubscription(req);
   if (!record) return json(res, 401, { error: 'unauthorized' });
   await dbRequest(`subscriptions?id=eq.${record.id}`, { method: 'DELETE', prefer: 'return=minimal' });
   return json(res, 200, { ok: true });
+}
+
+async function testPush(req, res) {
+  const record = await authenticatedSubscription(req);
+  if (!record) return json(res, 401, { error: 'unauthorized' });
+  const subscription = unpackPushSubscription(record.phone);
+  if (!subscription) return json(res, 400, { error: 'push_subscription_missing' });
+  try {
+    await sendPush(subscription, {
+      title: 'CitaNIE activado ✓',
+      body: 'Las alertas push están listas. Te avisaremos cuando detectemos un cambio relevante.',
+      tag: 'citanie-test',
+      url: '/'
+    });
+    return json(res, 200, { ok: true });
+  } catch (error) {
+    console.error('[CitaNIE] Test push failed:', error.statusCode || '', error.message);
+    return json(res, 502, { error: 'push_send_failed' });
+  }
 }
 
 async function activeSubscribers() {
@@ -214,6 +254,7 @@ async function recordChecks() {
   const rows = await activeSubscribers();
   const now = new Date().toISOString();
   for (const subscriber of rows || []) {
+    if (!unpackPushSubscription(subscriber.phone)) continue;
     await dbRequest(`subscriptions?id=eq.${subscriber.id}`, {
       method: 'PATCH', prefer: 'return=minimal',
       body: { check_count: (subscriber.check_count || 0) + 1, updated_at: now }
@@ -222,46 +263,101 @@ async function recordChecks() {
 }
 
 async function notifySubscribers(result) {
-  if (!dbConfigured()) {
-    lastAlert = { ok: false, skipped: true, at: new Date().toISOString(), error: 'database_not_configured' };
+  if (!pushConfigured()) {
+    lastAlert = { ok: false, skipped: true, at: new Date().toISOString(), error: 'push_not_configured' };
     return;
   }
+
   const now = new Date();
   const alertKey = `${madridDateTime(now).date}:${result.state}`;
   const rows = await activeSubscribers();
   let sent = 0;
   let failed = 0;
+  let skipped = 0;
+  const seenEndpoints = new Set();
+
   for (const subscriber of rows || []) {
-    if (subscriber.last_alert_key === alertKey) continue;
+    const subscription = unpackPushSubscription(subscriber.phone);
+    if (!subscription || seenEndpoints.has(subscription.endpoint) || subscriber.last_alert_key === alertKey) {
+      skipped += 1;
+      continue;
+    }
+    seenEndpoints.add(subscription.endpoint);
+
+    const label = serviceLabel(subscriber.service_key);
+    const isAvailable = result.state === 'AVAILABILITY_DETECTED';
+    const payload = isAvailable
+      ? {
+          title: '¡Posible cita disponible!',
+          body: `Hemos detectado un cambio relevante para ${label}. Entra ahora para revisar el portal oficial.`,
+          tag: `citanie-${alertKey}`,
+          url: '/?alert=availability'
+        }
+      : {
+          title: 'CitaNIE necesita tu atención',
+          body: `El portal requiere intervención humana para ${label}. Abre la app para continuar.`,
+          tag: `citanie-${alertKey}`,
+          url: '/?alert=human'
+        };
+
     try {
-      await sendWhatsAppTemplate(subscriber.phone, process.env.WHATSAPP_ALERT_TEMPLATE_NAME, [subscriber.service_key, result.state]);
+      await sendPush(subscription, payload);
       sent += 1;
       await dbRequest(`subscriptions?id=eq.${subscriber.id}`, {
         method: 'PATCH', prefer: 'return=minimal',
         body: { last_alert_at: now.toISOString(), last_alert_key: alertKey, updated_at: now.toISOString() }
       });
-    } catch { failed += 1; }
+    } catch (error) {
+      failed += 1;
+      console.error('[CitaNIE] Push failed:', error.statusCode || '', error.message);
+      if ([404, 410].includes(Number(error.statusCode))) {
+        await dbRequest(`subscriptions?id=eq.${subscriber.id}`, {
+          method: 'PATCH', prefer: 'return=minimal',
+          body: { active: false, updated_at: now.toISOString() }
+        }).catch(() => {});
+      }
+    }
   }
-  lastAlert = { ok: failed === 0, skipped: false, at: now.toISOString(), recipients: rows?.length || 0, sent, failed };
+
+  lastAlert = {
+    ok: failed === 0,
+    skipped: false,
+    at: now.toISOString(),
+    recipients: rows?.length || 0,
+    sent,
+    failed,
+    ignored: skipped
+  };
 }
 
 async function runMonitor(trigger = 'manual') {
   if (running) return { status: 409, payload: { error: 'check_already_running' } };
   running = true;
   try {
-    try { lastResult = await checkMadridTieAvailability({ safeMode: true }); }
-    catch (error) {
-      lastResult = { ok: false, state: 'ERROR', startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), message: error?.message || String(error) };
+    try {
+      lastResult = await checkMadridTieAvailability({ safeMode: true });
+    } catch (error) {
+      lastResult = {
+        ok: false,
+        state: 'ERROR',
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        message: error?.message || String(error)
+      };
     }
     lastResult.trigger = trigger;
     try {
       await recordChecks();
-      if (['HUMAN_GATE', 'AVAILABILITY_DETECTED'].includes(lastResult.state)) await notifySubscribers(lastResult);
+      if (['HUMAN_GATE', 'AVAILABILITY_DETECTED'].includes(lastResult.state)) {
+        await notifySubscribers(lastResult);
+      }
     } catch (error) {
       lastAlert = { ok: false, skipped: false, at: new Date().toISOString(), error: error?.message || String(error) };
     }
     return { status: 200, payload: { ...lastResult, alert: lastAlert } };
-  } finally { running = false; }
+  } finally {
+    running = false;
+  }
 }
 
 async function schedulerTick() {
@@ -270,7 +366,9 @@ async function schedulerTick() {
   const slot = `${now.date}T${now.time}`;
   if (!scheduledTimes.has(now.time) || completedScheduleSlots.has(slot)) return;
   completedScheduleSlots.add(slot);
-  for (const completed of completedScheduleSlots) if (!completed.startsWith(now.date)) completedScheduleSlots.delete(completed);
+  for (const completed of completedScheduleSlots) {
+    if (!completed.startsWith(now.date)) completedScheduleSlots.delete(completed);
+  }
   console.log(`[CitaNIE] Scheduled check started for ${slot} ${madridTimeZone}`);
   const outcome = await runMonitor(`schedule:${slot}`);
   console.log(`[CitaNIE] Scheduled check finished with ${outcome.payload.state || outcome.payload.error}`);
@@ -278,9 +376,32 @@ async function schedulerTick() {
 
 function publicConfig() {
   return {
-    subscriptionsReady: dbConfigured() && Boolean(process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_VERIFY_TEMPLATE_NAME),
-    scheduledTimes: [...scheduledTimes], timeZone: madridTimeZone
+    subscriptionsReady: pushConfigured(),
+    pushReady: pushConfigured(),
+    vapidPublicKey: VAPID_PUBLIC_KEY || null,
+    scheduledTimes: [...scheduledTimes],
+    timeZone: madridTimeZone
   };
+}
+
+const staticFiles = new Map([
+  ['/manifest.webmanifest', { file: 'manifest.webmanifest', type: 'application/manifest+json; charset=utf-8', cache: 'public, max-age=3600' }],
+  ['/sw.js', { file: 'sw.js', type: 'application/javascript; charset=utf-8', cache: 'no-cache' }],
+  ['/icon.svg', { file: 'icon.svg', type: 'image/svg+xml; charset=utf-8', cache: 'public, max-age=86400' }]
+]);
+
+async function serveStatic(urlPath, res) {
+  const item = staticFiles.get(urlPath);
+  if (!item) return false;
+  const content = await fs.readFile(path.join(__dirname, item.file));
+  res.writeHead(200, {
+    'content-type': item.type,
+    'cache-control': item.cache,
+    'x-content-type-options': 'nosniff',
+    ...(urlPath === '/sw.js' ? { 'service-worker-allowed': '/' } : {})
+  });
+  res.end(content);
+  return true;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -289,8 +410,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/health') return json(res, 200, { ok: true, running, lastState: lastResult?.state || null, ...publicConfig() });
     if (url.pathname === '/api/config') return json(res, 200, publicConfig());
     if (url.pathname === '/api/status') return json(res, 200, { running, lastResult, lastAlert, ...publicConfig() });
-    if (url.pathname === '/api/subscriptions/start' && req.method === 'POST') return await beginSubscription(req, res);
-    if (url.pathname === '/api/subscriptions/verify' && req.method === 'POST') return await verifySubscription(req, res);
+    if (url.pathname === '/api/push/subscribe' && req.method === 'POST') return await beginPushSubscription(req, res);
+    if (url.pathname === '/api/push/test' && req.method === 'POST') return await testPush(req, res);
     if (url.pathname === '/api/subscription' && req.method === 'GET') return await getSubscription(req, res);
     if (url.pathname === '/api/subscription' && req.method === 'DELETE') return await deleteSubscription(req, res);
     if (url.pathname === '/api/check/tie' && req.method === 'POST') {
@@ -299,14 +420,22 @@ const server = http.createServer(async (req, res) => {
       const outcome = await runMonitor('manual');
       return json(res, outcome.status, outcome.payload);
     }
+    if (req.method === 'GET' && await serveStatic(url.pathname, res)) return;
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       const html = await fs.readFile(path.join(__dirname, 'index.html'), 'utf8');
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff'
+      });
       return res.end(html);
     }
     return json(res, 404, { error: 'not_found' });
   } catch (error) {
-    const known = new Set(['invalid_json', 'payload_too_large', 'invalid_phone']);
+    const known = new Set([
+      'invalid_json', 'payload_too_large', 'invalid_push_subscription',
+      'consent_required', 'too_many_requests'
+    ]);
     const status = known.has(error.message) ? 400 : 500;
     console.error('[CitaNIE] Request error:', error.message);
     return json(res, status, { error: status === 500 ? 'internal_error' : error.message });
@@ -316,5 +445,6 @@ const server = http.createServer(async (req, res) => {
 setInterval(() => schedulerTick().catch((error) => console.error('[CitaNIE] Scheduler error:', error)), 15_000);
 server.listen(port, '0.0.0.0', () => {
   console.log(`CitaNIE Madrid listening on :${port}`);
+  console.log(`[CitaNIE] Push notifications: ${pushConfigured() ? 'ready' : 'not configured'}`);
   console.log(`[CitaNIE] Schedule enabled for ${[...scheduledTimes].join(', ')} ${madridTimeZone}`);
 });
