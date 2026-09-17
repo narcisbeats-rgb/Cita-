@@ -1,0 +1,57 @@
+name: Check Madrid TIE availability
+
+on:
+  schedule:
+    # GitHub cron uses UTC. The time gate below keeps these at
+    # 09:00, 10:00 and 11:00 Europe/Madrid through DST changes.
+    - cron: '0 7-10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-madrid-tie
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check Madrid time
+        id: madrid_time
+        shell: bash
+        run: |
+          hour="$(TZ=Europe/Madrid date +%H)"
+          if [[ "$hour" == "09" || "$hour" == "10" || "$hour" == "11" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out repository
+        if: steps.madrid_time.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        if: steps.madrid_time.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.madrid_time.outputs.run == 'true'
+        run: npm ci
+
+      - name: Install Chromium
+        if: steps.madrid_time.outputs.run == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run safe TIE check
+        if: steps.madrid_time.outputs.run == 'true'
+        env:
+          SAFE_MODE: 'true'
+          HEADLESS: 'true'
+        run: npm run check:tie
