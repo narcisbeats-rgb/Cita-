@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-export const ICP_URL = 'https://sede.administracionespublicas.gob.es/icpplustiej/citar?i=es';
+export const ICP_URL = 'https://icp.administracionelectronica.gob.es/icpplus/index.html';
 
 const HUMAN_GATE_PATTERNS = [
   /captcha/i,
@@ -196,7 +196,8 @@ async function clickContinue(page) {
   const candidates = [
     page.getByRole('button', { name: /aceptar|continuar|entrar|siguiente/i }),
     page.getByRole('link', { name: /aceptar|continuar|entrar|siguiente/i }),
-    page.locator('input[type="submit"]')
+    page.locator('input[type="submit"]'),
+    page.locator('input[type="button"][value*="Aceptar" i], input[type="button"][value*="Continuar" i]')
   ];
 
   for (const locator of candidates) {
