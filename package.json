@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "prestart": "npm run check",
-    "start": "node --import ./runtime-upgrade.js --import ./runtime-patch.js gateway.js",
+    "start": "node --import ./runtime-patch.js --import ./runtime-upgrade.js gateway.js",
     "check:tie": "node scripts/check-tie.js",
     "check": "node --check runtime-upgrade.js && node --check runtime-patch.js && node --check gateway.js && node --check profile-ui.js && node --check server.js && node --check src/icpplus.js && node --check scripts/check-tie.js && node --check sw.js"
   },
