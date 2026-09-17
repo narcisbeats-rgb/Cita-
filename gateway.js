@@ -4,9 +4,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkMadridTieAvailability, assistedServiceSupported } from './src/icpplus.js';
+import { assistedServiceSupported } from './src/icpplus.js';
 import {
-  startBrowserHandoff, browserHandoffStatus, browserHandoffFrame,
+  attemptWithBrowserHandoff, browserHandoffStatus, browserHandoffFrame,
   browserHandoffInput, stopBrowserHandoff, stopAllBrowserHandoffs
 } from './lib/handoff-browser.js';
 
@@ -242,21 +242,12 @@ async function handleAttempt(req, res) {
   }
 
   const client = clientFromProfile(profile);
-  const result = await checkMadridTieAvailability({
-    safeMode: false,
+  const result = await attemptWithBrowserHandoff({
+    ownerId: record.id,
     serviceKey: record.service_key,
     client,
     timeoutMs: 45_000
   });
-
-  let handoff = null;
-  if (result.state === 'HUMAN_GATE' || result.state === 'READY_FOR_HUMAN_CONTINUE') {
-    try {
-      handoff = await startBrowserHandoff({ ownerId: record.id, serviceKey: record.service_key, client });
-    } catch (error) {
-      console.error('[CitaNIE Handoff] Could not start:', error.message);
-    }
-  }
 
   return json(res, 200, {
     ok: result.ok,
@@ -267,7 +258,7 @@ async function handleAttempt(req, res) {
     procedure: result.procedure,
     url: result.url,
     filledFields: result.filledFields || [],
-    handoff
+    handoff: result.handoff || null
   });
 }
 
