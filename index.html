@@ -1,124 +1,329 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0d12" />
-  <meta name="description" content="Detector de Citas para trámites NIE/TIE en Madrid con avisos por SMS." />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Detector de Citas" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d12">
+  <meta name="description" content="Detector de Citas para tramites NIE/TIE en Madrid con avisos por SMS.">
   <title>Detector de Citas Madrid</title>
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <style>
     :root{--bg:#0b0d12;--card:#121722;--card2:#171e2b;--text:#f7f8fb;--muted:#9ca7b8;--line:#263044;--accent:#f3c94b;--ok:#32d583;--danger:#f04438}
-    *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#172033 0,#0b0d12 42%);color:var(--text);min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
-    button,input,select{font:inherit}.wrap{max-width:980px;margin:0 auto;padding:22px 18px 70px}.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}.brand{font-weight:800;letter-spacing:-.6px;font-size:19px}.brand span{color:var(--accent)}.pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:13px}
-    .hero{text-align:center;padding:22px 0 28px}.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border-radius:999px;background:#1a2230;border:1px solid var(--line);color:#cbd3df;font-size:13px}.dot{width:8px;height:8px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 4px #32d58320}.hero h1{font-size:clamp(38px,8vw,68px);line-height:.98;margin:18px auto 16px;letter-spacing:-2.6px;max-width:850px}.hero p{max-width:760px;margin:0 auto;color:var(--muted);font-size:18px;line-height:1.55}
-    .how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:760px;margin:22px auto 0;text-align:left}.how div{background:#101620;border:1px solid var(--line);border-radius:16px;padding:13px}.how b{display:block;font-size:13px;margin-bottom:5px}.how span{color:var(--muted);font-size:12px;line-height:1.4}
-    .shell{background:linear-gradient(180deg,#141a25,#0f141e);border:1px solid var(--line);border-radius:28px;padding:20px;box-shadow:0 20px 70px #0007}.stephead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.stephead small{color:var(--muted)}.progress{height:6px;background:#202838;border-radius:99px;overflow:hidden;margin-bottom:24px}.progress i{display:block;height:100%;width:25%;background:var(--accent);transition:.25s}
-    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.choice{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:var(--text);transition:.15s;min-height:116px}.choice:hover,.choice.active{transform:translateY(-2px);border-color:#725f22;background:#1b2130}.choice b{display:block;font-size:17px;margin-bottom:7px}.choice span{color:var(--muted);font-size:13px;line-height:1.45}.choice .ico{font-size:23px;margin-bottom:12px;display:block}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:15px}.field label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.field input,.field select{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);outline:none}.field input:focus,.field select:focus{border-color:#725f22}.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.btn.secondary{background:#1b2230;color:#dce2ea}.btn.primary{background:var(--accent);color:#16130b}.hidden{display:none!important}
-    .mapping{background:#0e141d;border:1px solid var(--line);padding:16px;border-radius:16px;margin:15px 0}.mapping strong{display:block;margin-bottom:5px}.mapping p{color:var(--muted);margin:0;font-size:14px;line-height:1.5}.tag{display:inline-flex;padding:5px 9px;border:1px solid #3a455c;border-radius:999px;font-size:12px;color:#c7d0dd;margin-top:10px}
-    .notice{margin-top:15px;padding:14px;border-radius:14px;background:#1a1609;border:1px solid #5a4918;color:#e9d992;font-size:13px;line-height:1.5}.consent{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px}.consent input{margin-top:3px}.formmsg{min-height:22px;margin-top:10px;color:#fca5a5;font-size:13px}.formmsg.ok{color:#9be7bd}
-    .smsbox{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;padding:17px;background:#0e141d;border:1px solid var(--line);border-radius:18px}.smsicon{width:64px;height:64px;border-radius:18px;background:#f3c94b;color:#16130b;display:grid;place-items:center;font-size:30px}.smsbox h3{margin:0 0 6px;font-size:18px}.smsbox p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}.phonebox{margin-top:16px}.phonebox label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.phonebox input{width:100%;padding:15px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);outline:none;font-size:18px}.phonebox input:focus{border-color:#725f22}
-    .dash{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}.panel{background:#101620;border:1px solid var(--line);border-radius:20px;padding:18px}.statusline{display:flex;gap:11px;align-items:center;margin-bottom:14px}.statusdot{width:12px;height:12px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 6px #32d58317}.big{font-size:28px;font-weight:800;letter-spacing:-1px}.muted{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.kpi{background:#0d131c;border:1px solid #20293a;border-radius:15px;padding:13px}.kpi b{display:block;font-size:18px}.kpi small{color:var(--muted)}.alert{padding:14px;border-radius:14px;background:#10261c;border:1px solid #205b3c;margin-top:15px;color:#b7efcf}.human{padding:14px;border-radius:14px;background:#281c0d;border:1px solid #704713;margin-top:12px;color:#f3d19a}.dangerbtn{background:#35171a!important;color:#fecaca!important}.footer{margin-top:28px;text-align:center;color:#6f7b8c;font-size:12px;line-height:1.6}
-    @media(max-width:700px){.wrap{padding:16px 13px 54px}.grid,.row,.dash,.how{grid-template-columns:1fr}.hero{padding-top:8px}.hero h1{font-size:43px}.hero p{font-size:16px}.shell{padding:15px;border-radius:22px}.kpis{grid-template-columns:1fr 1fr 1fr}.nav .pill{display:none}.smsbox{grid-template-columns:54px 1fr}.smsicon{width:54px;height:54px;border-radius:15px}.actions .btn{flex:1;min-width:130px}}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#172033 0,#0b0d12 42%);color:var(--text);min-height:100vh}
+    button,input,select{font:inherit}.wrap{max-width:980px;margin:0 auto;padding:20px 16px 70px}.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.brand{font-weight:800;font-size:20px}.brand span{color:var(--accent)}.pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:13px}
+    .hero{text-align:center;padding:12px 0 28px}.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border-radius:999px;background:#1a2230;border:1px solid var(--line);color:#cbd3df;font-size:13px}.dot{width:8px;height:8px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 4px #32d58320}.hero h1{font-size:clamp(38px,8vw,68px);line-height:1;margin:16px auto 14px;letter-spacing:-2px;max-width:820px}.hero p{max-width:760px;margin:0 auto;color:var(--muted);font-size:17px;line-height:1.55}
+    .shell{background:linear-gradient(180deg,#141a25,#0f141e);border:1px solid var(--line);border-radius:26px;padding:20px;box-shadow:0 20px 70px #0007}.stephead{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:14px}.stephead small{color:var(--muted)}.progress{height:6px;background:#202838;border-radius:99px;overflow:hidden;margin-bottom:22px}.progress i{display:block;height:100%;width:25%;background:var(--accent);transition:.2s}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.choice{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:17px;text-align:left;cursor:pointer;color:var(--text);min-height:112px}.choice.active{border-color:#8c7429;background:#1b2130}.choice b{display:block;font-size:17px;margin:7px 0}.choice span{color:var(--muted);font-size:13px;line-height:1.45}.ico{font-size:23px}
+    .field{margin:14px 0}.field label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.field input,.field select{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);outline:none}.mapping,.notice{padding:14px;border-radius:14px;border:1px solid var(--line);background:#0e141d;color:#c9d2df;line-height:1.5}.notice{background:#1a1609;border-color:#5a4918;color:#e9d992}.bad{background:#281414;border-color:#703030;color:#fecaca}.hidden{display:none!important}.actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:750;cursor:pointer}.btn.primary{background:var(--accent);color:#17130a}.btn.secondary{background:#1b2230;color:#dce2ea}.btn.danger{background:#35171a;color:#fecaca}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .consent{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5;margin-top:15px}.consent input{margin-top:3px}.formmsg{min-height:22px;margin-top:10px;color:#fca5a5;font-size:13px}.formmsg.ok{color:#9be7bd}
+    .dash{display:grid;grid-template-columns:1.35fr .85fr;gap:14px}.panel{background:#101620;border:1px solid var(--line);border-radius:20px;padding:18px}.statusline{display:flex;gap:11px;align-items:center}.statusdot{width:12px;height:12px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 6px #32d58317}.statusdot.pending{background:#f3c94b;box-shadow:0 0 0 6px #f3c94b18}.big{font-size:27px;font-weight:800;margin:14px 0 6px}.muted{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}.kpi{background:#0d131c;border:1px solid #20293a;border-radius:15px;padding:12px}.kpi b{display:block;font-size:18px;overflow-wrap:anywhere}.kpi small{color:var(--muted)}.alert{padding:14px;border-radius:14px;background:#10261c;border:1px solid #205b3c;margin-top:15px;color:#b7efcf}.human{padding:14px;border-radius:14px;background:#281c0d;border:1px solid #704713;margin-top:12px;color:#f3d19a}.meta{display:grid;gap:10px;margin-top:14px}.meta div{display:flex;justify-content:space-between;gap:16px;padding-bottom:9px;border-bottom:1px solid #20293a;font-size:13px}.meta span{color:var(--muted);text-align:right}
+    .footer{margin-top:26px;text-align:center;color:#6f7b8c;font-size:12px;line-height:1.6}
+    @media(max-width:700px){.grid,.dash{grid-template-columns:1fr}.wrap{padding:14px 12px 50px}.hero h1{font-size:43px}.pill{display:none}.shell{padding:15px;border-radius:22px}.kpis{grid-template-columns:1fr 1fr 1fr}.actions .btn{flex:1}}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="nav"><div class="brand">Detector de <span>Citas</span></div><div class="pill">Avisos por SMS · Madrid</div></div>
+  <div class="nav"><div class="brand">Detector de <span>Citas</span></div><div class="pill">SMS · Madrid</div></div>
   <section class="hero">
-    <div class="eyebrow"><span class="dot"></span> Monitorización automática de citas</div>
+    <div class="eyebrow"><span class="dot"></span> Monitorizacion automatica</div>
     <h1>Detectamos citas disponibles por ti.</h1>
-    <p>Selecciona tu trámite NIE/TIE, guarda tus datos una sola vez y nosotros revisamos periódicamente el portal oficial. Si detectamos disponibilidad o el portal necesita que intervengas, te enviamos un SMS. No necesitas instalar ninguna app ni dejar esta página abierta.</p>
-    <div class="how">
-      <div><b>1. Eliges el trámite</b><span>Te guiamos para evitar seleccionar una cita incorrecta.</span></div>
-      <div><b>2. Guardas tus datos</b><span>Los conservamos cifrados para agilizar el formulario cuando sea posible.</span></div>
-      <div><b>3. Te avisamos por SMS</b><span>Recibes el aviso directamente en tu móvil cuando hay un cambio relevante.</span></div>
-    </div>
+    <p>Elige tu tramite, deja tu telefono y revisamos el portal oficial de Madrid. Si detectamos disponibilidad, recibes un SMS y puedes entrar directamente para continuar.</p>
   </section>
+
   <main class="shell">
-    <div id="wizard">
-      <div class="stephead"><b id="stepTitle">¿Qué necesitas?</b><small id="stepCounter">Paso 1 de 4</small></div>
-      <div class="progress"><i id="bar"></i></div>
-      <section id="s1">
-        <div class="grid" id="choices">
-          <button class="choice" data-key="nie_new"><span class="ico">🪪</span><b>Sacar NIE</b><span>Primera asignación de NIE / certificado.</span></button>
-          <button class="choice" data-key="nie_renew"><span class="ico">↻</span><b>Renovar NIE</b><span>Te ayudamos a identificar qué documento necesitas renovar realmente.</span></button>
-          <button class="choice" data-key="lost"><span class="ico">⚠️</span><b>He perdido mi NIE/TIE</b><span>Pérdida, robo, deterioro o documento inutilizable.</span></button>
-          <button class="choice" data-key="tie_fingerprint"><span class="ico">☝️</span><b>Toma de huellas TIE</b><span>Expedición de tarjeta tras resolución favorable.</span></button>
-          <button class="choice" data-key="tie_renew"><span class="ico">📅</span><b>Renovar TIE</b><span>Renovación o larga duración cuando corresponda.</span></button>
-          <button class="choice" data-key="tie_duplicate"><span class="ico">📄</span><b>Duplicado TIE</b><span>Duplicado por pérdida, robo o deterioro.</span></button>
+    <div class="stephead"><b id="stepTitle">¿Que necesitas?</b><small id="stepCounter">Paso 1 de 4</small></div>
+    <div class="progress"><i id="bar"></i></div>
+
+    <section id="s1">
+      <div class="grid" id="choices">
+        <button class="choice" data-key="nie_new"><span class="ico">🪪</span><b>Sacar NIE</b><span>Primera asignacion de NIE / certificado.</span></button>
+        <button class="choice" data-key="nie_renew"><span class="ico">↻</span><b>Renovar NIE</b><span>Primero identificamos que documento necesitas renovar realmente.</span></button>
+        <button class="choice" data-key="lost"><span class="ico">⚠️</span><b>He perdido mi NIE/TIE</b><span>Perdida, robo o documento inutilizable.</span></button>
+        <button class="choice" data-key="tie_fingerprint"><span class="ico">☝️</span><b>Toma de huellas TIE</b><span>Expedicion de tarjeta tras resolucion favorable.</span></button>
+        <button class="choice" data-key="tie_renew"><span class="ico">📅</span><b>Renovar TIE</b><span>Renovacion o larga duracion cuando corresponda.</span></button>
+        <button class="choice" data-key="tie_duplicate"><span class="ico">📄</span><b>Duplicado TIE</b><span>Duplicado por perdida, robo o deterioro.</span></button>
+      </div>
+      <div class="actions"><button class="btn primary" id="next1" disabled>Continuar</button></div>
+    </section>
+
+    <section id="s2" class="hidden">
+      <div id="mapping" class="mapping"></div>
+      <div id="renewBox" class="hidden">
+        <div class="field">
+          <label>Cuando dices "Renovar NIE", ¿que necesitas realmente?</label>
+          <select id="renewalKind">
+            <option value="">Selecciona una opcion</option>
+            <option value="tie_renew">Tengo TIE y quiero renovarla</option>
+            <option value="tie_duplicate">He perdido / me han robado la TIE y necesito duplicado</option>
+            <option value="tie_fingerprint">Tengo resolucion favorable y necesito mi primera TIE / huellas</option>
+            <option value="other">Certificado UE, residencia u otro documento</option>
+          </select>
         </div>
-        <div class="actions"><button class="btn primary" id="next1" disabled>Continuar</button></div>
-      </section>
-      <section id="s2" class="hidden">
-        <div id="mapping" class="mapping"></div>
-        <div class="row">
-          <div class="field"><label>Provincia</label><input value="Madrid" disabled /></div>
-          <div class="field"><label>¿Tienes NIE actualmente?</label><select id="hasNie"><option value="yes">Sí</option><option value="no">No</option></select></div>
-        </div>
-        <div class="field"><label>Situación</label><select id="situation"><option>Necesito una cita lo antes posible</option><option>Tengo resolución favorable</option><option>He perdido o me han robado el documento</option><option>Mi documento está deteriorado</option><option>No estoy seguro del trámite correcto</option></select></div>
-        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="next2">Continuar</button></div>
-      </section>
-      <section id="s3" class="hidden">
-        <div class="smsbox"><div class="smsicon">💬</div><div><h3>¿Dónde quieres recibir el aviso?</h3><p>Introduce tu número y te enviaremos un SMS cuando detectemos una posible cita o cuando el portal requiera tu intervención.</p></div></div>
-        <div class="phonebox"><label>Número de móvil</label><input id="smsPhone" inputmode="tel" autocomplete="tel" value="+34" placeholder="+34 600 000 000" /></div>
-        <label class="consent"><input id="consent" type="checkbox" /> <span>Acepto recibir SMS relacionados exclusivamente con la monitorización de este trámite durante 30 días. Puedo detener el servicio y borrar mis datos cuando quiera.</span></label>
-        <div class="notice">Tu número se utiliza para enviarte avisos del servicio. La cita oficial sigue siendo gratuita. No guardamos contraseñas, PIN de Cl@ve ni códigos SMS.</div>
-        <div class="formmsg" id="smsMsg"></div>
-        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="enableSms">Empezar monitorización</button></div>
-      </section>
-      <section id="s4" class="hidden">
-        <div class="dash">
-          <div class="panel">
-            <div class="statusline"><span class="statusdot"></span><div><b>Monitorización activa</b><div class="muted" style="font-size:13px">Madrid · 30 días</div></div></div>
-            <div class="big" id="dashService">NIE / TIE</div>
-            <p class="muted">Comprobamos periódicamente la disponibilidad. Cuando detectemos un cambio relevante, recibirás un SMS.</p>
-            <div class="kpis"><div class="kpi"><b id="checks">0</b><small>comprobaciones</small></div><div class="kpi"><b>30</b><small>días</small></div><div class="kpi"><b>Madrid</b><small>provincia</small></div></div>
-            <div class="alert" id="monitorMessage">✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.</div>
-            <div class="human"><b>Intervención humana:</b> si el portal solicita CAPTCHA, Cl@ve, un código SMS o confirmación personal, la automatización se detiene y te avisamos.</div>
+        <div id="renewHelp" class="notice">El numero NIE no caduca. Elegiremos el tramite real para evitar buscar una cita incorrecta.</div>
+      </div>
+      <div class="field"><label>Provincia</label><input value="Madrid" disabled></div>
+      <div class="actions"><button class="btn secondary back">Atras</button><button class="btn primary" id="next2">Continuar</button></div>
+    </section>
+
+    <section id="s3" class="hidden">
+      <div class="mapping"><b>Aviso por SMS</b><br><span class="muted">Te avisamos solo cuando haya disponibilidad o necesitemos que intervengas.</span></div>
+      <div class="field"><label>Numero de movil</label><input id="smsPhone" inputmode="tel" autocomplete="tel" value="+34" placeholder="+34 600 000 000"></div>
+      <label class="consent"><input id="consent" type="checkbox"> <span>Acepto recibir SMS relacionados con este servicio durante 30 dias y el tratamiento de mis datos para prestar el servicio.</span></label>
+      <div class="notice">No guardamos contraseñas, PIN de Cl@ve ni codigos SMS. La cita oficial sigue siendo gratuita.</div>
+      <div class="formmsg" id="smsMsg"></div>
+      <div class="actions"><button class="btn secondary back">Atras</button><button class="btn primary" id="enableSms">Activar monitorizacion</button></div>
+    </section>
+
+    <section id="s4" class="hidden">
+      <div class="dash">
+        <div class="panel">
+          <div class="statusline"><span id="statusDot" class="statusdot"></span><div><b id="statusTitle">Monitorizacion activa</b><div class="muted" style="font-size:13px">Madrid</div></div></div>
+          <div class="big" id="dashService">NIE / TIE</div>
+          <p class="muted" id="dashText">Comprobamos periodicamente la disponibilidad.</p>
+          <div class="kpis">
+            <div class="kpi"><b id="checks">0</b><small>comprobaciones</small></div>
+            <div class="kpi"><b id="lastCheck">—</b><small>ultima revision</small></div>
+            <div class="kpi"><b id="daysLeft">30</b><small>dias restantes</small></div>
           </div>
-          <div class="panel">
-            <b>Avisos</b><p class="muted" style="font-size:14px" id="smsTarget">📩 SMS activado</p><p class="muted" style="font-size:14px" id="lastAlert">Sin avisos enviados todavía</p>
-            <hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><b>Próxima comprobación</b><div class="big" style="font-size:22px;margin-top:8px">Programada</div>
-            <button class="btn secondary" style="width:100%;margin-top:18px" id="refreshStatus">Actualizar estado</button><button class="btn secondary dangerbtn" style="width:100%;margin-top:10px" id="unsubscribe">Detener y borrar mis datos</button>
+          <div class="alert" id="monitorMessage">Seguimos monitorizando.</div>
+          <div class="human"><b>Seguridad:</b> si aparece CAPTCHA, Cl@ve, SMS oficial o una comprobacion personal, la automatizacion se detiene para que continues tu.</div>
+        </div>
+        <div class="panel">
+          <b>Estado del aviso</b>
+          <div class="meta">
+            <div><b>Telefono</b><span id="dashPhone">—</span></div>
+            <div><b>SMS</b><span id="smsStatus">Sin alertas</span></div>
+            <div><b>Expira</b><span id="expiresAt">—</span></div>
+          </div>
+          <div class="actions" style="justify-content:stretch">
+            <button class="btn secondary" id="refreshDash">Actualizar</button>
+            <button class="btn secondary" id="testSms">Probar SMS</button>
+            <button class="btn danger" id="stop">Detener y borrar</button>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   </main>
-  <div class="footer">Detector de Citas monitoriza y avisa; no vende citas ni garantiza disponibilidad. Si el portal requiere CAPTCHA, Cl@ve, SMS o confirmación personal, la acción debe completarla una persona.</div>
+  <div class="footer">Detector de Citas es un servicio privado de monitorizacion y asistencia. No vende, reserva ni garantiza citas. Las citas oficiales son gratuitas.</div>
 </div>
+
 <script>
-const MAP={
-  nie_new:{label:'Sacar NIE',official:'Asignación de NIE / certificado correspondiente',desc:'Primera obtención del número NIE o certificado, según la situación del solicitante.'},
-  nie_renew:{label:'Renovar NIE',official:'Clasificación guiada del trámite',desc:'El NIE como número no caduca. Identificamos si necesitas renovar TIE, residencia o un certificado.'},
-  lost:{label:'He perdido mi NIE/TIE',official:'Duplicado / expedición según documento',desc:'Distinguimos entre pérdida de TIE, certificado u otro documento.'},
-  tie_fingerprint:{label:'Toma de huellas TIE',official:'Toma de huellas / expedición de tarjeta',desc:'Para expedición de la TIE cuando ya puedes solicitar la tarjeta.'},
-  tie_renew:{label:'Renovar TIE',official:'Renovación / expedición de TIE correspondiente',desc:'Monitorización del flujo de tarjeta adecuado.'},
-  tie_duplicate:{label:'Duplicado TIE',official:'Duplicado de TIE',desc:'Para pérdida, robo, deterioro o inutilización de la tarjeta.'}
-};
-const state={step:1,key:null};
-const qs=(s)=>document.querySelector(s),qsa=(s)=>[...document.querySelectorAll(s)];
-const errors={sms_not_configured:'El envío de SMS todavía no está conectado en el servidor.',invalid_phone:'Introduce un número de móvil válido. Puedes usar +34 para España.',consent_required:'Debes aceptar los avisos por SMS para continuar.',too_many_requests:'Demasiados intentos. Espera unos minutos.',sms_send_failed:'No pudimos enviar el SMS de prueba. Revisa el número e inténtalo de nuevo.',internal_error:'No se pudo completar. Inténtalo de nuevo.'};
-function show(n){state.step=n;for(let i=1;i<=4;i++)qs('#s'+i).classList.toggle('hidden',i!==n);qs('#stepCounter').textContent=`Paso ${n} de 4`;qs('#bar').style.width=(n*25)+'%';qs('#stepTitle').textContent=['','¿Qué necesitas?','Confirmamos el trámite','Tu número para los avisos','Monitorización'][n];}
-async function api(url,options={}){const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'internal_error');error.code=data.error;throw error}return data}
-function busy(button,on,label){button.disabled=on;if(label)button.textContent=label}
-qsa('.choice').forEach(b=>b.onclick=()=>{qsa('.choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.key=b.dataset.key;qs('#next1').disabled=false});
-qs('#next1').onclick=()=>{const m=MAP[state.key];qs('#mapping').innerHTML=`<strong>${m.official}</strong><p>${m.desc}</p><span class="tag">Madrid</span>`;show(2)};
-qs('#next2').onclick=()=>show(3);qsa('.back').forEach(b=>b.onclick=()=>show(Math.max(1,state.step-1)));
-qs('#enableSms').onclick=async()=>{const button=qs('#enableSms'),msg=qs('#smsMsg');msg.className='formmsg';msg.textContent='';if(!qs('#consent').checked){msg.textContent=errors.consent_required;return}const phone=qs('#smsPhone').value.trim();busy(button,true,'Configurando…');try{const config=await api('/api/config');if(!config.smsReady)throw Object.assign(new Error('sms_not_configured'),{code:'sms_not_configured'});const data=await api('/api/sms/subscribe',{method:'POST',body:JSON.stringify({phone,serviceKey:state.key,consent:true})});localStorage.setItem('citaNieAccessToken',data.accessToken);msg.className='formmsg ok';msg.textContent='Monitorización activada. Enviando un SMS de prueba…';await api('/api/sms/test',{method:'POST',headers:{authorization:`Bearer ${data.accessToken}`},body:'{}'});msg.textContent='✓ Listo. Revisa tu móvil: acabamos de enviar un SMS de prueba.';await loadDashboard()}catch(error){msg.textContent=errors[error.code]||errors.internal_error}finally{busy(button,false,'Empezar monitorización')}};
-async function loadDashboard(){const token=localStorage.getItem('citaNieAccessToken');if(!token)return;try{const data=await api('/api/subscription',{headers:{authorization:`Bearer ${token}`}});state.key=data.serviceKey;qs('#dashService').textContent=MAP[data.serviceKey]?.label||'NIE / TIE';qs('#checks').textContent=data.checks||0;qs('#smsTarget').textContent=data.channel==='sms'?`📩 SMS a ${data.phone||'tu móvil'}`:'Avisos activos';qs('#lastAlert').textContent=data.lastAlertAt?`Último aviso: ${new Date(data.lastAlertAt).toLocaleString('es-ES')}`:'Sin avisos enviados todavía';const status=data.lastResult?.state;if(status==='AVAILABILITY_DETECTED')qs('#monitorMessage').textContent='¡Posible disponibilidad detectada! Revisa el portal oficial cuanto antes.';else if(status==='HUMAN_GATE')qs('#monitorMessage').textContent='El portal requiere intervención humana. Te hemos avisado por SMS.';else qs('#monitorMessage').textContent='✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.';show(4)}catch{localStorage.removeItem('citaNieAccessToken')}}
-qs('#refreshStatus').onclick=async()=>{busy(qs('#refreshStatus'),true,'Actualizando…');await loadDashboard();busy(qs('#refreshStatus'),false,'Actualizar estado')};
-qs('#unsubscribe').onclick=async()=>{if(!confirm('¿Quieres detener la monitorización y borrar tus datos?'))return;const token=localStorage.getItem('citaNieAccessToken');try{if(token)await api('/api/subscription',{method:'DELETE',headers:{authorization:`Bearer ${token}`}})}catch{}localStorage.removeItem('citaNieAccessToken');location.reload()};
-loadDashboard();
+(() => {
+  const tokenKey = 'citaNieAccessToken';
+  const $ = (id) => document.getElementById(id);
+  const sections = [1,2,3,4].map((n)=>$('s'+n));
+  const labels = {
+    nie_new:'Sacar NIE', nie_renew:'Renovar NIE', lost:'NIE/TIE perdido',
+    tie_fingerprint:'Toma de huellas TIE', tie_renew:'Renovar TIE', tie_duplicate:'Duplicado TIE'
+  };
+  let step = 1;
+  let selected = null;
+  let effectiveService = null;
+  let config = null;
+
+  function authHeaders() {
+    const token = localStorage.getItem(tokenKey);
+    return token ? { authorization:`Bearer ${token}`, 'content-type':'application/json' } : { 'content-type':'application/json' };
+  }
+
+  async function api(url, options={}) {
+    const response = await fetch(url, { ...options, headers:{...authHeaders(), ...(options.headers||{})} });
+    const data = await response.json().catch(()=>({}));
+    if (!response.ok) {
+      const error = new Error(data.error || 'request_failed');
+      error.code = data.error || 'request_failed';
+      error.data = data;
+      throw error;
+    }
+    return data;
+  }
+
+  function showStep(n) {
+    step = n;
+    sections.forEach((s,i)=>s.classList.toggle('hidden', i!==n-1));
+    $('bar').style.width = `${n*25}%`;
+    $('stepCounter').textContent = `Paso ${n} de 4`;
+    $('stepTitle').textContent = ['¿Que necesitas?','Confirmamos el tramite','Activar avisos','Tu monitorizacion'][n-1];
+  }
+
+  function updateMapping() {
+    if (!selected) return;
+    $('mapping').innerHTML = `<b>${labels[selected] || selected}</b><br><span class="muted">Buscaremos solo el procedimiento compatible con esta seleccion en Madrid.</span>`;
+    $('renewBox').classList.toggle('hidden', selected !== 'nie_renew');
+  }
+
+  document.querySelectorAll('.choice').forEach((button)=>{
+    button.addEventListener('click', ()=>{
+      document.querySelectorAll('.choice').forEach((b)=>b.classList.remove('active'));
+      button.classList.add('active');
+      selected = button.dataset.key;
+      effectiveService = selected;
+      $('next1').disabled = false;
+    });
+  });
+
+  $('next1').addEventListener('click', ()=>{ updateMapping(); showStep(2); });
+  document.querySelectorAll('.back').forEach((button)=>button.addEventListener('click', ()=>showStep(Math.max(1,step-1))));
+
+  $('renewalKind').addEventListener('change', ()=>{
+    const value = $('renewalKind').value;
+    const help = $('renewHelp');
+    if (value === 'other') {
+      help.className = 'notice bad';
+      help.textContent = 'Este caso necesita identificar el procedimiento oficial exacto antes de activar la monitorizacion.';
+    } else {
+      help.className = 'notice';
+      help.textContent = 'Perfecto. Monitorizaremos el tramite real que corresponde, no el numero NIE en si.';
+    }
+  });
+
+  $('next2').addEventListener('click', ()=>{
+    if (selected === 'nie_renew') {
+      const kind = $('renewalKind').value;
+      if (!kind || kind === 'other') {
+        $('renewHelp').className = 'notice bad';
+        $('renewHelp').textContent = 'Selecciona TIE, duplicado o huellas. Para certificado UE u otro documento necesitamos configurarlo antes.';
+        return;
+      }
+      effectiveService = kind;
+    } else {
+      effectiveService = selected;
+    }
+    showStep(3);
+  });
+
+  async function startSubscription() {
+    $('smsMsg').textContent = '';
+    $('smsMsg').className = 'formmsg';
+    if (!$('consent').checked) { $('smsMsg').textContent = 'Acepta la casilla para continuar.'; return; }
+    const phone = $('smsPhone').value.trim();
+    if (!phone) { $('smsMsg').textContent = 'Introduce tu numero.'; return; }
+    $('enableSms').disabled = true;
+    $('enableSms').textContent = 'Activando...';
+    try {
+      const data = await api('/api/sms/subscribe', {
+        method:'POST',
+        body: JSON.stringify({
+          phone,
+          serviceKey: selected,
+          renewalKind: selected === 'nie_renew' ? effectiveService : undefined,
+          consent:true
+        })
+      });
+      localStorage.setItem(tokenKey, data.accessToken);
+      if (data.paymentRequired) {
+        $('smsMsg').textContent = 'Redirigiendo al pago seguro...';
+        $('smsMsg').className = 'formmsg ok';
+        const checkout = await api('/api/payment/checkout', { method:'POST', body:'{}' });
+        if (checkout.url) { location.href = checkout.url; return; }
+      }
+      $('smsMsg').textContent = 'Monitorizacion activada.';
+      $('smsMsg').className = 'formmsg ok';
+      showStep(4);
+      await loadDashboard();
+    } catch (error) {
+      const map = {
+        sms_not_configured:'El servicio SMS todavia no esta conectado.',
+        payment_not_configured:'El pago todavia no esta configurado.',
+        invalid_phone:'Revisa el numero de telefono.',
+        procedure_needs_clarification:'Necesitamos identificar el tramite real antes de continuar.'
+      };
+      $('smsMsg').textContent = map[error.code] || 'No se pudo activar ahora.';
+    } finally {
+      $('enableSms').disabled = false;
+      $('enableSms').textContent = 'Activar monitorizacion';
+    }
+  }
+  $('enableSms').addEventListener('click', startSubscription);
+
+  function fmtDate(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('es-ES', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  }
+  function fmtTime(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+  }
+  function smsStatusText(status, detail) {
+    if (!status) return 'Sin alertas';
+    const lower = String(status).toLowerCase();
+    if (lower.includes('sent') || lower.includes('completed') || String(detail||'').toLowerCase().includes('handset')) return 'Entregado / enviado';
+    if (lower.includes('queued') || lower.includes('success')) return 'En cola';
+    if (lower.includes('wait')) return 'Pendiente de aprobacion';
+    if (lower.includes('fail') || lower.includes('cancel')) return 'Error';
+    return status;
+  }
+
+  async function loadDashboard() {
+    try {
+      const data = await api('/api/subscription');
+      showStep(4);
+      $('dashService').textContent = data.serviceLabel || labels[data.serviceKey] || 'NIE / TIE';
+      $('dashPhone').textContent = data.phone || '—';
+      $('checks').textContent = data.checks || 0;
+      $('lastCheck').textContent = fmtTime(data.lastCheckAt);
+      $('expiresAt').textContent = fmtDate(data.expiresAt);
+      $('smsStatus').textContent = smsStatusText(data.smsStatus, data.smsStatusText);
+      const days = data.expiresAt ? Math.max(0, Math.ceil((new Date(data.expiresAt)-Date.now())/86400000)) : 0;
+      $('daysLeft').textContent = days;
+      $('statusDot').classList.toggle('pending', !data.active);
+      $('statusTitle').textContent = data.active ? 'Monitorizacion activa' : (data.pendingPayment ? 'Pendiente de pago' : 'Monitorizacion inactiva');
+      $('dashText').textContent = data.active
+        ? 'Revisamos automaticamente el tramite elegido y enviamos SMS cuando detectamos un cambio relevante.'
+        : 'La monitorizacion se activara cuando se confirme el pago.';
+      if (new URLSearchParams(location.search).get('resume') === '1') {
+        $('monitorMessage').textContent = 'Hemos abierto tu aviso de cita. Completa tus datos abajo y pulsa "Finalizar cita".';
+      } else if (data.lastState === 'AVAILABILITY_DETECTED') {
+        $('monitorMessage').textContent = 'Posible cita detectada. Entra cuanto antes y continua el proceso.';
+      } else if (data.lastState === 'HUMAN_GATE') {
+        $('monitorMessage').textContent = 'El portal necesita tu intervencion para continuar.';
+      } else {
+        $('monitorMessage').textContent = 'Sin disponibilidad detectada por ahora. Seguimos monitorizando.';
+      }
+      $('testSms').disabled = !data.active;
+    } catch (error) {
+      if (error.code === 'unauthorized') {
+        localStorage.removeItem(tokenKey);
+        showStep(1);
+      }
+    }
+  }
+
+  $('refreshDash').addEventListener('click', loadDashboard);
+  $('testSms').addEventListener('click', async ()=>{
+    $('testSms').disabled = true;
+    try {
+      const data = await api('/api/sms/test',{method:'POST',body:'{}'});
+      $('smsStatus').textContent = data.status || 'Enviado';
+    } catch { $('smsStatus').textContent = 'Error al enviar prueba'; }
+    finally { $('testSms').disabled = false; }
+  });
+  $('stop').addEventListener('click', async ()=>{
+    if (!confirm('¿Detener la monitorizacion y borrar tus datos?')) return;
+    try { await api('/api/subscription',{method:'DELETE'}); } catch {}
+    localStorage.removeItem(tokenKey);
+    location.href = '/';
+  });
+
+  async function init() {
+    try { config = await api('/api/config'); } catch {}
+    const params = new URLSearchParams(location.search);
+    if (params.get('payment') === 'success') {
+      setTimeout(loadDashboard, 1500);
+      return;
+    }
+    if (params.get('resume') === 'expired' || params.get('resume') === 'invalid') {
+      alert('Este enlace de aviso ha caducado. Abre Detector de Citas desde el dispositivo donde activaste el servicio.');
+    }
+    if (localStorage.getItem(tokenKey) || params.get('resume') === '1') await loadDashboard();
+  }
+  init();
+})();
 </script>
 </body>
 </html>
