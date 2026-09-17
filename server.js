@@ -23,6 +23,11 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
 
+const TWILIO_ACCOUNT_SID = String(process.env.TWILIO_ACCOUNT_SID || '').trim();
+const TWILIO_AUTH_TOKEN = String(process.env.TWILIO_AUTH_TOKEN || '').trim();
+const TWILIO_FROM_NUMBER = String(process.env.TWILIO_FROM_NUMBER || '').trim();
+const TWILIO_MESSAGING_SERVICE_SID = String(process.env.TWILIO_MESSAGING_SERVICE_SID || '').trim();
+
 function json(res, status, payload) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -78,6 +83,14 @@ function pushConfigured() {
   return dbConfigured() && Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 }
 
+function smsConfigured() {
+  return dbConfigured() && Boolean(
+    TWILIO_ACCOUNT_SID &&
+    TWILIO_AUTH_TOKEN &&
+    (TWILIO_FROM_NUMBER || TWILIO_MESSAGING_SERVICE_SID)
+  );
+}
+
 async function dbRequest(resource, { method = 'GET', body, prefer } = {}) {
   if (!dbConfigured()) throw new Error('database_not_configured');
   const base = process.env.SUPABASE_URL.replace(/\/$/, '');
@@ -94,7 +107,7 @@ async function dbRequest(resource, { method = 'GET', body, prefer } = {}) {
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    console.error('[CitaNIE] Database request failed:', response.status, payload?.message || 'unknown');
+    console.error('[Detector de Citas] Database request failed:', response.status, payload?.message || 'unknown');
     throw new Error('database_request_failed');
   }
   return payload;
@@ -136,6 +149,72 @@ function unpackPushSubscription(value) {
   }
 }
 
+function normalizePhone(value) {
+  let phone = String(value || '').trim();
+  phone = phone.replace(/[\s().-]/g, '');
+  if (phone.startsWith('00')) phone = `+${phone.slice(2)}`;
+  if (!phone.startsWith('+') && /^\d{9}$/.test(phone)) phone = `+34${phone}`;
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return null;
+  return phone;
+}
+
+function smsCryptoKey() {
+  return crypto.createHash('sha256').update(`detector-citas-sms:${appSecret()}`).digest();
+}
+
+function packSmsNumber(phone) {
+  const normalized = normalizePhone(phone);
+  if (!normalized) throw new Error('invalid_phone');
+  const iv = crypto.createHmac('sha256', appSecret()).update(`sms-iv:${normalized}`).digest().subarray(0, 12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', smsCryptoKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(normalized, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `sms:v1:${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
+}
+
+function unpackSmsNumber(value) {
+  const stored = String(value || '');
+  if (!stored.startsWith('sms:v1:')) return null;
+  const parts = stored.slice('sms:v1:'.length).split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const [ivRaw, tagRaw, cipherRaw] = parts;
+    const decipher = crypto.createDecipheriv('aes-256-gcm', smsCryptoKey(), Buffer.from(ivRaw, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagRaw, 'base64url'));
+    const phone = Buffer.concat([
+      decipher.update(Buffer.from(cipherRaw, 'base64url')),
+      decipher.final()
+    ]).toString('utf8');
+    return normalizePhone(phone);
+  } catch {
+    return null;
+  }
+}
+
+function maskPhone(phone) {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+  return `${normalized.slice(0, 3)}••••${normalized.slice(-4)}`;
+}
+
+function profileEncryptionKey() {
+  const raw = String(process.env.PROFILE_ENCRYPTION_KEY || '').trim();
+  if (!raw) return null;
+  const key = Buffer.from(raw, 'base64url');
+  return key.length === 32 ? key : null;
+}
+
+function encryptedSeedProfile(phone) {
+  const key = profileEncryptionKey();
+  if (!key) return null;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const plaintext = Buffer.from(JSON.stringify({ mobile: phone }), 'utf8');
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `encprofile:v1:${iv.toString('base64url')}.${tag.toString('base64url')}.${ciphertext.toString('base64url')}`;
+}
+
 function serviceLabel(serviceKey) {
   const labels = {
     nie_new: 'Sacar NIE',
@@ -156,19 +235,40 @@ async function sendPush(subscription, payload) {
   });
 }
 
+async function sendSms(to, text) {
+  if (!smsConfigured()) throw new Error('sms_not_configured');
+  const params = new URLSearchParams({ To: to, Body: text });
+  if (TWILIO_MESSAGING_SERVICE_SID) params.set('MessagingServiceSid', TWILIO_MESSAGING_SERVICE_SID);
+  else params.set('From', TWILIO_FROM_NUMBER);
+  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(TWILIO_ACCOUNT_SID)}/Messages.json`, {
+    method: 'POST',
+    headers: {
+      authorization: `Basic ${Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64')}`,
+      'content-type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload?.message || 'sms_send_failed');
+    error.statusCode = response.status;
+    error.providerCode = payload?.code;
+    throw error;
+  }
+  return payload;
+}
+
 async function beginPushSubscription(req, res) {
   if (!pushConfigured()) return json(res, 503, { error: 'push_not_configured' });
   const body = await readJson(req);
   if (body.consent !== true) return json(res, 400, { error: 'consent_required' });
   if (!validPushSubscription(body.subscription)) return json(res, 400, { error: 'invalid_push_subscription' });
   if (rateLimited(`push-start:${clientIp(req)}`, 8, 15 * 60_000)) return json(res, 429, { error: 'too_many_requests' });
-
   const allowedServices = new Set(['nie_new', 'nie_renew', 'lost', 'tie_fingerprint', 'tie_renew', 'tie_duplicate']);
   const serviceKey = allowedServices.has(body.serviceKey) ? body.serviceKey : 'tie_fingerprint';
   const accessToken = crypto.randomBytes(32).toString('base64url');
   const now = new Date();
   const packedSubscription = packPushSubscription(body.subscription);
-
   await dbRequest('subscriptions?on_conflict=phone', {
     method: 'POST',
     prefer: 'resolution=merge-duplicates,return=minimal',
@@ -186,8 +286,42 @@ async function beginPushSubscription(req, res) {
       updated_at: now.toISOString()
     }
   });
-
   return json(res, 200, { ok: true, accessToken, expiresInDays: 30 });
+}
+
+async function beginSmsSubscription(req, res) {
+  if (!smsConfigured()) return json(res, 503, { error: 'sms_not_configured' });
+  const body = await readJson(req);
+  if (body.consent !== true) return json(res, 400, { error: 'consent_required' });
+  const phone = normalizePhone(body.phone);
+  if (!phone) return json(res, 400, { error: 'invalid_phone' });
+  if (rateLimited(`sms-start:${clientIp(req)}`, 8, 15 * 60_000)) return json(res, 429, { error: 'too_many_requests' });
+  const allowedServices = new Set(['nie_new', 'nie_renew', 'lost', 'tie_fingerprint', 'tie_renew', 'tie_duplicate']);
+  const serviceKey = allowedServices.has(body.serviceKey) ? body.serviceKey : 'tie_fingerprint';
+  const accessToken = crypto.randomBytes(32).toString('base64url');
+  const now = new Date();
+  const packedPhone = packSmsNumber(phone);
+  const existing = await dbRequest(`subscriptions?phone=eq.${encodeURIComponent(packedPhone)}&select=id,otp_hash`);
+  const common = {
+    service_key: serviceKey,
+    consent_at: now.toISOString(),
+    active: true,
+    verified_at: null,
+    access_token_hash: digest(accessToken),
+    otp_expires_at: null,
+    otp_attempts: 0,
+    subscription_expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60_000).toISOString(),
+    updated_at: now.toISOString()
+  };
+  if (existing?.[0]) {
+    await dbRequest(`subscriptions?id=eq.${existing[0].id}`, { method: 'PATCH', prefer: 'return=minimal', body: common });
+  } else {
+    await dbRequest('subscriptions', {
+      method: 'POST', prefer: 'return=minimal',
+      body: { ...common, phone: packedPhone, otp_hash: encryptedSeedProfile(phone) }
+    });
+  }
+  return json(res, 200, { ok: true, accessToken, expiresInDays: 30, phone: maskPhone(phone) });
 }
 
 function bearerToken(req) {
@@ -206,9 +340,11 @@ async function getSubscription(req, res) {
   const record = await authenticatedSubscription(req);
   if (!record) return json(res, 401, { error: 'unauthorized' });
   const expired = new Date(record.subscription_expires_at).getTime() <= Date.now();
+  const smsPhone = unpackSmsNumber(record.phone);
   return json(res, 200, {
     active: Boolean(record.active) && !expired,
-    channel: 'push',
+    channel: smsPhone ? 'sms' : 'push',
+    phone: smsPhone ? maskPhone(smsPhone) : null,
     serviceKey: record.service_key,
     verifiedAt: record.verified_at,
     expiresAt: record.subscription_expires_at,
@@ -234,13 +370,28 @@ async function testPush(req, res) {
     await sendPush(subscription, {
       title: 'CitaNIE activado ✓',
       body: 'Las alertas push están listas. Te avisaremos cuando detectemos un cambio relevante.',
-      tag: 'citanie-test',
-      url: '/'
+      tag: 'citanie-test', url: '/'
     });
     return json(res, 200, { ok: true });
   } catch (error) {
-    console.error('[CitaNIE] Test push failed:', error.statusCode || '', error.message);
+    console.error('[Detector de Citas] Test push failed:', error.statusCode || '', error.message);
     return json(res, 502, { error: 'push_send_failed' });
+  }
+}
+
+async function testSms(req, res) {
+  const record = await authenticatedSubscription(req);
+  if (!record) return json(res, 401, { error: 'unauthorized' });
+  const phone = unpackSmsNumber(record.phone);
+  if (!phone) return json(res, 400, { error: 'sms_number_missing' });
+  try {
+    await sendSms(phone, 'Detector de Citas activado. Te enviaremos un SMS cuando detectemos disponibilidad o cuando el portal necesite tu intervención.');
+    const now = new Date().toISOString();
+    await dbRequest(`subscriptions?id=eq.${record.id}`, { method: 'PATCH', prefer: 'return=minimal', body: { verified_at: now, updated_at: now } });
+    return json(res, 200, { ok: true, phone: maskPhone(phone) });
+  } catch (error) {
+    console.error('[Detector de Citas] Test SMS failed:', error.statusCode || '', error.providerCode || '', error.message);
+    return json(res, 502, { error: 'sms_send_failed' });
   }
 }
 
@@ -254,7 +405,7 @@ async function recordChecks() {
   const rows = await activeSubscribers();
   const now = new Date().toISOString();
   for (const subscriber of rows || []) {
-    if (!unpackPushSubscription(subscriber.phone)) continue;
+    if (!unpackPushSubscription(subscriber.phone) && !unpackSmsNumber(subscriber.phone)) continue;
     await dbRequest(`subscriptions?id=eq.${subscriber.id}`, {
       method: 'PATCH', prefer: 'return=minimal',
       body: { check_count: (subscriber.check_count || 0) + 1, updated_at: now }
@@ -263,45 +414,39 @@ async function recordChecks() {
 }
 
 async function notifySubscribers(result) {
-  if (!pushConfigured()) {
-    lastAlert = { ok: false, skipped: true, at: new Date().toISOString(), error: 'push_not_configured' };
+  if (!pushConfigured() && !smsConfigured()) {
+    lastAlert = { ok: false, skipped: true, at: new Date().toISOString(), error: 'notifications_not_configured' };
     return;
   }
-
   const now = new Date();
   const alertKey = `${madridDateTime(now).date}:${result.state}`;
   const rows = await activeSubscribers();
   let sent = 0;
   let failed = 0;
   let skipped = 0;
-  const seenEndpoints = new Set();
-
+  const seenRecipients = new Set();
   for (const subscriber of rows || []) {
-    const subscription = unpackPushSubscription(subscriber.phone);
-    if (!subscription || seenEndpoints.has(subscription.endpoint) || subscriber.last_alert_key === alertKey) {
-      skipped += 1;
-      continue;
-    }
-    seenEndpoints.add(subscription.endpoint);
-
+    if (subscriber.last_alert_key === alertKey) { skipped += 1; continue; }
     const label = serviceLabel(subscriber.service_key);
     const isAvailable = result.state === 'AVAILABILITY_DETECTED';
-    const payload = isAvailable
-      ? {
-          title: '¡Posible cita disponible!',
-          body: `Hemos detectado un cambio relevante para ${label}. Entra ahora para revisar el portal oficial.`,
-          tag: `citanie-${alertKey}`,
-          url: '/?alert=availability'
-        }
-      : {
-          title: 'CitaNIE necesita tu atención',
-          body: `El portal requiere intervención humana para ${label}. Abre la app para continuar.`,
-          tag: `citanie-${alertKey}`,
-          url: '/?alert=human'
-        };
-
+    const smsPhone = unpackSmsNumber(subscriber.phone);
+    const pushSubscription = unpackPushSubscription(subscriber.phone);
     try {
-      await sendPush(subscription, payload);
+      if (smsPhone) {
+        if (!smsConfigured() || seenRecipients.has(`sms:${smsPhone}`)) { skipped += 1; continue; }
+        seenRecipients.add(`sms:${smsPhone}`);
+        const text = isAvailable
+          ? `Detector de Citas: posible cita disponible para ${label}. Entra ahora en el servicio para revisar el portal oficial.`
+          : `Detector de Citas: el portal necesita tu intervención para ${label}. Abre el servicio para continuar.`;
+        await sendSms(smsPhone, text);
+      } else if (pushSubscription) {
+        if (!pushConfigured() || seenRecipients.has(`push:${pushSubscription.endpoint}`)) { skipped += 1; continue; }
+        seenRecipients.add(`push:${pushSubscription.endpoint}`);
+        const payload = isAvailable
+          ? { title: '¡Posible cita disponible!', body: `Hemos detectado un cambio relevante para ${label}. Entra ahora para revisar el portal oficial.`, tag: `citanie-${alertKey}`, url: '/?alert=availability' }
+          : { title: 'Detector de Citas necesita tu atención', body: `El portal requiere intervención humana para ${label}. Abre el servicio para continuar.`, tag: `citanie-${alertKey}`, url: '/?alert=human' };
+        await sendPush(pushSubscription, payload);
+      } else { skipped += 1; continue; }
       sent += 1;
       await dbRequest(`subscriptions?id=eq.${subscriber.id}`, {
         method: 'PATCH', prefer: 'return=minimal',
@@ -309,55 +454,32 @@ async function notifySubscribers(result) {
       });
     } catch (error) {
       failed += 1;
-      console.error('[CitaNIE] Push failed:', error.statusCode || '', error.message);
-      if ([404, 410].includes(Number(error.statusCode))) {
-        await dbRequest(`subscriptions?id=eq.${subscriber.id}`, {
-          method: 'PATCH', prefer: 'return=minimal',
-          body: { active: false, updated_at: now.toISOString() }
-        }).catch(() => {});
+      console.error('[Detector de Citas] Notification failed:', error.statusCode || '', error.message);
+      if (pushSubscription && [404, 410].includes(Number(error.statusCode))) {
+        await dbRequest(`subscriptions?id=eq.${subscriber.id}`, { method: 'PATCH', prefer: 'return=minimal', body: { active: false, updated_at: now.toISOString() } }).catch(() => {});
       }
     }
   }
-
-  lastAlert = {
-    ok: failed === 0,
-    skipped: false,
-    at: now.toISOString(),
-    recipients: rows?.length || 0,
-    sent,
-    failed,
-    ignored: skipped
-  };
+  lastAlert = { ok: failed === 0, skipped: false, at: now.toISOString(), recipients: rows?.length || 0, sent, failed, ignored: skipped };
 }
 
 async function runMonitor(trigger = 'manual') {
   if (running) return { status: 409, payload: { error: 'check_already_running' } };
   running = true;
   try {
-    try {
-      lastResult = await checkMadridTieAvailability({ safeMode: true });
-    } catch (error) {
-      lastResult = {
-        ok: false,
-        state: 'ERROR',
-        startedAt: new Date().toISOString(),
-        finishedAt: new Date().toISOString(),
-        message: error?.message || String(error)
-      };
+    try { lastResult = await checkMadridTieAvailability({ safeMode: true }); }
+    catch (error) {
+      lastResult = { ok: false, state: 'ERROR', startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), message: error?.message || String(error) };
     }
     lastResult.trigger = trigger;
     try {
       await recordChecks();
-      if (['HUMAN_GATE', 'AVAILABILITY_DETECTED'].includes(lastResult.state)) {
-        await notifySubscribers(lastResult);
-      }
+      if (['HUMAN_GATE', 'AVAILABILITY_DETECTED'].includes(lastResult.state)) await notifySubscribers(lastResult);
     } catch (error) {
       lastAlert = { ok: false, skipped: false, at: new Date().toISOString(), error: error?.message || String(error) };
     }
     return { status: 200, payload: { ...lastResult, alert: lastAlert } };
-  } finally {
-    running = false;
-  }
+  } finally { running = false; }
 }
 
 async function schedulerTick() {
@@ -366,17 +488,16 @@ async function schedulerTick() {
   const slot = `${now.date}T${now.time}`;
   if (!scheduledTimes.has(now.time) || completedScheduleSlots.has(slot)) return;
   completedScheduleSlots.add(slot);
-  for (const completed of completedScheduleSlots) {
-    if (!completed.startsWith(now.date)) completedScheduleSlots.delete(completed);
-  }
-  console.log(`[CitaNIE] Scheduled check started for ${slot} ${madridTimeZone}`);
+  for (const completed of completedScheduleSlots) if (!completed.startsWith(now.date)) completedScheduleSlots.delete(completed);
+  console.log(`[Detector de Citas] Scheduled check started for ${slot} ${madridTimeZone}`);
   const outcome = await runMonitor(`schedule:${slot}`);
-  console.log(`[CitaNIE] Scheduled check finished with ${outcome.payload.state || outcome.payload.error}`);
+  console.log(`[Detector de Citas] Scheduled check finished with ${outcome.payload.state || outcome.payload.error}`);
 }
 
 function publicConfig() {
   return {
-    subscriptionsReady: pushConfigured(),
+    subscriptionsReady: smsConfigured() || pushConfigured(),
+    smsReady: smsConfigured(),
     pushReady: pushConfigured(),
     vapidPublicKey: VAPID_PUBLIC_KEY || null,
     scheduledTimes: [...scheduledTimes],
@@ -412,6 +533,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/status') return json(res, 200, { running, lastResult, lastAlert, ...publicConfig() });
     if (url.pathname === '/api/push/subscribe' && req.method === 'POST') return await beginPushSubscription(req, res);
     if (url.pathname === '/api/push/test' && req.method === 'POST') return await testPush(req, res);
+    if (url.pathname === '/api/sms/subscribe' && req.method === 'POST') return await beginSmsSubscription(req, res);
+    if (url.pathname === '/api/sms/test' && req.method === 'POST') return await testSms(req, res);
     if (url.pathname === '/api/subscription' && req.method === 'GET') return await getSubscription(req, res);
     if (url.pathname === '/api/subscription' && req.method === 'DELETE') return await deleteSubscription(req, res);
     if (url.pathname === '/api/check/tie' && req.method === 'POST') {
@@ -423,28 +546,22 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && await serveStatic(url.pathname, res)) return;
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       const html = await fs.readFile(path.join(__dirname, 'index.html'), 'utf8');
-      res.writeHead(200, {
-        'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'no-store',
-        'x-content-type-options': 'nosniff'
-      });
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       return res.end(html);
     }
     return json(res, 404, { error: 'not_found' });
   } catch (error) {
-    const known = new Set([
-      'invalid_json', 'payload_too_large', 'invalid_push_subscription',
-      'consent_required', 'too_many_requests'
-    ]);
+    const known = new Set(['invalid_json', 'payload_too_large', 'invalid_push_subscription', 'consent_required', 'too_many_requests', 'invalid_phone']);
     const status = known.has(error.message) ? 400 : 500;
-    console.error('[CitaNIE] Request error:', error.message);
+    console.error('[Detector de Citas] Request error:', error.message);
     return json(res, status, { error: status === 500 ? 'internal_error' : error.message });
   }
 });
 
-setInterval(() => schedulerTick().catch((error) => console.error('[CitaNIE] Scheduler error:', error)), 15_000);
+setInterval(() => schedulerTick().catch((error) => console.error('[Detector de Citas] Scheduler error:', error)), 15_000);
 server.listen(port, '0.0.0.0', () => {
-  console.log(`CitaNIE Madrid listening on :${port}`);
-  console.log(`[CitaNIE] Push notifications: ${pushConfigured() ? 'ready' : 'not configured'}`);
-  console.log(`[CitaNIE] Schedule enabled for ${[...scheduledTimes].join(', ')} ${madridTimeZone}`);
+  console.log(`Detector de Citas Madrid listening on :${port}`);
+  console.log(`[Detector de Citas] SMS notifications: ${smsConfigured() ? 'ready' : 'not configured'}`);
+  console.log(`[Detector de Citas] Push notifications (legacy): ${pushConfigured() ? 'ready' : 'not configured'}`);
+  console.log(`[Detector de Citas] Schedule enabled for ${[...scheduledTimes].join(', ')} ${madridTimeZone}`);
 });
