@@ -17,7 +17,7 @@
     .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.choice{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:var(--text);transition:.15s;min-height:116px}.choice:hover,.choice.active{transform:translateY(-2px);border-color:#725f22;background:#1b2130}.choice b{display:block;font-size:17px;margin-bottom:7px}.choice span{color:var(--muted);font-size:13px;line-height:1.45}.choice .ico{font-size:23px;margin-bottom:12px;display:block}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:15px}.field label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.field input,.field select{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);font:inherit;outline:none}.field input:focus,.field select:focus{border-color:#6a5a25}.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer}.btn.secondary{background:#1b2230;color:#dce2ea}.btn.primary{background:var(--accent);color:#16130b}.hidden{display:none!important}
     .mapping{background:#0e141d;border:1px solid var(--line);padding:16px;border-radius:16px;margin:15px 0}.mapping strong{display:block;margin-bottom:5px}.mapping p{color:var(--muted);margin:0;font-size:14px;line-height:1.5}.tag{display:inline-flex;padding:5px 9px;border:1px solid #3a455c;border-radius:999px;font-size:12px;color:#c7d0dd;margin-top:10px}
-    .summary{display:grid;gap:10px}.summary div{display:flex;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid #20293a}.summary span{color:var(--muted)}.notice{margin-top:15px;padding:14px;border-radius:14px;background:#1a1609;border:1px solid #5a4918;color:#e9d992;font-size:13px;line-height:1.5}
+    .summary{display:grid;gap:10px}.summary div{display:flex;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid #20293a}.summary span{color:var(--muted)}.notice{margin-top:15px;padding:14px;border-radius:14px;background:#1a1609;border:1px solid #5a4918;color:#e9d992;font-size:13px;line-height:1.5}.consent{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5;margin-top:10px}.consent input{margin-top:3px}.formmsg{min-height:22px;margin-top:10px;color:#fca5a5;font-size:13px}.otp{font-size:26px!important;letter-spacing:8px;text-align:center;font-weight:800}.dangerbtn{background:#35171a!important;color:#fecaca!important}
     .dash{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}.panel{background:#101620;border:1px solid var(--line);border-radius:20px;padding:18px}.statusline{display:flex;gap:11px;align-items:center;margin-bottom:14px}.statusdot{width:12px;height:12px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 6px #32d58317}.big{font-size:28px;font-weight:800;letter-spacing:-1px}.muted{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.kpi{background:#0d131c;border:1px solid #20293a;border-radius:15px;padding:13px}.kpi b{display:block;font-size:18px}.kpi small{color:var(--muted)}.alert{padding:14px;border-radius:14px;background:#10261c;border:1px solid #205b3c;margin-top:15px;color:#b7efcf}.human{padding:14px;border-radius:14px;background:#281c0d;border:1px solid #704713;margin-top:12px;color:#f3d19a}.footer{margin-top:28px;text-align:center;color:#6f7b8c;font-size:12px;line-height:1.6}
     @media(max-width:700px){.grid,.row,.dash{grid-template-columns:1fr}.hero{padding-top:8px}.hero h1{font-size:44px}.hero p{font-size:16px}.shell{padding:15px;border-radius:22px}.kpis{grid-template-columns:1fr 1fr 1fr}.nav .pill{display:none}}
   </style>
@@ -59,22 +59,18 @@
       </section>
 
       <section id="s3" class="hidden">
-        <div class="row">
-          <div class="field"><label>Nombre y apellidos</label><input id="name" placeholder="Nombre completo" /></div>
-          <div class="field"><label>NIE o pasaporte</label><input id="doc" placeholder="X1234567A / pasaporte" /></div>
-        </div>
-        <div class="row">
-          <div class="field"><label>Email para alertas</label><input id="email" type="email" placeholder="tu@email.com" /></div>
-          <div class="field"><label>Teléfono</label><input id="phone" placeholder="+34 ..." /></div>
-        </div>
-        <div class="notice">En un servicio real, estos datos deben almacenarse cifrados y utilizarse únicamente para gestionar la monitorización solicitada.</div>
-        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="next3">Continuar</button></div>
+        <div class="field"><label>Tu número de WhatsApp</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="+34 600 000 000" /></div>
+        <label class="consent"><input id="consent" type="checkbox" /> <span>Acepto recibir por WhatsApp el código de verificación y las alertas de disponibilidad de este trámite durante 30 días. Puedo cancelar y borrar mis datos cuando quiera.</span></label>
+        <div class="notice">Solo guardamos el número, el trámite seleccionado y el consentimiento. No pedimos NIE, pasaporte, nombre ni contraseña.</div>
+        <div class="formmsg" id="startMsg"></div>
+        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="sendCode">Enviar código</button></div>
       </section>
 
       <section id="s4" class="hidden">
-        <div class="summary" id="summary"></div>
-        <div class="notice"><b>Importante:</b> la cita oficial es gratuita. Este servicio cobraría únicamente por la monitorización y las alertas. No vendemos ni revendemos citas.</div>
-        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="activate">Activar monitorización</button></div>
+        <div class="mapping"><strong>Verifica tu WhatsApp</strong><p>Introduce el código de 6 cifras enviado a <span id="maskedPhone"></span>. Caduca en 10 minutos.</p></div>
+        <div class="field"><label>Código de verificación</label><input id="otp" class="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" /></div>
+        <div class="formmsg" id="verifyMsg"></div>
+        <div class="actions"><button class="btn secondary" id="changePhone">Cambiar número</button><button class="btn primary" id="activate">Verificar y activar</button></div>
       </section>
 
       <section id="s5" class="hidden">
@@ -88,43 +84,73 @@
               <div class="kpi"><b>30</b><small>días</small></div>
               <div class="kpi"><b>Madrid</b><small>provincia</small></div>
             </div>
-            <div class="alert">✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.</div>
+            <div class="alert" id="monitorMessage">✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.</div>
             <div class="human"><b>Intervención humana:</b> si el portal solicita CAPTCHA, Cl@ve, SMS o confirmación personal, la automatización se detiene y avisa al usuario.</div>
           </div>
           <div class="panel">
             <b>Alertas</b>
-            <p class="muted" style="font-size:14px">Email activado</p>
-            <p class="muted" style="font-size:14px">WhatsApp: opcional</p>
+            <p class="muted" style="font-size:14px" id="verifiedPhone">WhatsApp verificado</p>
+            <p class="muted" style="font-size:14px">Alertas individuales activadas</p>
             <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
             <b>Próxima comprobación</b>
             <div class="big" style="font-size:22px;margin-top:8px">Programada</div>
-            <button class="btn secondary" style="width:100%;margin-top:18px" id="simulate">Simular comprobación</button>
+            <button class="btn secondary" style="width:100%;margin-top:18px" id="refreshStatus">Actualizar estado</button>
+            <button class="btn secondary dangerbtn" style="width:100%;margin-top:10px" id="unsubscribe">Detener y borrar mis datos</button>
           </div>
         </div>
       </section>
     </div>
   </main>
-  <div class="footer">Prototipo MVP. Para producción: backend seguro, cifrado de datos, política de privacidad, logs mínimos, límites de frecuencia y cumplimiento de las condiciones del portal oficial.</div>
+  <div class="footer">La cita oficial es gratuita. CitaNIE solo monitoriza y avisa; no vende ni reserva citas. Si el portal solicita CAPTCHA o confirmación personal, se requiere intervención humana.</div>
 </div>
 <script>
 const MAP={
   nie_new:{label:'Sacar NIE',official:'Asignación de NIE / certificado correspondiente',desc:'Primera obtención del número NIE o certificado, según la situación del solicitante.'},
-  nie_renew:{label:'Renovar NIE',official:'Clasificación guiada del trámite',desc:'El NIE como número no caduca. La app debe identificar si el usuario realmente necesita renovar TIE, autorización de residencia o un certificado.'},
-  lost:{label:'He perdido mi NIE/TIE',official:'Duplicado / expedición según documento',desc:'La app distingue entre pérdida de TIE, certificado u otro documento antes de iniciar la monitorización.'},
-  tie_fingerprint:{label:'Toma de huellas TIE',official:'Toma de huellas / expedición de tarjeta',desc:'Para expedición de la TIE cuando la situación administrativa ya permite solicitar la tarjeta.'},
-  tie_renew:{label:'Renovar TIE',official:'Renovación / expedición de TIE correspondiente',desc:'Se dirige al flujo de tarjeta adecuado después de validar la situación del usuario.'},
+  nie_renew:{label:'Renovar NIE',official:'Clasificación guiada del trámite',desc:'El NIE como número no caduca. Identificamos si necesitas renovar TIE, residencia o un certificado.'},
+  lost:{label:'He perdido mi NIE/TIE',official:'Duplicado / expedición según documento',desc:'Distinguimos entre pérdida de TIE, certificado u otro documento.'},
+  tie_fingerprint:{label:'Toma de huellas TIE',official:'Toma de huellas / expedición de tarjeta',desc:'Para expedición de la TIE cuando ya puedes solicitar la tarjeta.'},
+  tie_renew:{label:'Renovar TIE',official:'Renovación / expedición de TIE correspondiente',desc:'Monitorización del flujo de tarjeta adecuado.'},
   tie_duplicate:{label:'Duplicado TIE',official:'Duplicado de TIE',desc:'Pérdida, robo, destrucción o deterioro del documento.'}
 };
-let state={step:1,key:null,checks:0};
+let state={step:1,key:null,phone:''};
 const qs=s=>document.querySelector(s), qsa=s=>[...document.querySelectorAll(s)];
-function show(n){state.step=n;for(let i=1;i<=5;i++)qs('#s'+i).classList.toggle('hidden',i!==n);qs('#stepCounter').textContent=`Paso ${n} de 5`;qs('#bar').style.width=(n*20)+'%';qs('#stepTitle').textContent=['','¿Qué necesitas?','Confirmamos el trámite','Datos para alertas','Revisa tu solicitud','Monitorización'][n];}
+const errors={
+  invalid_phone:'Introduce un número válido con prefijo, por ejemplo +34.',consent_required:'Debes aceptar las alertas para continuar.',
+  too_many_requests:'Demasiados intentos. Espera 15 minutos.',whatsapp_not_configured:'WhatsApp aún no está configurado por el administrador.',
+  service_not_configured:'El registro aún no está configurado.',invalid_code:'El código no es correcto.',code_expired:'El código ha caducado. Solicita uno nuevo.',
+  internal_error:'No se pudo completar. Inténtalo de nuevo.'
+};
+function show(n){state.step=n;for(let i=1;i<=5;i++)qs('#s'+i).classList.toggle('hidden',i!==n);qs('#stepCounter').textContent=`Paso ${n} de 5`;qs('#bar').style.width=(n*20)+'%';qs('#stepTitle').textContent=['','¿Qué necesitas?','Confirmamos el trámite','Tu WhatsApp','Verifica el número','Monitorización'][n];}
+async function api(url,options={}){const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'internal_error');error.code=data.error;throw error}return data}
+function busy(button,on,label){button.disabled=on;if(label)button.textContent=label}
 qsa('.choice').forEach(b=>b.onclick=()=>{qsa('.choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.key=b.dataset.key;qs('#next1').disabled=false});
 qs('#next1').onclick=()=>{const m=MAP[state.key];qs('#mapping').innerHTML=`<strong>${m.official}</strong><p>${m.desc}</p><span class="tag">Madrid</span>`;show(2)};
 qs('#next2').onclick=()=>show(3);
-qs('#next3').onclick=()=>{const m=MAP[state.key];qs('#summary').innerHTML=`<div><span>Servicio</span><b>${m.label}</b></div><div><span>Provincia</span><b>Madrid</b></div><div><span>Duración</span><b>30 días</b></div><div><span>Alerta</span><b>${qs('#email').value||'Email'}</b></div><div><span>Modelo</span><b>Monitorización + aviso</b></div>`;show(4)};
-qs('#activate').onclick=()=>{qs('#dashService').textContent=MAP[state.key].label;localStorage.setItem('citaNieMvp',JSON.stringify({key:state.key,started:Date.now()}));show(5)};
 qsa('.back').forEach(b=>b.onclick=()=>show(Math.max(1,state.step-1)));
-qs('#simulate').onclick=()=>{state.checks++;qs('#checks').textContent=state.checks;qs('#simulate').textContent='Comprobación realizada';setTimeout(()=>qs('#simulate').textContent='Simular comprobación',900)};
+qs('#sendCode').onclick=async()=>{
+  const button=qs('#sendCode');qs('#startMsg').textContent='';state.phone=qs('#phone').value.trim();
+  if(!state.phone){qs('#startMsg').textContent='Introduce tu número de WhatsApp.';return}
+  if(!qs('#consent').checked){qs('#startMsg').textContent=errors.consent_required;return}
+  busy(button,true,'Enviando…');
+  try{const data=await api('/api/subscriptions/start',{method:'POST',body:JSON.stringify({phone:state.phone,serviceKey:state.key,consent:true})});qs('#maskedPhone').textContent=data.phone;show(4);qs('#otp').focus()}
+  catch(error){qs('#startMsg').textContent=errors[error.code]||errors.internal_error}
+  finally{busy(button,false,'Enviar código')}
+};
+qs('#changePhone').onclick=()=>show(3);
+qs('#activate').onclick=async()=>{
+  const button=qs('#activate');qs('#verifyMsg').textContent='';busy(button,true,'Verificando…');
+  try{const data=await api('/api/subscriptions/verify',{method:'POST',body:JSON.stringify({phone:state.phone,code:qs('#otp').value})});localStorage.setItem('citaNieAccessToken',data.accessToken);await loadDashboard()}
+  catch(error){qs('#verifyMsg').textContent=errors[error.code]||errors.internal_error}
+  finally{busy(button,false,'Verificar y activar')}
+};
+async function loadDashboard(){
+  const token=localStorage.getItem('citaNieAccessToken');if(!token)return;
+  try{const data=await api('/api/subscription',{headers:{authorization:`Bearer ${token}`}});state.key=data.serviceKey;qs('#dashService').textContent=MAP[data.serviceKey]?.label||'NIE / TIE';qs('#verifiedPhone').textContent=`WhatsApp: ${data.phone}`;qs('#checks').textContent=data.checks||0;const status=data.lastResult?.state;if(status==='AVAILABILITY_DETECTED')qs('#monitorMessage').textContent='¡Disponibilidad detectada! Revisa WhatsApp y entra al portal oficial.';else if(status==='HUMAN_GATE')qs('#monitorMessage').textContent='El portal requiere intervención humana. Te avisamos por WhatsApp.';else qs('#monitorMessage').textContent='✓ Sin disponibilidad detectada todavía. Seguimos monitorizando.';show(5)}
+  catch{localStorage.removeItem('citaNieAccessToken')}
+}
+qs('#refreshStatus').onclick=async()=>{busy(qs('#refreshStatus'),true,'Actualizando…');await loadDashboard();busy(qs('#refreshStatus'),false,'Actualizar estado')};
+qs('#unsubscribe').onclick=async()=>{if(!confirm('¿Quieres detener las alertas y borrar tu número?'))return;const token=localStorage.getItem('citaNieAccessToken');try{await api('/api/subscription',{method:'DELETE',headers:{authorization:`Bearer ${token}`}})}finally{localStorage.removeItem('citaNieAccessToken');location.reload()}};
+loadDashboard();
 </script>
 </body>
 </html>
