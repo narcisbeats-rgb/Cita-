@@ -7,6 +7,9 @@
   let handoffTimer = null;
   let handoffFrameBusy = false;
   let handoffObjectUrl = null;
+  let handoffStatusTick = 0;
+  let handoffPointerStart = null;
+  let handoffSuppressClickUntil = 0;
 
   const COUNTRY_CODES = `AD AE AF AG AL AM AO AR AT AU AZ BA BB BD BE BF BG BH BI BJ BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CL CM CN CO CR CU CV CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FR GA GB GD GE GH GM GN GQ GR GT GW GY HN HR HT HU ID IE IL IN IQ IR IS IT JM JO JP KE KG KH KI KM KN KP KR KW KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MR MT MU MV MW MX MY MZ NA NE NG NI NL NO NP NR NZ OM PA PE PG PH PK PL PS PT PW PY QA RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SY SZ TD TG TH TJ TL TM TN TO TR TT TV TZ UA UG US UY UZ VA VC VE VN VU WS YE ZA ZM ZW`.split(' ');
   const COMMUNITIES = [
@@ -79,10 +82,11 @@
     .profile-consent input{margin-top:3px}.profile-status{min-height:20px;font-size:12px;color:#9be7bd;margin-top:8px}.profile-status.err{color:#fca5a5}
     .profile-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.profile-btn{border:0;border-radius:13px;padding:12px 15px;font-weight:700;cursor:pointer;background:#f3c94b;color:#16130b}.profile-btn.secondary{background:#1b2230;color:#dce2ea}.profile-btn:disabled{opacity:.55;cursor:not-allowed}
     .profile-result{margin-top:12px;padding:12px 14px;border-radius:13px;background:#111824;border:1px solid #263044;color:#c9d2df;font-size:13px;line-height:1.5}.profile-note{margin-top:12px;color:#7f8a9a;font-size:11px;line-height:1.45}
-    .handoff{display:none;margin-top:14px;padding:14px;border-radius:16px;background:#0b1018;border:1px solid #42516c}.handoff.open{display:block}.handoff-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}.handoff-head b{font-size:16px}.handoff-head p{margin:4px 0 0;color:#9ca7b8;font-size:12px;line-height:1.4}.handoff-close{border:0;border-radius:10px;background:#1b2230;color:#dce2ea;padding:8px 10px;font-weight:700}
-    .handoff-screen{position:relative;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #39445a;min-height:180px}.handoff-screen img{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none;touch-action:manipulation;cursor:crosshair}.handoff-loading{position:absolute;inset:0;display:grid;place-items:center;color:#1d2735;background:#f8fafccc;font-weight:700;font-size:13px}.handoff-loading.hidden{display:none}
-    .handoff-help{margin:9px 0;color:#9ca7b8;font-size:11px;line-height:1.45}.handoff-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:9px}.handoff-tools input{min-width:0;width:100%;padding:11px 12px;border-radius:11px;border:1px solid #263044;background:#0d121a;color:#f7f8fb}.handoff-tools button,.handoff-keys button{border:0;border-radius:11px;background:#1b2230;color:#dce2ea;padding:10px 12px;font-weight:700}.handoff-tools button.primary{background:#f3c94b;color:#16130b}.handoff-keys{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}.handoff-state{margin-top:8px;color:#9ca7b8;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    @media(max-width:700px){.profile-grid{grid-template-columns:1fr}.profile-wide{grid-column:auto}.profile-actions .profile-btn{flex:1;min-width:140px}.handoff{margin-left:-4px;margin-right:-4px;padding:10px}.handoff-tools{grid-template-columns:1fr auto}.handoff-head{align-items:center}}
+    html.handoff-active,html.handoff-active body{overflow:hidden;overscroll-behavior:none}
+    .handoff{display:none;position:fixed;inset:0;z-index:10000;background:#080c12;color:#f7f8fb;padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));flex-direction:column}.handoff.open{display:flex}.handoff-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex:0 0 auto;padding:2px 2px 10px}.handoff-head b{display:block;font-size:17px}.handoff-head p{margin:3px 0 0;color:#aeb8c7;font-size:12px;line-height:1.35}.handoff-close{border:0;border-radius:12px;background:#1b2230;color:#f7f8fb;padding:10px 13px;font-weight:800;flex:0 0 auto}
+    .handoff-browser{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;background:#111722;border:1px solid #344057;border-radius:16px;padding:8px;-webkit-overflow-scrolling:touch}.handoff-browser-label{display:flex;align-items:center;gap:7px;max-width:var(--handoff-viewport-width,1280px);margin:0 auto 7px;color:#b9c3d2;font-size:11px}.handoff-live-dot{width:8px;height:8px;border-radius:50%;background:#32d583;box-shadow:0 0 0 4px #32d5831f}.handoff-screen{position:relative;width:min(100%,var(--handoff-viewport-width,1280px));margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #39445a;min-height:220px;box-shadow:0 10px 40px #0008}.handoff-screen img{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none;touch-action:pan-x;cursor:pointer}.handoff-loading{position:absolute;inset:0;display:grid;place-items:center;color:#1d2735;background:#f8fafced;font-weight:800;font-size:14px}.handoff-loading.hidden{display:none}
+    .handoff-footer{flex:0 0 auto;padding:10px 2px 0;background:#080c12}.handoff-primary{width:100%;min-height:55px;border:0;border-radius:15px;background:#f3c94b;color:#16130b;font-size:16px;font-weight:900;padding:13px 16px;box-shadow:0 8px 24px #0007}.handoff-primary:disabled{opacity:.58}.handoff-state{margin:8px 4px 0;color:#b5bfce;font-size:11px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.handoff-keyboard{margin-top:8px;border:1px solid #263044;border-radius:12px;background:#101620}.handoff-keyboard summary{cursor:pointer;padding:10px 12px;color:#dce2ea;font-size:12px;font-weight:700}.handoff-keyboard-inner{padding:0 10px 10px}.handoff-help{margin:0 0 8px;color:#9ca7b8;font-size:11px;line-height:1.4}.handoff-tools{display:grid;grid-template-columns:1fr auto;gap:8px}.handoff-tools input{min-width:0;width:100%;padding:12px;border-radius:11px;border:1px solid #334059;background:#0b1018;color:#f7f8fb;font-size:16px}.handoff-tools button,.handoff-keys button{border:0;border-radius:11px;background:#1b2230;color:#dce2ea;padding:11px 12px;font-weight:800}.handoff-tools button.primary{background:#f3c94b;color:#16130b}.handoff-keys{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+    @media(max-width:700px){.profile-grid{grid-template-columns:1fr}.profile-wide{grid-column:auto}.profile-actions .profile-btn{flex:1;min-width:140px}.handoff{padding:max(7px,env(safe-area-inset-top)) 7px max(7px,env(safe-area-inset-bottom))}.handoff-head{padding:1px 2px 7px}.handoff-head p{max-width:265px}.handoff-browser{border-radius:12px;padding:5px}.handoff-screen{border-radius:8px;min-height:240px}.handoff-footer{padding-top:8px}.handoff-primary{min-height:58px}.handoff-tools{grid-template-columns:1fr auto}}
   `;
   document.head.appendChild(css);
 
@@ -203,11 +207,83 @@
   function handoffPanel(open) {
     const panel = field('handoffPanel');
     if (panel) panel.classList.toggle('open', Boolean(open));
+    document.documentElement.classList.toggle('handoff-active', Boolean(open));
   }
 
   function setHandoffState(text) {
     const el = field('handoffState');
     if (el) el.textContent = text || '';
+  }
+
+  function requestedViewport() {
+    return {
+      width: Math.round(Math.min(window.innerWidth || 1280, 1280)),
+      height: Math.round(Math.min(window.innerHeight || 900, 1000))
+    };
+  }
+
+  function activeViewport() {
+    const panel = field('handoffPanel');
+    const width = Number(panel?.dataset.viewportWidth) || 1280;
+    const height = Number(panel?.dataset.viewportHeight) || 900;
+    return { width, height };
+  }
+
+  function handoffActionText(state) {
+    if (state === 'HUMAN_GATE') return 'Ya completé el CAPTCHA · Continuar';
+    if (state === 'AVAILABILITY_DETECTED') return 'Me quedo con esta cita';
+    if (state === 'APPOINTMENT_CONFIRMED') return 'Cita confirmada · Cerrar';
+    if (state === 'READY_FOR_HUMAN_CONTINUE') return 'Continuar con esta cita';
+    if (state === 'NO_AVAILABILITY') return 'No hay citas ahora · Cerrar';
+    return 'Continuar';
+  }
+
+  function handoffHeading(state) {
+    if (state === 'AVAILABILITY_DETECTED') return ['¡Cita disponible!', 'Selecciona la opción que prefieras en el portal y pulsa el botón amarillo.'];
+    if (state === 'APPOINTMENT_CONFIRMED') return ['Cita confirmada', 'Guarda el justificante del portal oficial antes de cerrar.'];
+    if (state === 'NO_AVAILABILITY') return ['Sin citas disponibles ahora', 'Puedes cerrar; la monitorización seguirá activa.'];
+    if (state === 'READY_FOR_HUMAN_CONTINUE') return ['Continúa en el portal oficial', 'Revisa este paso y pulsa el botón amarillo cuando estés listo.'];
+    return ['Portal oficial · Completa la verificación', 'Resuelve el CAPTCHA aquí. Al terminar, pulsa el botón amarillo de abajo.'];
+  }
+
+  function rememberHandoffStatus(status = {}) {
+    const panel = field('handoffPanel');
+    if (!panel) return;
+    if (status.viewport?.width) {
+      panel.dataset.viewportWidth = String(status.viewport.width);
+      panel.dataset.viewportHeight = String(status.viewport.height || 900);
+      panel.style.setProperty('--handoff-viewport-width', `${status.viewport.width}px`);
+    }
+    if (status.state) panel.dataset.state = status.state;
+    const [title, instruction] = handoffHeading(status.state || panel.dataset.state);
+    if (field('handoffTitle')) field('handoffTitle').textContent = title;
+    if (field('handoffInstruction')) field('handoffInstruction').textContent = instruction;
+    const action = field('handoffPrimaryAction');
+    if (action) {
+      action.textContent = handoffActionText(status.state || panel.dataset.state);
+      action.disabled = Boolean(status.advancing);
+    }
+    if (status.message) setHandoffState(status.message);
+    const resultBox = field('profileResult');
+    if (status.state === 'APPOINTMENT_CONFIRMED' && resultBox) {
+      resultBox.textContent = 'Tu cita aparece confirmada. Guarda el justificante que ves en el portal oficial antes de cerrar.';
+    } else if (status.state === 'NO_AVAILABILITY' && resultBox) {
+      resultBox.textContent = status.message || 'El portal indica que no hay citas disponibles ahora.';
+    }
+  }
+
+  async function refreshHandoffStatus() {
+    try {
+      const status = await api('/api/handoff/status');
+      if (!status?.active) {
+        await closeHandoff(false);
+        return null;
+      }
+      rememberHandoffStatus(status);
+      return status;
+    } catch {
+      return null;
+    }
   }
 
   async function refreshHandoffFrame() {
@@ -230,6 +306,8 @@
       const image = field('handoffImage');
       if (image) image.src = handoffObjectUrl;
       field('handoffLoading')?.classList.add('hidden');
+      handoffStatusTick += 1;
+      if (handoffStatusTick % 2 === 0) await refreshHandoffStatus();
     } catch {}
     finally { handoffFrameBusy = false; }
   }
@@ -243,7 +321,7 @@
   async function sendHandoffInput(payload) {
     try {
       const status = await api('/api/handoff/input', { method: 'POST', body: JSON.stringify(payload) });
-      setHandoffState(status.url ? `Portal oficial · ${status.url}` : 'Sesión interactiva activa');
+      rememberHandoffStatus(status);
       setTimeout(refreshHandoffFrame, 150);
       return status;
     } catch (error) {
@@ -260,11 +338,11 @@
         setHandoffState('No hay una sesión humana activa.');
         return;
       }
+      rememberHandoffStatus(current);
       handoffPanel(true);
       field('handoffLoading')?.classList.remove('hidden');
-      setHandoffState(current.url ? `Portal oficial · ${current.url}` : 'Sesión interactiva activa');
+      setHandoffState(current.message || (current.url ? `Portal oficial · ${current.url}` : 'Sesión interactiva activa'));
       startHandoffPolling();
-      field('handoffPanel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch {
       setHandoffState('No pudimos abrir la sesión interactiva.');
     }
@@ -294,7 +372,10 @@
     button.textContent = 'Intentando…';
     resultBox.textContent = 'Abriendo el portal oficial, seleccionando tu trámite y rellenando tus datos cuando sea seguro…';
     try {
-      const data = await api('/api/attempt', { method: 'POST', body: '{}' });
+      const data = await api('/api/attempt', {
+        method: 'POST',
+        body: JSON.stringify({ viewport: requestedViewport() })
+      });
       const filled = Array.isArray(data.filledFields) && data.filledFields.length
         ? ` Campos rellenados: ${data.filledFields.join(', ')}.`
         : '';
@@ -310,6 +391,10 @@
         } else {
           resultBox.textContent = `Se ha detectado una pantalla compatible con disponibilidad. Continúa cuanto antes; CitaNIE no confirma la cita automáticamente.${filled}`;
         }
+        if (data.handoff?.active) await openHandoff(data.handoff);
+      } else if (data.state === 'APPOINTMENT_CONFIRMED') {
+        resultBox.textContent = 'Tu cita aparece confirmada. Guarda el justificante del portal oficial antes de cerrar.';
+        if (data.handoff?.active) await openHandoff(data.handoff);
       } else if (data.state === 'NO_AVAILABILITY') {
         resultBox.textContent = `El portal indica que no hay citas disponibles ahora. Tus datos quedan guardados para el siguiente intento.${filled}`;
       } else if (data.state === 'READY_FOR_IDENTITY') {
@@ -368,13 +453,24 @@
         <button id="deleteProfile" class="profile-btn secondary">Borrar mis datos</button>
       </div>
       <div id="profileResult" class="profile-result">CitaNIE rellena únicamente campos compatibles. Si aparece una verificación humana, puedes completarla tú mismo dentro de la sesión interactiva de CitaNIE.</div>
-      <div id="handoffPanel" class="handoff">
-        <div class="handoff-head"><div><b>Completa la verificación</b><p>Esta es la sesión real del portal oficial. Toca la pantalla como si fuera el navegador. CAPTCHA, Cl@ve y códigos SMS los introduces tú.</p></div><button id="handoffClose" class="handoff-close">Cerrar</button></div>
-        <div class="handoff-screen"><img id="handoffImage" alt="Portal oficial interactivo"><div id="handoffLoading" class="handoff-loading">Cargando sesión…</div></div>
-        <div class="handoff-help">Para escribir: toca primero el campo dentro de la imagen, escribe abajo y pulsa “Enviar texto”.</div>
-        <div class="handoff-tools"><input id="handoffText" autocomplete="off" placeholder="Texto para el campo seleccionado"><button id="handoffSendText" class="primary">Enviar texto</button></div>
-        <div class="handoff-keys"><button data-hkey="Tab">Tab</button><button data-hkey="Enter">Enter</button><button data-hkey="Backspace">⌫</button><button data-scroll="-600">↑ Subir</button><button data-scroll="600">↓ Bajar</button></div>
-        <div id="handoffState" class="handoff-state"></div>
+      <div id="handoffPanel" class="handoff" role="dialog" aria-modal="true" aria-label="Portal oficial de cita previa">
+        <div class="handoff-head"><div><b id="handoffTitle">Portal oficial · Completa la verificación</b><p id="handoffInstruction">Resuelve el CAPTCHA aquí. Al terminar, pulsa el botón amarillo de abajo.</p></div><button id="handoffClose" class="handoff-close" aria-label="Cerrar navegador">Cerrar</button></div>
+        <div class="handoff-browser">
+          <div class="handoff-browser-label"><span class="handoff-live-dot"></span><span>Sesión oficial segura y en directo</span></div>
+          <div class="handoff-screen"><img id="handoffImage" alt="Portal oficial interactivo" draggable="false"><div id="handoffLoading" class="handoff-loading">Abriendo el portal oficial…</div></div>
+        </div>
+        <div class="handoff-footer">
+          <button id="handoffPrimaryAction" class="handoff-primary">Ya completé el CAPTCHA · Continuar</button>
+          <div id="handoffState" class="handoff-state" aria-live="polite"></div>
+          <details class="handoff-keyboard">
+            <summary>Necesito escribir o mover la página</summary>
+            <div class="handoff-keyboard-inner">
+              <div class="handoff-help">Toca primero el campo dentro del portal y después escribe aquí.</div>
+              <div class="handoff-tools"><input id="handoffText" autocomplete="off" placeholder="Escribir en el campo seleccionado"><button id="handoffSendText" class="primary">Escribir</button></div>
+              <div class="handoff-keys"><button data-hkey="Tab">Siguiente campo</button><button data-hkey="Enter">Aceptar</button><button data-hkey="Backspace">⌫ Borrar</button><button data-scroll="-600">↑ Subir</button><button data-scroll="600">↓ Bajar</button></div>
+            </div>
+          </details>
+        </div>
       </div>
       <div class="profile-note">La comunidad seleccionada se guarda junto con el perfil. La monitorización automática actual sigue disponible en Madrid; iremos activando más comunidades progresivamente. Los datos personales viajan por HTTPS y se almacenan cifrados en el servidor.</div>
     `;
@@ -395,12 +491,38 @@
     field('attemptAppointment').addEventListener('click', attemptAppointment);
     field('handoffClose').addEventListener('click', () => closeHandoff(true));
     field('handoffImage').addEventListener('click', (event) => {
+      if (Date.now() < handoffSuppressClickUntil) return;
       const img = event.currentTarget;
       const rect = img.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      const x = ((event.clientX - rect.left) / rect.width) * 1280;
-      const y = ((event.clientY - rect.top) / rect.height) * 900;
+      const viewport = activeViewport();
+      const x = ((event.clientX - rect.left) / rect.width) * viewport.width;
+      const y = ((event.clientY - rect.top) / rect.height) * viewport.height;
       sendHandoffInput({ type: 'click', x, y });
+    });
+    field('handoffImage').addEventListener('pointerdown', (event) => {
+      handoffPointerStart = { x: event.clientX, y: event.clientY };
+    });
+    field('handoffImage').addEventListener('pointerup', (event) => {
+      if (!handoffPointerStart) return;
+      const dy = handoffPointerStart.y - event.clientY;
+      const dx = handoffPointerStart.x - event.clientX;
+      handoffPointerStart = null;
+      if (Math.abs(dy) < 35 || Math.abs(dy) < Math.abs(dx)) return;
+      handoffSuppressClickUntil = Date.now() + 450;
+      sendHandoffInput({ type: 'scroll', dy: Math.max(-1200, Math.min(1200, dy * 3)) });
+    });
+    field('handoffImage').addEventListener('pointercancel', () => { handoffPointerStart = null; });
+    field('handoffPrimaryAction').addEventListener('click', async () => {
+      const state = field('handoffPanel')?.dataset.state || '';
+      if (state === 'APPOINTMENT_CONFIRMED' || state === 'NO_AVAILABILITY') {
+        await closeHandoff(true);
+        return;
+      }
+      const action = field('handoffPrimaryAction');
+      action.disabled = true;
+      const status = await sendHandoffInput({ type: 'continue' });
+      if (!status) action.disabled = false;
     });
     field('handoffSendText').addEventListener('click', async () => {
       const input = field('handoffText');
@@ -427,6 +549,12 @@
   observer.observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
   window.addEventListener('storage', mount);
   window.addEventListener('beforeunload', () => clearInterval(handoffTimer));
+  window.CitaNieHandoff = {
+    open: openHandoff,
+    close: closeHandoff,
+    applyStatus: rememberHandoffStatus,
+    requestedViewport
+  };
   setInterval(mount, 1000);
   mount();
 })();

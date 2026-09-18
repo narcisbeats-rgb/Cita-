@@ -247,6 +247,7 @@ async function handleAttempt(req, res) {
   const record = await authenticatedSubscription(req);
   if (!record) return json(res, 401, { error: 'unauthorized' });
   if (attemptRateLimited(record.id)) return json(res, 429, { error: 'attempt_too_soon' });
+  const body = await readJson(req);
 
   const profile = decryptProfile(record.otp_hash);
   if (!profile?.documentNumber || !profile?.firstName) {
@@ -270,6 +271,7 @@ async function handleAttempt(req, res) {
     ownerId: record.id,
     serviceKey: record.service_key,
     client,
+    viewport: body.viewport,
     timeoutMs: 45_000
   });
 

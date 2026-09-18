@@ -169,7 +169,10 @@
       birthDate: get('pBirthDate'),
       nationality: `${get('pNationality')}||${get('pCommunity') || 'Comunidad de Madrid'}`,
       mobile: get('pMobile'),
-      email: get('pEmail')
+      email: get('pEmail'),
+      preferredCities: get('pCities').split(/[,;\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 6),
+      allowNearby: document.getElementById('pNearby')?.checked !== false,
+      monitoringAllowed: document.getElementById('profileConsent')?.checked === true
     };
   }
 
@@ -216,9 +219,16 @@
   }
 
   function openLiveHandoff(status) {
+    if (window.CitaNieHandoff?.open) {
+      clearLiveFramePolling();
+      window.CitaNieHandoff.applyStatus?.(status || {});
+      window.CitaNieHandoff.open(status || null);
+      return;
+    }
     const panel = document.getElementById('handoffPanel');
     if (!panel) return;
     panel.classList.add('open');
+    document.documentElement.classList.add('handoff-active');
     document.getElementById('handoffLoading')?.classList.remove('hidden');
     const state = document.getElementById('handoffState');
     if (state) state.textContent = status?.message || (status?.url ? `Portal oficial · ${status.url}` : 'Sesión interactiva activa');
@@ -248,6 +258,7 @@
     const box = document.getElementById('profileResult');
     const button = document.getElementById('attemptAppointment');
     if (!status?.active) return false;
+    window.CitaNieHandoff?.applyStatus?.(status);
 
     if (box && status.message) box.textContent = status.message;
     if (button) button.textContent = progressButtonText(status.state);
@@ -263,6 +274,14 @@
     if (status.state === 'READY_FOR_HUMAN_CONTINUE' || status.state === 'AVAILABILITY_DETECTED') {
       clearAttemptPolling();
       resetAttemptButton();
+      openLiveHandoff(status);
+      return true;
+    }
+
+    if (status.state === 'APPOINTMENT_CONFIRMED') {
+      clearAttemptPolling();
+      resetAttemptButton();
+      if (box) box.textContent = status.message || 'Tu cita aparece confirmada. Guarda el justificante antes de cerrar.';
       openLiveHandoff(status);
       return true;
     }
@@ -326,7 +345,11 @@
       await authJson('/api/handoff/close', { method: 'POST', body: '{}' }).catch(() => {});
       startAttemptPolling();
 
-      authJson('/api/attempt', { method: 'POST', body: '{}' })
+      const viewport = window.CitaNieHandoff?.requestedViewport?.() || {
+        width: Math.round(Math.min(window.innerWidth || 1280, 1280)),
+        height: Math.round(Math.min(window.innerHeight || 900, 1000))
+      };
+      authJson('/api/attempt', { method: 'POST', body: JSON.stringify({ viewport }) })
         .then((data) => {
           attemptRequestRunning = false;
           if (data?.handoff?.active) applyStatus(data.handoff);
@@ -334,7 +357,7 @@
             clearAttemptPolling();
             resetAttemptButton();
             if (result) result.textContent = data.message || 'No hay citas disponibles ahora.';
-          } else if (data?.state === 'HUMAN_GATE' || data?.state === 'READY_FOR_HUMAN_CONTINUE' || data?.state === 'AVAILABILITY_DETECTED') {
+          } else if (data?.state === 'HUMAN_GATE' || data?.state === 'READY_FOR_HUMAN_CONTINUE' || data?.state === 'AVAILABILITY_DETECTED' || data?.state === 'APPOINTMENT_CONFIRMED') {
             clearAttemptPolling();
             resetAttemptButton();
             if (data.handoff?.active) openLiveHandoff(data.handoff);
