@@ -267,13 +267,50 @@ async function handleAttempt(req, res) {
   }
 
   const client = clientFromProfile(profile);
-  const result = await attemptWithBrowserHandoff({
-    ownerId: record.id,
-    serviceKey: record.service_key,
-    client,
-    viewport: body.viewport,
-    timeoutMs: 45_000
-  });
+  console.log(`[CitaNIE Gateway] Attempt start: ${record.service_key}`);
+
+  let timeoutHandle = null;
+  let result;
+  try {
+    result = await Promise.race([
+      attemptWithBrowserHandoff({
+        ownerId: record.id,
+        serviceKey: record.service_key,
+        client,
+        viewport: body.viewport,
+        timeoutMs: 45_000
+      }),
+      new Promise((resolve) => {
+        timeoutHandle = setTimeout(() => resolve({
+          ok: false,
+          state: 'ERROR',
+          serviceKey: record.service_key,
+          message: 'El portal oficial está tardando demasiado en responder. La búsqueda se ha detenido de forma segura; inténtalo de nuevo en unos minutos.',
+          province: null,
+          procedure: null,
+          url: null,
+          filledFields: [],
+          preferredCities: client.preferredCities || [],
+          locationMatchType: null,
+          matchedLocation: null,
+          alternativeLocations: [],
+          availableLocations: [],
+          handoff: null,
+          timedOut: true
+        }), 55_000);
+        timeoutHandle.unref?.();
+      })
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+
+  if (result?.timedOut) {
+    console.error(`[CitaNIE Gateway] Attempt timeout: ${record.service_key}`);
+    await stopBrowserHandoff(record.id).catch(() => {});
+  } else {
+    console.log(`[CitaNIE Gateway] Attempt result: ${record.service_key} -> ${result?.state || 'UNKNOWN'}`);
+  }
 
   return json(res, 200, {
     ok: result.ok,
