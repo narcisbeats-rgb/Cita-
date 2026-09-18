@@ -144,7 +144,7 @@ function sanitizeCityPreferences(value) {
 }
 
 function sanitizeProfile(input = {}) {
-  const documentType = ['NIE', 'PASSPORT'].includes(String(input.documentType || '').toUpperCase())
+  const documentType = ['DNI', 'NIE', 'PASSPORT'].includes(String(input.documentType || '').toUpperCase())
     ? String(input.documentType).toUpperCase()
     : 'NIE';
   const profile = {

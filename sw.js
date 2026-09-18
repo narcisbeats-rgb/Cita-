@@ -1,4 +1,4 @@
-const CACHE='citanie-static-v2';
+const CACHE='citanie-static-v3';
 const STATIC=['/manifest.webmanifest','/icon.svg'];
 
 self.addEventListener('install',(event)=>{

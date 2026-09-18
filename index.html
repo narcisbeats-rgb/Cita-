@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0d12" />
-  <meta name="description" content="Detector de Citas para trámites NIE/TIE en Madrid con avisos por SMS." />
+  <meta name="description" content="Detector de citas para trámites de Extranjería y Policía en Madrid con avisos por SMS." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Detector de Citas" />
-  <title>Detector de Citas Madrid</title>
+  <title>Citas de Extranjería Madrid</title>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -21,7 +21,7 @@
     .hero{text-align:center;padding:22px 0 28px}.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border-radius:999px;background:#1a2230;border:1px solid var(--line);color:#cbd3df;font-size:13px}.dot{width:8px;height:8px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 4px #32d58320}.hero h1{font-size:clamp(38px,8vw,68px);line-height:.98;margin:18px auto 16px;letter-spacing:-2.6px;max-width:850px}.hero p{max-width:760px;margin:0 auto;color:var(--muted);font-size:18px;line-height:1.55}
     .how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:760px;margin:22px auto 0;text-align:left}.how div{background:#101620;border:1px solid var(--line);border-radius:16px;padding:13px}.how b{display:block;font-size:13px;margin-bottom:5px}.how span{color:var(--muted);font-size:12px;line-height:1.4}
     .shell{background:linear-gradient(180deg,#141a25,#0f141e);border:1px solid var(--line);border-radius:28px;padding:20px;box-shadow:0 20px 70px #0007}.stephead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.stephead small{color:var(--muted)}.progress{height:6px;background:#202838;border-radius:99px;overflow:hidden;margin-bottom:24px}.progress i{display:block;height:100%;width:25%;background:var(--accent);transition:.25s}
-    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.choice{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:var(--text);transition:.15s;min-height:116px}.choice:hover,.choice.active{transform:translateY(-2px);border-color:#725f22;background:#1b2130}.choice b{display:block;font-size:17px;margin-bottom:7px}.choice span{color:var(--muted);font-size:13px;line-height:1.45}.choice .ico{font-size:23px;margin-bottom:12px;display:block}
+    .procedure-groups{display:grid;gap:24px}.procedure-group h3{margin:0 0 5px;font-size:18px}.procedure-group>p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.choice{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:var(--text);transition:.15s;min-height:132px}.choice:hover,.choice.active{transform:translateY(-2px);border-color:#725f22;background:#1b2130}.choice b{display:block;font-size:17px;margin-bottom:7px}.choice span{color:var(--muted);font-size:13px;line-height:1.45}.choice .ico{font-size:23px;margin-bottom:12px;display:block}
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:15px}.field label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.field input,.field select{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);outline:none}.field input:focus,.field select:focus{border-color:#725f22}.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.btn.secondary{background:#1b2230;color:#dce2ea}.btn.primary{background:var(--accent);color:#16130b}.hidden{display:none!important}
     .mapping{background:#0e141d;border:1px solid var(--line);padding:16px;border-radius:16px;margin:15px 0}.mapping strong{display:block;margin-bottom:5px}.mapping p{color:var(--muted);margin:0;font-size:14px;line-height:1.5}.tag{display:inline-flex;padding:5px 9px;border:1px solid #3a455c;border-radius:999px;font-size:12px;color:#c7d0dd;margin-top:10px}
     .notice{margin-top:15px;padding:14px;border-radius:14px;background:#1a1609;border:1px solid #5a4918;color:#e9d992;font-size:13px;line-height:1.5}.consent{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px}.consent input{margin-top:3px}.formmsg{min-height:22px;margin-top:10px;color:#fca5a5;font-size:13px}.formmsg.ok{color:#9be7bd}
@@ -36,7 +36,7 @@
   <section class="hero">
     <div class="eyebrow"><span class="dot"></span> Monitorización automática de citas</div>
     <h1>Detectamos citas disponibles por ti.</h1>
-    <p>Selecciona tu trámite NIE/TIE, guarda tus datos una sola vez y nosotros revisamos periódicamente el portal oficial. Si detectamos disponibilidad o el portal necesita que intervengas, te enviamos un SMS. No necesitas instalar ninguna app ni dejar esta página abierta.</p>
+    <p>Elige tu trámite de Extranjería o Policía con un nombre fácil de entender. Nosotros abrimos directamente la página oficial de Madrid, seleccionamos la opción exacta y te avisamos por SMS cuando haya un cambio.</p>
     <div class="how">
       <div><b>1. Eliges el trámite</b><span>Te guiamos para evitar seleccionar una cita incorrecta.</span></div>
       <div><b>2. Guardas tus datos</b><span>Los conservamos cifrados para agilizar el formulario cuando sea posible.</span></div>
@@ -48,13 +48,45 @@
       <div class="stephead"><b id="stepTitle">¿Qué necesitas?</b><small id="stepCounter">Paso 1 de 4</small></div>
       <div class="progress"><i id="bar"></i></div>
       <section id="s1">
-        <div class="grid" id="choices">
-          <button class="choice" data-key="nie_new"><span class="ico">🪪</span><b>Sacar NIE</b><span>Primera asignación de NIE / certificado.</span></button>
-          <button class="choice" data-key="nie_renew"><span class="ico">↻</span><b>Renovar NIE</b><span>Te ayudamos a identificar qué documento necesitas renovar realmente.</span></button>
-          <button class="choice" data-key="lost"><span class="ico">⚠️</span><b>He perdido mi NIE/TIE</b><span>Pérdida, robo, deterioro o documento inutilizable.</span></button>
-          <button class="choice" data-key="tie_fingerprint"><span class="ico">☝️</span><b>Toma de huellas TIE</b><span>Expedición de tarjeta tras resolución favorable.</span></button>
-          <button class="choice" data-key="tie_renew"><span class="ico">📅</span><b>Renovar TIE</b><span>Renovación o larga duración cuando corresponda.</span></button>
-          <button class="choice" data-key="tie_duplicate"><span class="ico">📄</span><b>Duplicado TIE</b><span>Duplicado por pérdida, robo o deterioro.</span></button>
+        <div class="procedure-groups" id="choices">
+          <div class="procedure-group">
+            <h3>NIE y tarjetas TIE</h3>
+            <p>Las opciones más habituales para obtener el NIE, poner huellas o recoger una tarjeta.</p>
+            <div class="grid">
+              <button class="choice" data-key="nie_new"><span class="ico">🪪</span><b>Sacar el NIE por primera vez</b><span>Asignación inicial del número NIE. No es para renovar una tarjeta.</span></button>
+              <button class="choice" data-key="tie_fingerprint"><span class="ico">☝️</span><b>Huellas para TIE</b><span>Primera tarjeta, renovación, duplicado o Ley 14/2013.</span></button>
+              <button class="choice" data-key="tie_pickup"><span class="ico">📬</span><b>Recoger mi tarjeta TIE</b><span>Cuando la tarjeta ya está fabricada y la comisaría exige cita.</span></button>
+              <button class="choice" data-key="eu_registration"><span class="ico">🇪🇺</span><b>Certificado UE (papel verde)</b><span>Para ciudadanos de la Unión Europea que residirán en España.</span></button>
+            </div>
+          </div>
+          <div class="procedure-group">
+            <h3>Viajes, visitas y certificados</h3>
+            <p>Permisos para regresar, invitaciones y certificados emitidos por Policía.</p>
+            <div class="grid">
+              <button class="choice" data-key="return_authorization"><span class="ico">✈️</span><b>Autorización de regreso</b><span>Para salir de España y volver mientras tu residencia o TIE se renueva.</span></button>
+              <button class="choice" data-key="invitation_letter"><span class="ico">✉️</span><b>Carta de invitación</b><span>Para invitar a un familiar o amigo extranjero a alojarse en tu domicilio.</span></button>
+              <button class="choice" data-key="police_certificates"><span class="ico">📑</span><b>Certificados de residencia o concordancia</b><span>Residencia, no residencia o concordancia de datos.</span></button>
+              <button class="choice" data-key="stay_extension"><span class="ico">🗓️</span><b>Prórroga de estancia</b><span>Para ampliar una estancia corta cuando la normativa lo permite.</span></button>
+            </div>
+          </div>
+          <div class="procedure-group">
+            <h3>Protección y documentación especial</h3>
+            <p>Asilo y documentos destinados a situaciones concretas.</p>
+            <div class="grid">
+              <button class="choice" data-key="asylum_first"><span class="ico">🛡️</span><b>Primera cita de asilo</b><span>Primera solicitud de protección internacional en Madrid.</span></button>
+              <button class="choice" data-key="registration_card"><span class="ico">📘</span><b>Cédula de inscripción</b><span>Para quien no puede ser documentado por las autoridades de su país.</span></button>
+              <button class="choice" data-key="ukraine_card"><span class="ico">🇺🇦</span><b>Tarjeta temporal — Ucrania</b><span>Para personas desplazadas con protección temporal por el conflicto.</span></button>
+              <button class="choice" data-key="brexit_card"><span class="ico">🇬🇧</span><b>Tarjeta Brexit</b><span>Para británicos y familiares incluidos en el Acuerdo de Retirada.</span></button>
+            </div>
+          </div>
+          <div class="procedure-group">
+            <h3>Autorizaciones de Gestión Migratoria</h3>
+            <p>Elige estas opciones solo si tu resolución menciona expresamente la Dirección General de Gestión Migratoria.</p>
+            <div class="grid">
+              <button class="choice" data-key="migration_card_issue"><span class="ico">🏛️</span><b>Expedir tarjeta autorizada por Migraciones</b><span>Para iniciar la expedición de la tarjeta indicada en esa resolución.</span></button>
+              <button class="choice" data-key="migration_card_pickup"><span class="ico">✅</span><b>Recoger tarjeta autorizada por Migraciones</b><span>Para recoger la TIE después de esa autorización especial.</span></button>
+            </div>
+          </div>
         </div>
         <div class="actions"><button class="btn primary" id="next1" disabled>Continuar</button></div>
       </section>
@@ -62,9 +94,9 @@
         <div id="mapping" class="mapping"></div>
         <div class="row">
           <div class="field"><label>Provincia</label><input value="Madrid" disabled /></div>
-          <div class="field"><label>¿Tienes NIE actualmente?</label><select id="hasNie"><option value="yes">Sí</option><option value="no">No</option></select></div>
+          <div class="field"><label>Página oficial de inicio</label><input value="Madrid ya seleccionado" disabled /></div>
         </div>
-        <div class="field"><label>Situación</label><select id="situation"><option>Necesito una cita lo antes posible</option><option>Tengo resolución favorable</option><option>He perdido o me han robado el documento</option><option>Mi documento está deteriorado</option><option>No estoy seguro del trámite correcto</option></select></div>
+        <div class="notice">Comprueba que la explicación coincide con tu caso. Al continuar, la aplicación buscará exactamente el nombre oficial mostrado arriba.</div>
         <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="next2">Continuar</button></div>
       </section>
       <section id="s3" class="hidden">
@@ -98,12 +130,23 @@
 </div>
 <script>
 const MAP={
-  nie_new:{label:'Sacar NIE',official:'Asignación de NIE / certificado correspondiente',desc:'Primera obtención del número NIE o certificado, según la situación del solicitante.'},
-  nie_renew:{label:'Renovar NIE',official:'Clasificación guiada del trámite',desc:'El NIE como número no caduca. Identificamos si necesitas renovar TIE, residencia o un certificado.'},
-  lost:{label:'He perdido mi NIE/TIE',official:'Duplicado / expedición según documento',desc:'Distinguimos entre pérdida de TIE, certificado u otro documento.'},
-  tie_fingerprint:{label:'Toma de huellas TIE',official:'Toma de huellas / expedición de tarjeta',desc:'Para expedición de la TIE cuando ya puedes solicitar la tarjeta.'},
-  tie_renew:{label:'Renovar TIE',official:'Renovación / expedición de TIE correspondiente',desc:'Monitorización del flujo de tarjeta adecuado.'},
-  tie_duplicate:{label:'Duplicado TIE',official:'Duplicado de TIE',desc:'Para pérdida, robo, deterioro o inutilización de la tarjeta.'}
+  asylum_first:{label:'Primera cita de asilo',official:'ASILO - PRIMERA CITA - provincia de Madrid',desc:'Para pedir por primera vez protección internacional o asilo en Madrid.'},
+  return_authorization:{label:'Autorización de regreso',official:'AUTORIZACIÓN DE REGRESO',desc:'Para salir de España y poder volver mientras tu residencia o TIE está en renovación.'},
+  tie_pickup:{label:'Recoger mi tarjeta TIE',official:'POLICIA - RECOGIDA DE TARJETA DE IDENTIDAD DE EXTRANJERO (TIE)',desc:'Para recoger una TIE que ya está fabricada, cuando la comisaría exige cita previa.'},
+  nie_new:{label:'Sacar el NIE por primera vez',official:'POLICIA-ASIGNACIÓN DE N.I.E.',desc:'Para solicitar la asignación inicial de un número NIE. No sirve para renovar la TIE.'},
+  invitation_letter:{label:'Carta de invitación',official:'POLICIA-CARTA DE INVITACIÓN',desc:'Para invitar a España a un familiar o amigo extranjero que se alojará en tu domicilio.'},
+  eu_registration:{label:'Certificado UE (papel verde)',official:'POLICIA-CERTIFICADO DE REGISTRO DE CIUDADANO DE LA U.E.',desc:'Para ciudadanos de la Unión Europea que van a residir en España.'},
+  police_certificates:{label:'Certificados de residencia o concordancia',official:'POLICIA-CERTIFICADOS (DE RESIDENCIA, DE NO RESIDENCIA Y DE CONCORDANCIA)',desc:'Para pedir un certificado de residencia, no residencia o concordancia de datos.'},
+  registration_card:{label:'Cédula de inscripción',official:'POLICIA - CÉDULA DE INSCRIPCIÓN',desc:'Para extranjeros que no pueden ser documentados por las autoridades de su país.'},
+  ukraine_card:{label:'Tarjeta de protección temporal — Ucrania',official:'POLICIA TARJETA CONFLICTO UCRANIA–ПОЛІЦІЯ -КАРТКА ДЛЯ ПЕРЕМІЩЕНИХ ОСІБ',desc:'Para personas desplazadas por la guerra de Ucrania que tienen protección temporal.'},
+  brexit_card:{label:'Tarjeta Brexit para británicos y familiares',official:'POLICÍA-EXP.TARJETA ASOCIADA AL ACUERDO DE RETIRADA CIUDADANOS BRITÁNICOS Y SUS FAMILIARES (BREXIT)',desc:'Para ciudadanos británicos y familiares incluidos en el Acuerdo de Retirada.'},
+  migration_card_issue:{label:'Expedir tarjeta autorizada por Migraciones',official:'POLICÍA-EXPEDICIÓN DE TARJETAS CUYA AUTORIZACIÓN RESUELVE LA DIRECCIÓN GENERAL DE GESTIÓN MIGRATORIA',desc:'Solo si tu resolución dice que la autorización la concede la Dirección General de Gestión Migratoria.'},
+  stay_extension:{label:'Prórroga de estancia',official:'POLICÍA-PRÓRROGA DE ESTANCIA',desc:'Para solicitar más tiempo de estancia de corta duración cuando la normativa lo permite.'},
+  migration_card_pickup:{label:'Recoger tarjeta autorizada por Migraciones',official:'POLICÍA-RECOGIDA DE LA TIE CUYA AUTORIZACIÓN RESUELVE LA DIRECCIÓN GENERAL DE GESTIÓN MIGRATORIA',desc:'Para recoger una TIE cuya autorización resolvió la Dirección General de Gestión Migratoria.'},
+  tie_fingerprint:{label:'Huellas para TIE: inicial, renovación o duplicado',official:'POLICÍA-TOMA DE HUELLAS (EXPEDICIÓN DE TARJETA) INICIAL, RENOVACIÓN, DUPLICADO Y LEY 14/2013',desc:'Para poner huellas y expedir la TIE por primera vez, renovarla o pedir un duplicado.'},
+  lost:{label:'TIE perdida, robada o deteriorada'},
+  tie_renew:{label:'Renovar TIE'},
+  tie_duplicate:{label:'Duplicado TIE'}
 };
 const state={step:1,key:null};
 const qs=(s)=>document.querySelector(s),qsa=(s)=>[...document.querySelectorAll(s)];
@@ -112,10 +155,10 @@ function show(n){state.step=n;for(let i=1;i<=4;i++)qs('#s'+i).classList.toggle('
 async function api(url,options={}){const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'internal_error');error.code=data.error;throw error}return data}
 function busy(button,on,label){button.disabled=on;if(label)button.textContent=label}
 qsa('.choice').forEach(b=>b.onclick=()=>{qsa('.choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.key=b.dataset.key;qs('#next1').disabled=false});
-qs('#next1').onclick=()=>{const m=MAP[state.key];qs('#mapping').innerHTML=`<strong>${m.official}</strong><p>${m.desc}</p><span class="tag">Madrid</span>`;show(2)};
+qs('#next1').onclick=()=>{const m=MAP[state.key];qs('#mapping').innerHTML=`<strong>${m.official}</strong><p>${m.desc}</p><span class="tag">Inicio directo · Madrid</span>`;show(2)};
 qs('#next2').onclick=()=>show(3);qsa('.back').forEach(b=>b.onclick=()=>show(Math.max(1,state.step-1)));
 qs('#enableSms').onclick=async()=>{const button=qs('#enableSms'),msg=qs('#smsMsg');msg.className='formmsg';msg.textContent='';if(!qs('#consent').checked){msg.textContent=errors.consent_required;return}const phone=qs('#smsPhone').value.trim();busy(button,true,'Configurando…');try{const config=await api('/api/config');if(!config.smsReady)throw Object.assign(new Error('sms_not_configured'),{code:'sms_not_configured'});const data=await api('/api/sms/subscribe',{method:'POST',body:JSON.stringify({phone,serviceKey:state.key,consent:true})});localStorage.setItem('citaNieAccessToken',data.accessToken);msg.className='formmsg ok';msg.textContent='Monitorización activada. Enviando un SMS de prueba…';await api('/api/sms/test',{method:'POST',headers:{authorization:`Bearer ${data.accessToken}`},body:'{}'});msg.textContent='✓ Listo. Revisa tu móvil: acabamos de enviar un SMS de prueba.';await loadDashboard()}catch(error){msg.textContent=errors[error.code]||errors.internal_error}finally{busy(button,false,'Empezar monitorización')}};
-async function loadDashboard(){const token=localStorage.getItem('citaNieAccessToken');if(!token)return;try{const data=await api('/api/subscription',{headers:{authorization:`Bearer ${token}`}});state.key=data.serviceKey;qs('#dashService').textContent=MAP[data.serviceKey]?.label||'NIE / TIE';qs('#checks').textContent=data.checks||0;qs('#smsTarget').textContent=data.channel==='sms'?`📩 SMS a ${data.phone||'tu móvil'}`:'Avisos activos';qs('#lastAlert').textContent=data.lastAlertAt?`Último aviso: ${new Date(data.lastAlertAt).toLocaleString('es-ES')}`:'Sin avisos enviados todavía';const status=data.lastResult?.state;if(status==='AVAILABILITY_DETECTED')qs('#monitorMessage').textContent='¡Posible disponibilidad detectada! Revisa el SMS y entra cuanto antes.';else if(status==='HUMAN_GATE')qs('#monitorMessage').textContent='El portal requiere intervención humana. Te hemos avisado por SMS.';else qs('#monitorMessage').textContent='En este momento no hay citas disponibles. El sistema seguirá buscando automáticamente por ti, de lunes a viernes, a las 08:00, 09:00, 10:00, 11:00, 12:00 y 13:00 (Madrid), y te avisará inmediatamente por SMS.';show(4)}catch{localStorage.removeItem('citaNieAccessToken')}}
+async function loadDashboard(){const token=localStorage.getItem('citaNieAccessToken');if(!token)return;try{const data=await api('/api/subscription',{headers:{authorization:`Bearer ${token}`}});state.key=data.serviceKey;qs('#dashService').textContent=MAP[data.serviceKey]?.label||'Trámite de Extranjería';qs('#checks').textContent=data.checks||0;qs('#smsTarget').textContent=data.channel==='sms'?`📩 SMS a ${data.phone||'tu móvil'}`:'Avisos activos';qs('#lastAlert').textContent=data.lastAlertAt?`Último aviso: ${new Date(data.lastAlertAt).toLocaleString('es-ES')}`:'Sin avisos enviados todavía';const status=data.lastResult?.state;if(status==='AVAILABILITY_DETECTED')qs('#monitorMessage').textContent='¡Posible disponibilidad detectada! Revisa el SMS y entra cuanto antes.';else if(status==='HUMAN_GATE')qs('#monitorMessage').textContent='El portal requiere intervención humana. Te hemos avisado por SMS.';else qs('#monitorMessage').textContent='En este momento no hay citas disponibles. El sistema seguirá buscando automáticamente por ti, de lunes a viernes, a las 08:00, 09:00, 10:00, 11:00, 12:00 y 13:00 (Madrid), y te avisará inmediatamente por SMS.';show(4)}catch{localStorage.removeItem('citaNieAccessToken')}}
 qs('#refreshStatus').onclick=async()=>{busy(qs('#refreshStatus'),true,'Actualizando…');await loadDashboard();busy(qs('#refreshStatus'),false,'Actualizar estado')};
 qs('#unsubscribe').onclick=async()=>{if(!confirm('¿Quieres detener la monitorización y borrar tus datos?'))return;const token=localStorage.getItem('citaNieAccessToken');try{if(token)await api('/api/subscription',{method:'DELETE',headers:{authorization:`Bearer ${token}`}})}catch{}localStorage.removeItem('citaNieAccessToken');location.reload()};
 loadDashboard();

@@ -1,9 +1,10 @@
 import { analyzeLocationOptions, locationMessage, readOfficeOptions } from '../lib/location-preferences.js';
+import { ICP_MADRID_URL, normalizeProcedureText, procedureDefinition } from '../lib/procedures.js';
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-export const ICP_URL = 'https://icp.administracionelectronica.gob.es/icpplus/index.html';
+export const ICP_URL = ICP_MADRID_URL;
 
 const HUMAN_GATE_PATTERNS = [
   /captcha/i,
@@ -38,61 +39,11 @@ const IDENTITY_PATTERNS = [
   /apellidos\s+y\s+nombre/i
 ];
 
-const PROCEDURE_RULES = {
-  nie_new: {
-    label: 'Sacar NIE',
-    patterns: [
-      /\bASIGNACION\s+DE\s+NIE\b/,
-      /\bCERTIFICADOS?.*\bNIE\b/,
-      /\bNIE\b.*\bINSTANCIA\b.*\bINTERESAD/,
-      /\bNIE\b.*\bINTERESAD/
-    ]
-  },
-  tie_fingerprint: {
-    label: 'Toma de huellas TIE',
-    patterns: [
-      /\bTOMA\s+DE\s+HUELL/,
-      /\bEXPEDICION\s+DE\s+TARJETA/
-    ]
-  },
-  tie_renew: {
-    label: 'Renovar TIE',
-    patterns: [
-      /\bTOMA\s+DE\s+HUELL/,
-      /\bRENOVACION\s+DE\s+TARJETA.*\bLARGA\s+DURACION\b/,
-      /\bEXPEDICION\s+DE\s+TARJETA/
-    ]
-  },
-  tie_duplicate: {
-    label: 'Duplicado TIE',
-    patterns: [
-      /\bTOMA\s+DE\s+HUELL/,
-      /\bDUPLICADO.*\bTIE\b/,
-      /\bEXPEDICION\s+DE\s+TARJETA/
-    ]
-  },
-  lost: {
-    label: 'NIE/TIE perdido',
-    patterns: [
-      /\bTOMA\s+DE\s+HUELL/,
-      /\bDUPLICADO.*\bTIE\b/,
-      /\bEXPEDICION\s+DE\s+TARJETA/
-    ]
-  }
-};
-
 function nowIso() {
   return new Date().toISOString();
 }
 
-function normalizeText(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toUpperCase();
-}
+const normalizeText = normalizeProcedureText;
 
 async function bodyText(page) {
   try {
@@ -142,12 +93,39 @@ async function selectOptionContaining(page, optionRegex, labelHintRegex = null) 
   return null;
 }
 
+function urlTargetsMadrid(value) {
+  try {
+    const url = new URL(value);
+    return url.pathname.includes('/icpplustiem/citar') && url.searchParams.get('p') === '28';
+  } catch {
+    return false;
+  }
+}
+
+async function madridAlreadyPrepared(page) {
+  if (urlTargetsMadrid(page.url())) return true;
+  return page.locator('input, select').evaluateAll((controls) => controls.some((control) => {
+    const value = String(control.value || '').trim().toUpperCase();
+    const selectedText = control.tagName === 'SELECT'
+      ? String(control.options?.[control.selectedIndex]?.textContent || '').trim().toUpperCase()
+      : '';
+    const name = `${control.getAttribute('name') || ''} ${control.id || ''} ${control.getAttribute('aria-label') || ''}`.toUpperCase();
+    return (value === 'MADRID' || selectedText === 'MADRID') && (control.disabled || /PROVINCIA/.test(name));
+  })).catch(() => false);
+}
+
+async function prepareMadrid(page) {
+  if (await madridAlreadyPrepared(page)) return { optionText: 'Madrid', direct: true };
+  return selectOptionContaining(page, /^\s*MADRID\s*$/i, /provincia/i);
+}
+
 async function selectProcedureForService(page, serviceKey) {
   if (serviceKey === 'nie_renew') {
     return { needsClarification: true, label: 'Renovar NIE' };
   }
 
-  const rule = PROCEDURE_RULES[serviceKey] || PROCEDURE_RULES.tie_fingerprint;
+  const rule = procedureDefinition(serviceKey);
+  if (!rule) return null;
   const selects = page.locator('select');
   const selectCount = await selects.count();
 
@@ -255,7 +233,13 @@ function surnamesThenName(client) {
 
 async function chooseDocumentType(page, client) {
   if (!client?.documentType) return false;
-  const wanted = normalizeText(client.documentType) === 'PASSPORT' ? 'PASAPORTE' : 'NIE';
+  const requested = normalizeText(client.documentType);
+  const wanted = requested === 'PASSPORT' ? 'PASAPORTE' : (requested === 'DNI' ? 'DNI' : 'NIE');
+  const matchesType = (text, type) => {
+    if (type === 'PASAPORTE') return /PASAPORTE|PASSPORT/.test(text);
+    if (type === 'DNI') return /(?:^|\W)D\.?\s*N\.?\s*I\.?(?:$|\W)/.test(text);
+    return /(?:^|\W)N\.?\s*I\.?\s*E\.?(?:$|\W)/.test(text);
+  };
   const selects = page.locator('select');
   const count = await selects.count();
   for (let i = 0; i < count; i++) {
@@ -263,10 +247,9 @@ async function chooseDocumentType(page, client) {
     if (!(await select.isVisible().catch(() => false))) continue;
     const options = await select.locator('option').allTextContents();
     const normalized = options.map(normalizeText);
-    const hasNie = normalized.some((t) => /\bNIE\b/.test(t));
-    const hasPassport = normalized.some((t) => /PASAPORTE|PASSPORT/.test(t));
-    if (!hasNie || !hasPassport) continue;
-    const idx = normalized.findIndex((t) => wanted === 'NIE' ? /\bNIE\b/.test(t) : /PASAPORTE|PASSPORT/.test(t));
+    const documentOptions = normalized.filter((t) => ['DNI', 'NIE', 'PASAPORTE'].some((type) => matchesType(t, type))).length;
+    if (documentOptions < 2) continue;
+    const idx = normalized.findIndex((t) => matchesType(t, wanted));
     if (idx < 0) continue;
     const value = await select.locator('option').nth(idx).getAttribute('value');
     if (value !== null) await select.selectOption(value);
@@ -368,7 +351,7 @@ async function fillIdentityIfAllowed(page, client) {
 }
 
 export function assistedServiceSupported(serviceKey) {
-  return Boolean(PROCEDURE_RULES[serviceKey]);
+  return Boolean(procedureDefinition(serviceKey));
 }
 
 export async function checkMadridTieAvailability(options = {}) {
@@ -431,7 +414,7 @@ export async function checkMadridTieAvailability(options = {}) {
       return result;
     }
 
-    const province = await selectOptionContaining(page, /^\s*MADRID\s*$/i, /provincia/i);
+    const province = await prepareMadrid(page);
     if (!province) {
       result.state = 'PORTAL_CHANGED';
       result.message = 'No se encontró Madrid en los desplegables del portal.';
@@ -464,7 +447,7 @@ export async function checkMadridTieAvailability(options = {}) {
     }
     if (!procedure) {
       result.state = 'PROCEDURE_NOT_FOUND';
-      result.message = `Madrid cargó, pero no se encontró una opción compatible con ${PROCEDURE_RULES[serviceKey]?.label || 'el trámite seleccionado'}.`;
+      result.message = `Madrid cargó, pero no se encontró una opción compatible con ${procedureDefinition(serviceKey)?.label || 'el trámite seleccionado'}.`;
       result.debug = await capture('procedure-not-found');
       return result;
     }

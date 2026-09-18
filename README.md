@@ -1,12 +1,12 @@
-# CitaNIE Madrid — MVP + monitor seguro
+# CitaNIE Madrid — monitor seguro de Extranjería
 
-MVP centrado exclusivamente en Madrid y trámites NIE/TIE. La interfaz conserva el flujo visual original y se añade un primer worker Playwright para validar el acceso al portal oficial con un navegador real.
+Aplicación centrada en Madrid para los trámites de Extranjería y Policía disponibles en el portal oficial. La interfaz muestra nombres sencillos y conserva, para la automatización, el nombre oficial exacto de cada trámite.
 
 ## Qué hace el worker
 
-- Abre el portal oficial ICP+ con Chromium real.
-- Busca `MADRID` en los desplegables.
-- Busca un trámite compatible con `TOMA DE HUELLA`, `EXPEDICIÓN DE TARJETA` o `TIE`.
+- Abre directamente la página oficial de Madrid: `https://icp.administracionelectronica.gob.es/icpplustiem/citar?p=28&locale=es`.
+- Busca el nombre oficial exacto correspondiente a la opción sencilla elegida por el usuario.
+- Incluye los 14 trámites visibles en la selección oficial aportada, desde NIE/TIE hasta asilo, regreso, certificados y casos especiales.
 - Continúa hasta el formulario de identidad.
 - En `SAFE_MODE=true` **se detiene ahí** y no envía datos personales.
 - Se detiene inmediatamente si detecta CAPTCHA, reCAPTCHA, hCaptcha, Cl@ve, SMS o verificación humana.

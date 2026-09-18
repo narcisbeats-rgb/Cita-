@@ -67,9 +67,9 @@
     const heroTitle = document.querySelector('.hero h1');
     const heroText = document.querySelector('.hero p');
     if (brand) brand.innerHTML = 'Detector de <span>Citas</span>';
-    if (eyebrow) eyebrow.innerHTML = '<span class="dot"></span> CitaNIE Madrid · Monitorización de citas';
+    if (eyebrow) eyebrow.innerHTML = '<span class="dot"></span> Citas de Extranjería · Madrid';
     if (heroTitle) heroTitle.textContent = 'Detectamos citas disponibles por ti.';
-    if (heroText) heroText.textContent = 'Monitorizamos el portal oficial de cita previa para trámites NIE/TIE en Madrid. Eliges tu trámite y guardas tus datos una sola vez; cuando detectamos disponibilidad, recibes una alerta inmediata en iPhone o Android y puedes intentar continuar con tus datos ya preparados. Las verificaciones CAPTCHA, Cl@ve o SMS las completa siempre una persona.';
+    if (heroText) heroText.textContent = 'Monitorizamos la página oficial de Madrid para los trámites de Extranjería y Policía disponibles en la aplicación. Eliges una opción con nombre sencillo y nosotros seleccionamos su nombre oficial exacto. Cuando detectamos disponibilidad, recibes una alerta y puedes continuar con tus datos ya preparados. Las verificaciones CAPTCHA, Cl@ve o SMS las completa siempre una persona.';
   }
 
   const css = document.createElement('style');
@@ -431,10 +431,10 @@
     card.className = 'profile-card';
     card.innerHTML = `
       <h3>Tus datos para la cita</h3>
-      <p class="lead">Escríbelos una sola vez. CitaNIE los guarda cifrados y puede reutilizarlos para Sacar NIE, Toma de huellas TIE, Renovar TIE, Duplicado TIE y pérdida/robo, siempre que el portal muestre una opción compatible.</p>
+      <p class="lead">Escríbelos una sola vez. CitaNIE los guarda cifrados y los reutiliza para el trámite que elegiste cuando el portal oficial muestra campos compatibles. Si ese trámite pide datos diferentes, podrás completarlos tú en la sesión oficial.</p>
       <div class="profile-grid">
-        <div class="profile-field"><label>Documento</label><select id="pDocumentType"><option value="NIE">NIE</option><option value="PASSPORT">Pasaporte</option></select></div>
-        <div class="profile-field"><label>Número de documento / NIE</label><input id="pDocumentNumber" autocomplete="off" placeholder="X1234567A"></div>
+        <div class="profile-field"><label>Documento</label><select id="pDocumentType"><option value="NIE">NIE</option><option value="DNI">DNI</option><option value="PASSPORT">Pasaporte</option></select></div>
+        <div class="profile-field"><label>Número de documento</label><input id="pDocumentNumber" autocomplete="off" placeholder="X1234567A"></div>
         <div class="profile-field"><label>Nombre</label><input id="pFirstName" autocomplete="given-name"></div>
         <div class="profile-field"><label>Primer apellido</label><input id="pSurname1" autocomplete="family-name"></div>
         <div class="profile-field"><label>Segundo apellido</label><input id="pSurname2" autocomplete="additional-name"></div>
