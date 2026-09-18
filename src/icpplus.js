@@ -26,7 +26,8 @@ const AVAILABILITY_PATTERNS = [
   /seleccione\s+(?:una\s+)?cita/i,
   /citas?\s+disponibles?/i,
   /seleccione\s+(?:una\s+)?fecha/i,
-  /seleccione\s+(?:una\s+)?oficina/i
+  /fecha\s+(?:y\s+)?hora/i,
+  /hora\s+disponible/i
 ];
 
 const IDENTITY_PATTERNS = [
@@ -527,7 +528,7 @@ export async function checkMadridTieAvailability(options = {}) {
     }
 
     const officeOptions = await readOfficeOptions(page, client?.preferredCities || []).catch(() => []);
-    if (anyMatch(text, AVAILABILITY_PATTERNS) || officeOptions.length) {
+    if (anyMatch(text, AVAILABILITY_PATTERNS)) {
       const location = analyzeLocationOptions(officeOptions, client?.preferredCities || [], client?.allowNearby !== false);
       Object.assign(result, location);
       result.ok = true;
