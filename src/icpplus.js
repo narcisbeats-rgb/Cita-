@@ -1,3 +1,4 @@
+import { analyzeLocationOptions, locationMessage, readOfficeOptions } from '../lib/location-preferences.js';
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -389,7 +390,12 @@ export async function checkMadridTieAvailability(options = {}) {
     url: null,
     message: null,
     debug: null,
-    filledFields: []
+    filledFields: [],
+    preferredCities: Array.isArray(client?.preferredCities) ? client.preferredCities : [],
+    locationMatchType: null,
+    matchedLocation: null,
+    availableLocations: [],
+    alternativeLocations: []
   };
 
   if (serviceKey === 'nie_renew') {
@@ -520,10 +526,13 @@ export async function checkMadridTieAvailability(options = {}) {
       return result;
     }
 
-    if (anyMatch(text, AVAILABILITY_PATTERNS)) {
+    const officeOptions = await readOfficeOptions(page, client?.preferredCities || []).catch(() => []);
+    if (anyMatch(text, AVAILABILITY_PATTERNS) || officeOptions.length) {
+      const location = analyzeLocationOptions(officeOptions, client?.preferredCities || [], client?.allowNearby !== false);
+      Object.assign(result, location);
       result.ok = true;
       result.state = 'AVAILABILITY_DETECTED';
-      result.message = 'Se detectó disponibilidad o una pantalla de selección de cita. No se reserva automáticamente.';
+      result.message = `Se detectó disponibilidad o una pantalla de selección de cita. No se reserva automáticamente.${locationMessage(location)}`;
       result.debug = await capture('availability-detected');
       return result;
     }

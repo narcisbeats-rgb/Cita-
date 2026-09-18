@@ -94,6 +94,14 @@
     el.classList.toggle('err', error);
   }
 
+  function cityPreferencesFromForm() {
+    return String(field('pCities')?.value || '')
+      .split(/[,;\n]/)
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 6);
+  }
+
   function profileFromForm() {
     return {
       documentType: field('pDocumentType')?.value || 'NIE',
@@ -105,6 +113,8 @@
       nationality: encodeGeo(field('pNationality')?.value || '', field('pCommunity')?.value || 'Comunidad de Madrid'),
       email: field('pEmail')?.value || '',
       mobile: field('pMobile')?.value || '',
+      preferredCities: cityPreferencesFromForm(),
+      allowNearby: field('pNearby')?.checked !== false,
       monitoringAllowed: field('profileConsent')?.checked === true
     };
   }
@@ -123,6 +133,8 @@
     if (field('pCommunity')) field('pCommunity').value = COMMUNITIES.includes(geo.community) ? geo.community : 'Comunidad de Madrid';
     if (field('pEmail')) field('pEmail').value = profile.email || '';
     if (field('pMobile')) field('pMobile').value = profile.mobile || '';
+    if (field('pCities')) field('pCities').value = Array.isArray(profile.preferredCities) ? profile.preferredCities.join(', ') : '';
+    if (field('pNearby')) field('pNearby').checked = profile.allowNearby !== false;
     loading = false;
   }
 
@@ -290,7 +302,14 @@
         resultBox.textContent = `El portal ha pedido CAPTCHA, SMS, Cl@ve o una comprobación humana.${filled} Abriendo una sesión para que la completes tú dentro de CitaNIE.`;
         if (data.handoff?.active) await openHandoff(data.handoff);
       } else if (data.state === 'AVAILABILITY_DETECTED') {
-        resultBox.textContent = `Se ha detectado una pantalla compatible con disponibilidad. Continúa cuanto antes; CitaNIE no confirma la cita automáticamente.${filled}`;
+        const wanted = Array.isArray(data.preferredCities) && data.preferredCities.length ? data.preferredCities.join(', ') : 'tu zona preferida';
+        if (data.locationMatchType === 'preferred' && data.matchedLocation) {
+          resultBox.textContent = `Hay una opción disponible compatible con tu preferencia: ${data.matchedLocation}. Continúa cuanto antes; CitaNIE no confirma la cita automáticamente.${filled}`;
+        } else if (data.locationMatchType === 'alternative' && data.alternativeLocations?.length) {
+          resultBox.textContent = `No aparece una opción en ${wanted}, pero sí encontramos alternativas: ${data.alternativeLocations.join(' · ')}. Puedes elegir una de ellas y continuar.${filled}`;
+        } else {
+          resultBox.textContent = `Se ha detectado una pantalla compatible con disponibilidad. Continúa cuanto antes; CitaNIE no confirma la cita automáticamente.${filled}`;
+        }
       } else if (data.state === 'NO_AVAILABILITY') {
         resultBox.textContent = `El portal indica que no hay citas disponibles ahora. Tus datos quedan guardados para el siguiente intento.${filled}`;
       } else if (data.state === 'READY_FOR_IDENTITY') {
@@ -337,6 +356,8 @@
         <div class="profile-field"><label>Fecha de nacimiento</label><input id="pBirthDate" type="date" autocomplete="bday"></div>
         <div class="profile-field"><label>Nacionalidad</label><select id="pNationality" autocomplete="country-name"><option value="">Selecciona nacionalidad</option></select></div>
         <div class="profile-field"><label>Comunidad autónoma</label><select id="pCommunity"><option value="Comunidad de Madrid">Comunidad de Madrid</option></select></div>
+        <div class="profile-field profile-wide"><label>Ciudad(es) preferidas</label><input id="pCities" autocomplete="address-level2" placeholder="Ej.: Parla, Getafe"></div>
+        <label class="profile-consent profile-wide" style="margin:0"><input id="pNearby" type="checkbox" checked> <span>Si no hay opción en mis ciudades, mostrarme también oficinas disponibles en otras ciudades cercanas.</span></label>
         <div class="profile-field"><label>Teléfono</label><input id="pMobile" inputmode="tel" autocomplete="tel"></div>
         <div class="profile-field profile-wide"><label>Email</label><input id="pEmail" type="email" autocomplete="email"></div>
       </div>

@@ -127,6 +127,22 @@ function cleanText(value, max = 120) {
   return String(value || '').trim().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max);
 }
 
+function sanitizeCityPreferences(value) {
+  const list = Array.isArray(value) ? value : String(value || '').split(/[,;\n]/);
+  const seen = new Set();
+  const out = [];
+  for (const raw of list) {
+    const city = cleanText(raw, 80).replace(/\s+/g, ' ');
+    if (!city) continue;
+    const key = city.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(city);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
 function sanitizeProfile(input = {}) {
   const documentType = ['NIE', 'PASSPORT'].includes(String(input.documentType || '').toUpperCase())
     ? String(input.documentType).toUpperCase()
@@ -141,6 +157,8 @@ function sanitizeProfile(input = {}) {
     nationality: cleanText(input.nationality, 80),
     email: cleanText(input.email, 120).toLowerCase(),
     mobile: cleanText(input.mobile, 32),
+    preferredCities: sanitizeCityPreferences(input.preferredCities),
+    allowNearby: input.allowNearby !== false,
     monitoringAllowed: input.monitoringAllowed === true
   };
   if (profile.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) throw new Error('invalid_email');
@@ -158,6 +176,8 @@ function profileSummary(profile) {
     nationality: profile?.nationality || '',
     email: profile?.email || '',
     mobile: profile?.mobile || '',
+    preferredCities: Array.isArray(profile?.preferredCities) ? profile.preferredCities : [],
+    allowNearby: profile?.allowNearby !== false,
     monitoringAllowed: profile?.monitoringAllowed === true
   };
 }
@@ -216,6 +236,8 @@ function clientFromProfile(profile) {
     nationality: profile.nationality,
     email: profile.email,
     mobile: profile.mobile,
+    preferredCities: Array.isArray(profile.preferredCities) ? profile.preferredCities : [],
+    allowNearby: profile.allowNearby !== false,
     name: [profile.firstName, profile.surname1, profile.surname2].filter(Boolean).join(' ')
   };
 }
@@ -260,6 +282,11 @@ async function handleAttempt(req, res) {
     procedure: result.procedure,
     url: result.url,
     filledFields: result.filledFields || [],
+    preferredCities: result.preferredCities || client.preferredCities || [],
+    locationMatchType: result.locationMatchType || null,
+    matchedLocation: result.matchedLocation || null,
+    alternativeLocations: result.alternativeLocations || [],
+    availableLocations: result.availableLocations || [],
     handoff: result.handoff || null
   });
 }
