@@ -140,7 +140,8 @@ function sanitizeProfile(input = {}) {
     birthDate: /^\d{4}-\d{2}-\d{2}$/.test(String(input.birthDate || '')) ? String(input.birthDate) : '',
     nationality: cleanText(input.nationality, 80),
     email: cleanText(input.email, 120).toLowerCase(),
-    mobile: cleanText(input.mobile, 32)
+    mobile: cleanText(input.mobile, 32),
+    monitoringAllowed: input.monitoringAllowed === true
   };
   if (profile.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) throw new Error('invalid_email');
   return profile;
@@ -156,7 +157,8 @@ function profileSummary(profile) {
     birthDate: profile?.birthDate || '',
     nationality: profile?.nationality || '',
     email: profile?.email || '',
-    mobile: profile?.mobile || ''
+    mobile: profile?.mobile || '',
+    monitoringAllowed: profile?.monitoringAllowed === true
   };
 }
 

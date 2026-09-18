@@ -104,7 +104,8 @@
       birthDate: field('pBirthDate')?.value || '',
       nationality: encodeGeo(field('pNationality')?.value || '', field('pCommunity')?.value || 'Comunidad de Madrid'),
       email: field('pEmail')?.value || '',
-      mobile: field('pMobile')?.value || ''
+      mobile: field('pMobile')?.value || '',
+      monitoringAllowed: field('profileConsent')?.checked === true
     };
   }
 
@@ -145,7 +146,7 @@
         method: 'PATCH',
         body: JSON.stringify({ consent: true, profile: profileFromForm() })
       });
-      setStatus('Guardado automáticamente ✓');
+      setStatus('Datos cifrados y monitorización automática activada ✓');
     } catch (error) {
       setStatus(error.code === 'invalid_email' ? 'Revisa el email.' : 'No se pudieron guardar los datos.', true);
     }
@@ -163,8 +164,11 @@
       const data = await api('/api/profile');
       fillForm(data.profile || {});
       if (data.saved) {
-        field('profileConsent').checked = true;
-        setStatus('Datos cifrados y guardados ✓');
+        const allowed = data.profile?.monitoringAllowed === true;
+        field('profileConsent').checked = allowed;
+        setStatus(allowed
+          ? 'Datos cifrados y monitorización automática activada ✓'
+          : 'Datos guardados. Activa la casilla para permitir la monitorización automática.');
       }
     } catch (error) {
       if (error.code !== 'unauthorized') setStatus('No pudimos cargar tus datos guardados.', true);
@@ -336,7 +340,7 @@
         <div class="profile-field"><label>Teléfono</label><input id="pMobile" inputmode="tel" autocomplete="tel"></div>
         <div class="profile-field profile-wide"><label>Email</label><input id="pEmail" type="email" autocomplete="email"></div>
       </div>
-      <label class="profile-consent"><input id="profileConsent" type="checkbox"> <span>Acepto que CitaNIE guarde estos datos cifrados durante la vigencia del servicio para agilizar mis intentos de cita. No guardamos contraseñas, PIN de Cl@ve ni códigos SMS.</span></label>
+      <label class="profile-consent"><input id="profileConsent" type="checkbox"> <span>Acepto que CitaNIE guarde estos datos cifrados y los use durante la vigencia del servicio para comprobar automáticamente la disponibilidad de mi trámite. CitaNIE no confirma ni reserva citas por sí solo; CAPTCHA, Cl@ve y códigos SMS los completa siempre una persona.</span></label>
       <div id="profileStatus" class="profile-status"></div>
       <div class="profile-actions">
         <button id="attemptAppointment" class="profile-btn">Intentar cita con mis datos</button>
@@ -364,7 +368,7 @@
     });
     field('profileConsent').addEventListener('change', () => {
       if (field('profileConsent').checked) queueSave();
-      else setStatus('Marca la casilla para guardar automáticamente.');
+      else setStatus('Activa la casilla si quieres que CitaNIE use tus datos para monitorizar automáticamente.');
     });
     field('deleteProfile').addEventListener('click', deleteProfile);
     field('attemptAppointment').addEventListener('click', attemptAppointment);

@@ -373,6 +373,7 @@ export async function checkMadridTieAvailability(options = {}) {
   const startedAt = nowIso();
   const debugDir = options.debugDir || path.resolve('logs');
   const safeMode = options.safeMode !== false;
+  const captureDebug = options.captureDebug !== false;
   const client = options.client || null;
   const timeoutMs = options.timeoutMs || 45000;
   const serviceKey = options.serviceKey || 'tie_fingerprint';
@@ -410,6 +411,7 @@ export async function checkMadridTieAvailability(options = {}) {
   });
   const page = await context.newPage();
   page.setDefaultTimeout(12000);
+  const capture = (prefix) => captureDebug ? saveDebug(page, debugDir, prefix) : Promise.resolve(null);
 
   try {
     await page.goto(ICP_URL, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
@@ -418,7 +420,7 @@ export async function checkMadridTieAvailability(options = {}) {
     if (await detectHumanGate(page)) {
       result.state = 'HUMAN_GATE';
       result.message = 'El portal solicita una verificación humana. La automatización se detuvo.';
-      result.debug = await saveDebug(page, debugDir, 'human-gate-entry');
+      result.debug = await capture('human-gate-entry');
       return result;
     }
 
@@ -426,7 +428,7 @@ export async function checkMadridTieAvailability(options = {}) {
     if (!province) {
       result.state = 'PORTAL_CHANGED';
       result.message = 'No se encontró Madrid en los desplegables del portal.';
-      result.debug = await saveDebug(page, debugDir, 'province-not-found');
+      result.debug = await capture('province-not-found');
       return result;
     }
     result.province = province.optionText;
@@ -437,7 +439,7 @@ export async function checkMadridTieAvailability(options = {}) {
     if (await detectHumanGate(page)) {
       result.state = 'HUMAN_GATE';
       result.message = 'El portal solicita verificación humana después de seleccionar Madrid.';
-      result.debug = await saveDebug(page, debugDir, 'human-gate-after-province');
+      result.debug = await capture('human-gate-after-province');
       return result;
     }
 
@@ -450,13 +452,13 @@ export async function checkMadridTieAvailability(options = {}) {
     if (procedure?.ambiguous) {
       result.state = 'PROCEDURE_AMBIGUOUS';
       result.message = 'El portal muestra varias opciones compatibles y CitaNIE no seleccionará una automáticamente sin estar seguro.';
-      result.debug = await saveDebug(page, debugDir, 'procedure-ambiguous');
+      result.debug = await capture('procedure-ambiguous');
       return result;
     }
     if (!procedure) {
       result.state = 'PROCEDURE_NOT_FOUND';
       result.message = `Madrid cargó, pero no se encontró una opción compatible con ${PROCEDURE_RULES[serviceKey]?.label || 'el trámite seleccionado'}.`;
-      result.debug = await saveDebug(page, debugDir, 'procedure-not-found');
+      result.debug = await capture('procedure-not-found');
       return result;
     }
     result.procedure = procedure.optionText;
@@ -468,7 +470,7 @@ export async function checkMadridTieAvailability(options = {}) {
     if (await detectHumanGate(page)) {
       result.state = 'HUMAN_GATE';
       result.message = 'Se detectó CAPTCHA/Cl@ve/SMS/verificación. Requiere intervención humana.';
-      result.debug = await saveDebug(page, debugDir, 'human-gate');
+      result.debug = await capture('human-gate');
       return result;
     }
 
@@ -479,7 +481,7 @@ export async function checkMadridTieAvailability(options = {}) {
       result.ok = true;
       result.state = 'READY_FOR_IDENTITY';
       result.message = 'Navegación OK hasta el formulario de identidad. SAFE_MODE impide enviar datos personales.';
-      result.debug = await saveDebug(page, debugDir, 'ready-for-identity');
+      result.debug = await capture('ready-for-identity');
       return result;
     }
 
@@ -489,14 +491,14 @@ export async function checkMadridTieAvailability(options = {}) {
       if (!fill.filled) {
         result.state = 'IDENTITY_REQUIRED';
         result.message = 'El portal requiere identidad y no se pudo localizar con seguridad el campo del documento.';
-        result.debug = await saveDebug(page, debugDir, 'identity-required');
+        result.debug = await capture('identity-required');
         return result;
       }
       const continued = await clickContinue(page);
       if (!continued) {
         result.state = 'READY_FOR_HUMAN_CONTINUE';
         result.message = 'Los datos se rellenaron, pero el portal requiere una acción manual para continuar.';
-        result.debug = await saveDebug(page, debugDir, 'ready-for-human-continue');
+        result.debug = await capture('ready-for-human-continue');
         return result;
       }
       await page.waitForTimeout(1000);
@@ -507,7 +509,7 @@ export async function checkMadridTieAvailability(options = {}) {
     if (await detectHumanGate(page)) {
       result.state = 'HUMAN_GATE';
       result.message = 'Verificación humana detectada antes de comprobar disponibilidad.';
-      result.debug = await saveDebug(page, debugDir, 'human-gate-before-availability');
+      result.debug = await capture('human-gate-before-availability');
       return result;
     }
 
@@ -522,18 +524,18 @@ export async function checkMadridTieAvailability(options = {}) {
       result.ok = true;
       result.state = 'AVAILABILITY_DETECTED';
       result.message = 'Se detectó disponibilidad o una pantalla de selección de cita. No se reserva automáticamente.';
-      result.debug = await saveDebug(page, debugDir, 'availability-detected');
+      result.debug = await capture('availability-detected');
       return result;
     }
 
     result.state = 'UNKNOWN_PAGE';
     result.message = 'Se llegó a una pantalla no clasificada; revisar captura/HTML.';
-    result.debug = await saveDebug(page, debugDir, 'unknown-page');
+    result.debug = await capture('unknown-page');
     return result;
   } catch (error) {
     result.state = 'ERROR';
     result.message = error?.message || String(error);
-    result.debug = await saveDebug(page, debugDir, 'error').catch(() => null);
+    result.debug = await capture('error').catch(() => null);
     return result;
   } finally {
     result.finishedAt = nowIso();
