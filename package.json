@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --import ./clicksend-fetch-shim.js gateway.js",
     "check:tie": "node scripts/check-tie.js",
-    "check": "node --check clicksend-fetch-shim.js && node --check gateway.js && node --check profile-ui.js && node --check server.js && node --check src/icpplus.js && node --check scripts/check-tie.js && node --check sw.js"
+    "check": "node --check clicksend-fetch-shim.js && node --check gateway.js && node --check profile-ui.js && node --check enhancements-ui.js && node --check server.js && node --check lib/monitor-schedule.js && node --check lib/monitoring.js && node --check src/icpplus.js && node --check scripts/check-tie.js && node --check sw.js"
   },
   "dependencies": {
     "playwright": "^1.55.0",

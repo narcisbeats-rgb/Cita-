@@ -12,7 +12,7 @@ import {
   resumeLink, sendPush, sendSms, smsConfigured, unpackPushSubscription,
   validPushSubscription, validResume
 } from './lib/messaging.js';
-import { cleanupRetentionDays, monitorIntervalMinutes, monitorState, resultForService, runMonitor, schedulerTick } from './lib/monitoring.js';
+import { cleanupRetentionDays, monitorHours, monitorIntervalMinutes, monitorScheduleTimeZone, monitorState, resultForService, runMonitor, schedulerTick } from './lib/monitoring.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 3000);
@@ -102,6 +102,7 @@ async function getSubscription(req, res) {
   const smsPhone = unpackSmsNumber(record.phone);
   const serviceResult = resultForService(record.service_key);
   const delivery = smsPhone ? await getSmsDelivery(record) : null;
+  const currentMonitorState = monitorState();
   return json(res, 200, {
     active: Boolean(record.active) && !expired,
     channel: smsPhone ? 'sms' : 'push',
@@ -113,7 +114,10 @@ async function getSubscription(req, res) {
     lastAlertAt: record.last_alert_at,
     lastCheckedAt: serviceResult?.finishedAt || null,
     lastResult: serviceResult,
-    smsDelivery: delivery
+    smsDelivery: delivery,
+    nextCheckAt: currentMonitorState.nextCheckAt,
+    monitorHours: currentMonitorState.monitorHours,
+    scheduleTimeZone: currentMonitorState.scheduleTimeZone
   });
 }
 async function deleteSubscription(req, res) {
@@ -209,6 +213,8 @@ function publicConfig() {
     smsProvider: clicksendConfigured() ? 'clicksend' : (smsConfigured() ? 'twilio' : null),
     monitorableServices: [...monitorableServices],
     monitorIntervalMinutes,
+    monitorHours,
+    monitorMode: 'scheduled',
     dataRetentionDays: cleanupRetentionDays,
     paymentRequired,
     paymentReady: !paymentRequired || Boolean(checkoutUrl && paymentWebhookSecret),
@@ -285,5 +291,5 @@ setInterval(() => schedulerTick().catch((e) => console.error('[Detector de Citas
 server.listen(port, '0.0.0.0', () => {
   console.log(`Detector de Citas Madrid listening on :${port}`);
   console.log(`[Detector de Citas] SMS: ${smsConfigured() ? (clicksendConfigured() ? 'ClickSend ready' : 'Twilio ready') : 'not configured'}`);
-  console.log(`[Detector de Citas] Monitor interval: ${monitorIntervalMinutes} minutes; cleanup grace: ${cleanupRetentionDays} days.`);
+  console.log(`[Detector de Citas] Monitor schedule: Monday-Friday · ${monitorHours.map((hour) => `${String(hour).padStart(2, '0')}:00`).join(', ')} (${monitorScheduleTimeZone}); cleanup grace: ${cleanupRetentionDays} days.`);
 });

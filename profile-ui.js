@@ -81,7 +81,7 @@
     .profile-field input:focus,.profile-field select:focus{border-color:#725f22}.profile-wide{grid-column:1/-1}.profile-consent{display:flex;gap:10px;align-items:flex-start;margin:14px 0;color:#9ca7b8;font-size:12px;line-height:1.5}
     .profile-consent input{margin-top:3px}.profile-status{min-height:20px;font-size:12px;color:#9be7bd;margin-top:8px}.profile-status.err{color:#fca5a5}
     .profile-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.profile-btn{border:0;border-radius:13px;padding:12px 15px;font-weight:700;cursor:pointer;background:#f3c94b;color:#16130b}.profile-btn.secondary{background:#1b2230;color:#dce2ea}.profile-btn:disabled{opacity:.55;cursor:not-allowed}
-    .profile-result{margin-top:12px;padding:12px 14px;border-radius:13px;background:#111824;border:1px solid #263044;color:#c9d2df;font-size:13px;line-height:1.5}.profile-note{margin-top:12px;color:#7f8a9a;font-size:11px;line-height:1.45}
+    .profile-result{margin-top:12px;padding:12px 14px;border-radius:13px;background:#111824;border:1px solid #263044;color:#c9d2df;font-size:13px;line-height:1.5}.profile-result.searching{border-color:#756322;background:linear-gradient(135deg,#17191c,#25210f)}.profile-result.monitoring{border-color:#285f49;background:#10231c;color:#d8f9e9}.search-live{display:flex;align-items:center;gap:12px}.search-spinner{width:24px;height:24px;border:3px solid #f3c94b3d;border-top-color:#f3c94b;border-radius:50%;animation:cita-spin .8s linear infinite;flex:0 0 auto}.search-live b{display:block;color:#fff;font-size:15px}.search-live small{display:block;color:#b9c3d2;margin-top:2px}.search-schedule{display:block;margin-top:8px;color:#9be7bd;font-weight:700}@keyframes cita-spin{to{transform:rotate(360deg)}}.profile-note{margin-top:12px;color:#7f8a9a;font-size:11px;line-height:1.45}
     html.handoff-active,html.handoff-active body{overflow:hidden;overscroll-behavior:none}
     .handoff{display:none;position:fixed;inset:0;z-index:10000;background:#080c12;color:#f7f8fb;padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));flex-direction:column}.handoff.open{display:flex}.handoff-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex:0 0 auto;padding:2px 2px 10px}.handoff-head b{display:block;font-size:17px}.handoff-head p{margin:3px 0 0;color:#aeb8c7;font-size:12px;line-height:1.35}.handoff-close{border:0;border-radius:12px;background:#1b2230;color:#f7f8fb;padding:10px 13px;font-weight:800;flex:0 0 auto}
     .handoff-browser{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;background:#111722;border:1px solid #344057;border-radius:16px;padding:8px;-webkit-overflow-scrolling:touch}.handoff-browser-label{display:flex;align-items:center;gap:7px;max-width:var(--handoff-viewport-width,1280px);margin:0 auto 7px;color:#b9c3d2;font-size:11px}.handoff-live-dot{width:8px;height:8px;border-radius:50%;background:#32d583;box-shadow:0 0 0 4px #32d5831f}.handoff-screen{position:relative;width:min(100%,var(--handoff-viewport-width,1280px));margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #39445a;min-height:220px;box-shadow:0 10px 40px #0008}.handoff-screen img{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none;touch-action:pan-x;cursor:pointer}.handoff-loading{position:absolute;inset:0;display:grid;place-items:center;color:#1d2735;background:#f8fafced;font-weight:800;font-size:14px}.handoff-loading.hidden{display:none}
@@ -268,7 +268,7 @@
     if (status.state === 'APPOINTMENT_CONFIRMED' && resultBox) {
       resultBox.textContent = 'Tu cita aparece confirmada. Guarda el justificante que ves en el portal oficial antes de cerrar.';
     } else if (status.state === 'NO_AVAILABILITY' && resultBox) {
-      resultBox.textContent = status.message || 'El portal indica que no hay citas disponibles ahora.';
+      resultBox.textContent = 'En este momento no hay citas disponibles. CitaNIE seguirá buscando automáticamente por ti, de lunes a viernes, a las 08:00, 09:00, 10:00, 11:00, 12:00 y 13:00 (Madrid), y te avisará inmediatamente por SMS.';
     }
   }
 
@@ -396,7 +396,7 @@
         resultBox.textContent = 'Tu cita aparece confirmada. Guarda el justificante del portal oficial antes de cerrar.';
         if (data.handoff?.active) await openHandoff(data.handoff);
       } else if (data.state === 'NO_AVAILABILITY') {
-        resultBox.textContent = `El portal indica que no hay citas disponibles ahora. Tus datos quedan guardados para el siguiente intento.${filled}`;
+        resultBox.textContent = `En este momento no hay citas disponibles. CitaNIE seguirá buscando automáticamente por ti, de lunes a viernes, a las 08:00, 09:00, 10:00, 11:00, 12:00 y 13:00 (Madrid), y te avisará inmediatamente por SMS.${filled}`;
       } else if (data.state === 'READY_FOR_IDENTITY') {
         resultBox.textContent = 'El portal está listo para los datos de identidad. Tus datos ya están guardados para acelerar el siguiente paso.';
       } else if (data.state === 'READY_FOR_HUMAN_CONTINUE') {
@@ -415,7 +415,7 @@
       else resultBox.textContent = 'No se pudo iniciar el intento ahora. Tus datos guardados no se han perdido.';
     } finally {
       button.disabled = false;
-      button.textContent = 'Intentar cita con mis datos';
+      button.textContent = 'Buscar cita ahora';
     }
   }
 
@@ -449,10 +449,10 @@
       <label class="profile-consent"><input id="profileConsent" type="checkbox"> <span>Acepto que CitaNIE guarde estos datos cifrados y los use durante la vigencia del servicio para comprobar automáticamente la disponibilidad de mi trámite. CitaNIE no confirma ni reserva citas por sí solo; CAPTCHA, Cl@ve y códigos SMS los completa siempre una persona.</span></label>
       <div id="profileStatus" class="profile-status"></div>
       <div class="profile-actions">
-        <button id="attemptAppointment" class="profile-btn">Intentar cita con mis datos</button>
+        <button id="attemptAppointment" class="profile-btn">Buscar cita ahora</button>
         <button id="deleteProfile" class="profile-btn secondary">Borrar mis datos</button>
       </div>
-      <div id="profileResult" class="profile-result">CitaNIE rellena únicamente campos compatibles. Si aparece una verificación humana, puedes completarla tú mismo dentro de la sesión interactiva de CitaNIE.</div>
+      <div id="profileResult" class="profile-result">Pulsa “Buscar cita ahora”. Si todavía no hay disponibilidad, CitaNIE seguirá buscando automáticamente y te avisará por SMS.</div>
       <div id="handoffPanel" class="handoff" role="dialog" aria-modal="true" aria-label="Portal oficial de cita previa">
         <div class="handoff-head"><div><b id="handoffTitle">Portal oficial · Completa la verificación</b><p id="handoffInstruction">Resuelve el CAPTCHA aquí. Al terminar, pulsa el botón amarillo de abajo.</p></div><button id="handoffClose" class="handoff-close" aria-label="Cerrar navegador">Cerrar</button></div>
         <div class="handoff-browser">

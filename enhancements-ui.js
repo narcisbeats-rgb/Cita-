@@ -7,6 +7,8 @@
   let liveFrameBusy = false;
   let liveFrameUrl = null;
   let attemptRequestRunning = false;
+  const AUTOMATIC_SCHEDULE = 'Lunes a viernes · 08:00 · 09:00 · 10:00 · 11:00 · 12:00 · 13:00';
+  const NO_AVAILABILITY_MESSAGE = 'En este momento no hay citas disponibles. Nuestro sistema seguirá buscando automáticamente por ti y te avisará inmediatamente por SMS cuando encuentre una cita.';
 
   function handleSecureResume() {
     const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -121,14 +123,14 @@
       const data = await r.json();
       const checked = document.getElementById('lastCheckedValue');
       const delivery = document.getElementById('smsDeliveryValue');
-      const expiry = document.getElementById('expiresValue');
+      const nextCheck = document.getElementById('nextCheckValue');
       if (checked) checked.textContent = fmtDate(data.lastCheckedAt);
       if (delivery) delivery.textContent = deliveryLabel(data.smsDelivery);
-      if (expiry) expiry.textContent = fmtDate(data.expiresAt);
+      if (nextCheck) nextCheck.textContent = fmtDate(data.nextCheckAt);
       const monitor = document.getElementById('monitorMessage');
       if (monitor && data.lastResult?.state === 'AVAILABILITY_DETECTED') monitor.textContent = '¡Disponibilidad detectada! Revisa el SMS y entra ahora para continuar.';
       else if (monitor && data.lastResult?.state === 'HUMAN_GATE') monitor.textContent = 'El portal necesita tu intervención. Entra para continuar de forma manual.';
-      else if (monitor && data.lastCheckedAt) monitor.textContent = `✓ Última revisión: ${fmtDate(data.lastCheckedAt)}. Seguimos monitorizando.`;
+      else if (monitor) monitor.textContent = `${NO_AVAILABILITY_MESSAGE} Horario: ${AUTOMATIC_SCHEDULE} (Madrid).`;
     } catch {}
   }
 
@@ -145,8 +147,9 @@
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px">
         <div class="kpi"><small>Última revisión</small><b id="lastCheckedValue" style="font-size:14px;margin-top:5px">Pendiente</b></div>
         <div class="kpi"><small>Último SMS</small><b id="smsDeliveryValue" style="font-size:14px;margin-top:5px">Sin SMS todavía</b></div>
-        <div class="kpi"><small>Servicio hasta</small><b id="expiresValue" style="font-size:14px;margin-top:5px">—</b></div>
+        <div class="kpi"><small>Próxima búsqueda</small><b id="nextCheckValue" style="font-size:14px;margin-top:5px">Programada</b></div>
       </div>
+      <p class="muted" style="font-size:12px;margin:12px 2px 0">Horario automático: ${AUTOMATIC_SCHEDULE} (hora de Madrid).</p>
       <button id="finishNowBtn" class="btn primary" style="width:100%;margin-top:14px">Finalizar cita ahora</button>`;
     dash.appendChild(box);
     box.querySelector('#finishNowBtn').addEventListener('click', () => {
@@ -247,11 +250,58 @@
     return 'Preparando cita…';
   }
 
+  function searchStepText(state) {
+    if (state === 'OPENING_PORTAL') return 'Conectando con el portal oficial';
+    if (state === 'SELECTING_PROVINCE') return 'Preparando Madrid';
+    if (state === 'SELECTING_PROCEDURE') return 'Seleccionando tu trámite';
+    if (state === 'CONTINUING' || state === 'FILLING_IDENTITY') return 'Comprobando la disponibilidad';
+    return 'Preparando una búsqueda segura';
+  }
+
+  function renderSearching(box, state) {
+    if (!box) return;
+    box.classList.remove('monitoring');
+    box.classList.add('searching');
+    box.replaceChildren();
+    const row = document.createElement('div');
+    row.className = 'search-live';
+    const spinner = document.createElement('span');
+    spinner.className = 'search-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span');
+    const title = document.createElement('b');
+    title.textContent = 'Buscando cita…';
+    const detail = document.createElement('small');
+    detail.textContent = searchStepText(state);
+    text.append(title, detail);
+    row.append(spinner, text);
+    box.append(row);
+  }
+
+  function renderMonitoring(box) {
+    if (!box) return;
+    box.classList.remove('searching');
+    box.classList.add('monitoring');
+    box.replaceChildren();
+    const title = document.createElement('b');
+    title.textContent = 'Seguimos buscando por ti';
+    const message = document.createElement('div');
+    message.textContent = NO_AVAILABILITY_MESSAGE;
+    const schedule = document.createElement('span');
+    schedule.className = 'search-schedule';
+    schedule.textContent = `${AUTOMATIC_SCHEDULE} (hora de Madrid)`;
+    box.append(title, message, schedule);
+  }
+
+  function clearResultState(box) {
+    box?.classList.remove('searching', 'monitoring');
+  }
+
   function resetAttemptButton() {
     const button = document.getElementById('attemptAppointment');
     if (!button) return;
     button.disabled = false;
-    button.textContent = 'Intentar cita con mis datos';
+    button.textContent = 'Buscar cita ahora';
   }
 
   function applyStatus(status) {
@@ -260,12 +310,13 @@
     if (!status?.active) return false;
     window.CitaNieHandoff?.applyStatus?.(status);
 
-    if (box && status.message) box.textContent = status.message;
+    renderSearching(box, status.state);
     if (button) button.textContent = progressButtonText(status.state);
 
     if (status.state === 'HUMAN_GATE') {
       clearAttemptPolling();
       resetAttemptButton();
+      clearResultState(box);
       if (box) box.textContent = status.message || 'El portal pide una verificación humana. Complétala dentro de CitaNIE.';
       openLiveHandoff(status);
       return true;
@@ -274,6 +325,10 @@
     if (status.state === 'READY_FOR_HUMAN_CONTINUE' || status.state === 'AVAILABILITY_DETECTED') {
       clearAttemptPolling();
       resetAttemptButton();
+      clearResultState(box);
+      if (box) box.textContent = status.state === 'AVAILABILITY_DETECTED'
+        ? '¡Hemos encontrado una cita! Revisa la opción en el portal oficial y continúa ahora.'
+        : 'El portal está listo. Revisa el siguiente paso y continúa manualmente.';
       openLiveHandoff(status);
       return true;
     }
@@ -281,6 +336,7 @@
     if (status.state === 'APPOINTMENT_CONFIRMED') {
       clearAttemptPolling();
       resetAttemptButton();
+      clearResultState(box);
       if (box) box.textContent = status.message || 'Tu cita aparece confirmada. Guarda el justificante antes de cerrar.';
       openLiveHandoff(status);
       return true;
@@ -289,13 +345,14 @@
     if (status.state === 'NO_AVAILABILITY') {
       clearAttemptPolling();
       resetAttemptButton();
-      if (box) box.textContent = status.message || 'No hay citas disponibles ahora.';
+      renderMonitoring(box);
       return true;
     }
 
     if (status.state === 'ERROR') {
       clearAttemptPolling();
       resetAttemptButton();
+      clearResultState(box);
       if (box) box.textContent = status.message || 'El portal no respondió correctamente.';
       return true;
     }
@@ -333,7 +390,7 @@
     attemptRequestRunning = true;
     button.disabled = true;
     button.textContent = 'Preparando cita…';
-    if (result) result.textContent = 'Iniciando una sesión segura con el portal oficial…';
+    renderSearching(result, 'STARTING');
     clearAttemptPolling();
     clearLiveFramePolling();
 
@@ -356,7 +413,7 @@
           else if (data?.state === 'NO_AVAILABILITY') {
             clearAttemptPolling();
             resetAttemptButton();
-            if (result) result.textContent = data.message || 'No hay citas disponibles ahora.';
+            renderMonitoring(result);
           } else if (data?.state === 'HUMAN_GATE' || data?.state === 'READY_FOR_HUMAN_CONTINUE' || data?.state === 'AVAILABILITY_DETECTED' || data?.state === 'APPOINTMENT_CONFIRMED') {
             clearAttemptPolling();
             resetAttemptButton();
@@ -370,6 +427,7 @@
           attemptRequestRunning = false;
           clearAttemptPolling();
           resetAttemptButton();
+          clearResultState(result);
           if (!result) return;
           if (error.code === 'attempt_too_soon') result.textContent = 'Espera un minuto antes de volver a intentarlo.';
           else if (error.code === 'profile_incomplete') result.textContent = 'Completa documento/NIE y nombre antes de intentar.';
@@ -379,6 +437,7 @@
       attemptRequestRunning = false;
       clearAttemptPolling();
       resetAttemptButton();
+      clearResultState(result);
       if (result) result.textContent = error.code === 'invalid_email' ? 'Revisa el email antes de continuar.' : 'No se pudieron preparar tus datos para la cita.';
     }
   }
