@@ -12,7 +12,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_REALTIME_MODEL
-        value: gpt-realtime-translate
+        value: gpt-realtime-2.1-mini
       - key: TELNYX_API_KEY
         sync: false
       - key: TELNYX_FROM_NUMBER
