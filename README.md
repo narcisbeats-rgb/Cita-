@@ -1,29 +1,25 @@
 # Live Romanian ↔ Danish phone translator
 
-This repository runs a live Romanian ↔ Danish phone translator using Plivo + OpenAI Realtime.
+Live phone translation using Telnyx Voice API + OpenAI Realtime Translation.
 
 ## Flow
-1. Enter a phone number and your private app PIN.
-2. Plivo starts the outbound call.
-3. The called person hears one short Danish disclosure that automatic translation is being used.
-4. Hold the push-to-talk button and speak Romanian.
-5. OpenAI Realtime translates Romanian speech into Danish audio for the call.
-6. Danish speech from the other person is translated into Romanian audio in your browser.
+1. Enter a destination phone number and the private app PIN.
+2. Telnyx starts the outbound call using the verified Danish caller ID.
+3. The called party hears a short Danish disclosure that automatic translation is being used.
+4. Hold push-to-talk and speak Romanian.
+5. OpenAI Realtime Translate returns Danish PCMU audio directly into the Telnyx call.
+6. The called party's Danish PCMU audio is translated into Romanian PCM audio for the browser.
 
-## Plivo
-- Bidirectional audio streaming uses mu-law 8 kHz.
-- Your personal Danish number can be configured as PLIVO_FROM_NUMBER after verification.
-- Caller-ID verification endpoints are built into the backend:
-  - POST /api/verify-caller/start
-  - POST /api/verify-caller/complete
+No call recording is enabled.
+
+## Telnyx
+The backend automatically discovers the Voice API application named `Traducere Live`, so a manual Connection ID is optional.
 
 ## Render environment variables
+- TELNYX_API_KEY
+- TELNYX_FROM_NUMBER = +4581948173
+- TELNYX_APP_NAME = Traducere Live
 - OPENAI_API_KEY
-- OPENAI_REALTIME_MODEL (default: gpt-realtime-translate)
-- PLIVO_AUTH_ID
-- PLIVO_AUTH_TOKEN
-- PLIVO_FROM_NUMBER
+- OPENAI_REALTIME_MODEL = gpt-realtime-translate
 - APP_PIN
 - PUBLIC_BASE_URL
-
-No call recording is enabled by this MVP.
