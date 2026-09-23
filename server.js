@@ -247,8 +247,7 @@ app.post("/api/call", async (req, res) => {
       telnyxWs: null,
       roDa: null,
       daRo: null,
-      disclosureSent: false,
-      disclosureDone: false
+      disclosureDone: true
     };
     sessions.set(id, s);
 
@@ -317,9 +316,6 @@ app.post("/telnyx-webhook", async (req, res) => {
   } else if (eventType === "call.ringing") {
     safeSend(s.client, { type: "status", status: "ringing" });
   } else if (eventType === "call.answered") {
-    safeSend(s.client, { type: "status", status: "answered" });
-    await playDisclosure(s);
-  } else if (eventType === "call.speak.ended") {
     s.disclosureDone = true;
     safeSend(s.client, { type: "status", status: "call-audio-live" });
   } else if (eventType === "call.hangup") {
