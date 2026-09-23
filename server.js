@@ -324,6 +324,15 @@ function maybeStartRealtime(s) {
 }
 
 
+function agentPersonalityInstructions(code) {
+  const styles = {
+    formal: "Use a formal, professional and respectful tone. Be concise, structured and courteous. Avoid slang, jokes and unnecessary small talk.",
+    normal: "Use a natural, neutral and conversational tone. Be clear, concise and polite without sounding overly formal.",
+    friendly: "Use a warm, relaxed and friendly tone. Sound approachable and human-like in rhythm, with brief natural acknowledgements, while staying focused on the objective.",
+    negotiator: "Use a calm, confident and tactful negotiation style. Politely explore flexibility, alternatives, best available terms, discounts or options when relevant. Ask follow-up questions before giving up. Never pressure, threaten, deceive, invent leverage, misrepresent facts, or make commitments on the user's behalf."
+  };
+  return styles[code] || styles.normal;
+}
 function agentLanguageConfig(code) {
   const table = {
     da: { code: "da", name: "Danish" },
@@ -431,8 +440,10 @@ function maybeStartAgentGreeting(s) {
 function openAgentRealtime(s) {
   if (!s || s.openaiWs || !OPENAI_API_KEY) return;
   const lang = agentLanguageConfig(s.language);
+  const personality = agentPersonalityInstructions(s.personality);
   const instructions =
     "You are a phone-call assistant. Speak ONLY in " + lang.name + ". " +
+    "Conversation style: " + personality + " " +
     "You are calling on behalf of Narcis Rug to obtain information. At the beginning of the call, clearly say that you are calling on behalf of Narcis Rug and then state the purpose. Do not announce that you are an AI assistant, but never claim to be Narcis Rug or falsely claim to be human. " +
     "Primary objective: " + s.objective + ". " +
     (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
@@ -630,13 +641,14 @@ app.post("/api/agent-call", async (req, res) => {
 
     const context = String(req.body.context || "").trim().slice(0, 3000);
     const language = ["da","en","es","ro"].includes(req.body.language) ? req.body.language : "da";
+    const personality = ["formal","normal","friendly","negotiator"].includes(req.body.personality) ? req.body.personality : "normal";
     const voice = normalizeVoice(req.body.voice);
     const connectionId = await resolveConnectionId();
     const id = crypto.randomUUID();
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, objective, context, language, voice,
+      id, token, to, objective, context, language, personality, voice,
       created: Date.now(), answered: false, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
