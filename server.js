@@ -22,6 +22,7 @@ const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 
 const VOICES = new Set(["alloy","ash","ballad","coral","echo","sage","shimmer","verse","marin","cedar"]);
 const sessions = new Map();
+const agentSessions = new Map();
 let discoveredConnectionId = TELNYX_CONNECTION_ID;
 
 function missingConfig() {
@@ -322,7 +323,240 @@ function maybeStartRealtime(s) {
   });
 }
 
+
+function agentLanguageConfig(code) {
+  const table = {
+    da: { code: "da", name: "Danish" },
+    en: { code: "en", name: "English" },
+    es: { code: "es", name: "Spanish" },
+    ro: { code: "ro", name: "Romanian" }
+  };
+  return table[code] || table.da;
+}
+function agentSend(s, data) {
+  safeSend(s?.client, data);
+}
+function agentTranscript(s, who, delta, final = false) {
+  if (!s) return;
+  const key = who === "agent" ? "agentText" : "remoteText";
+  if (delta) s[key] += delta;
+  if (final && s[key] && !s[key].endsWith("\n")) s[key] += "\n";
+  agentSend(s, { type: "transcript", who, delta: delta || "", final });
+}
+function extractResponseText(data) {
+  const parts = [];
+  for (const item of Array.isArray(data?.output) ? data.output : []) {
+    for (const content of Array.isArray(item?.content) ? item.content : []) {
+      if (typeof content?.text === "string") parts.push(content.text);
+      if (typeof content?.output_text === "string") parts.push(content.output_text);
+    }
+  }
+  return parts.join("\n").trim();
+}
+async function summarizeAgentCall(s) {
+  if (!s || s.summaryStarted) return;
+  s.summaryStarted = true;
+  const transcript = ("AGENT:\n" + s.agentText + "\nINTERLOCUTOR:\n" + s.remoteText).trim();
+  if (!OPENAI_API_KEY || transcript.length < 20) {
+    s.summary = transcript.length < 20 ? "Nu există suficientă conversație pentru un rezumat." : "Rezumat indisponibil.";
+    agentSend(s, { type: "summary", text: s.summary });
+    return;
+  }
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + OPENAI_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-5.4-nano",
+        input:
+          "Objective of the call: " + s.objective + "\n\n" +
+          "Transcript:\n" + transcript + "\n\n" +
+          "Write a concise Romanian summary for the user. Include: what was learned, direct answers to the objective, anything still unanswered, and any next step the user may need to do personally. Do not invent facts."
+      })
+    });
+    const raw = await response.text();
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch {}
+    if (!response.ok) throw new Error(data?.error?.message || raw || "OpenAI summary error");
+    s.summary = extractResponseText(data) || "Apel încheiat. Rezumatul automat nu a returnat text.";
+  } catch (e) {
+    console.error("Agent summary error:", e.message);
+    s.summary = "Apel încheiat. Rezumatul automat nu a putut fi generat: " + e.message;
+  }
+  agentSend(s, { type: "summary", text: s.summary });
+}
+async function endAgentTelnyxCall(s) {
+  if (!s?.callControlId || s.hangupRequested) return;
+  s.hangupRequested = true;
+  try {
+    await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/hangup", {
+      method: "POST",
+      body: { command_id: crypto.randomUUID() }
+    });
+  } catch (e) {
+    console.error("Agent hangup error:", e.message);
+  }
+}
+function finalizeAgentSession(s, status = "completed") {
+  if (!s || s.ended) return;
+  s.ended = true;
+  agentSend(s, { type: "status", status });
+  closeSocket(s.openaiWs);
+  closeSocket(s.telnyxWs);
+  summarizeAgentCall(s);
+  setTimeout(() => {
+    closeSocket(s.client);
+    agentSessions.delete(s.id);
+  }, 30 * 60 * 1000).unref?.();
+}
+function maybeStartAgentGreeting(s) {
+  if (!s || !s.answered || !s.openaiReady || s.greetingStarted || s.openaiWs?.readyState !== WebSocket.OPEN) return;
+  s.greetingStarted = true;
+  s.openaiWs.send(JSON.stringify({
+    type: "conversation.item.create",
+    item: {
+      type: "message",
+      role: "user",
+      content: [{
+        type: "input_text",
+        text: "The phone has just been answered. Start the call now. Briefly identify yourself as an AI assistant calling on behalf of a person, then pursue the stated objective naturally."
+      }]
+    }
+  }));
+  s.openaiWs.send(JSON.stringify({ type: "response.create" }));
+}
+function openAgentRealtime(s) {
+  if (!s || s.openaiWs || !OPENAI_API_KEY) return;
+  const lang = agentLanguageConfig(s.language);
+  const instructions =
+    "You are a phone-call AI assistant. Speak ONLY in " + lang.name + ". " +
+    "You are calling on behalf of a person to obtain information. At the beginning of the call, clearly and briefly disclose that you are an AI assistant calling on someone's behalf. Never pretend to be human. " +
+    "Primary objective: " + s.objective + ". " +
+    (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
+    "Ask concise, natural follow-up questions when information is missing. Confirm important numbers, dates, prices and names when useful. " +
+    "You are INFORMATION-ONLY. Do not make reservations, bookings, purchases, payments, contracts, legal commitments, subscriptions, cancellations, identity verifications, or accept offers/terms on the user's behalf. Do not provide CPR, MitID, bank, card, passwords or other sensitive credentials. " +
+    "If the other person asks for a commitment or sensitive information, say that the person you represent must handle that personally. " +
+    "When the objective is answered, briefly recap the key information to the other person if appropriate, thank them, say goodbye, then call the end_call tool. If they refuse or cannot help, politely end the call.";
+
+  const ws = new WebSocket(
+    "wss://api.openai.com/v1/realtime?model=" + encodeURIComponent(OPENAI_REALTIME_MODEL),
+    { headers: { Authorization: "Bearer " + OPENAI_API_KEY } }
+  );
+  s.openaiWs = ws;
+
+  ws.on("open", () => {
+    ws.send(JSON.stringify({
+      type: "session.update",
+      session: {
+        type: "realtime",
+        instructions,
+        tools: [{
+          type: "function",
+          name: "end_call",
+          description: "End the phone call only after the objective is complete, impossible, refused, or the conversation has naturally concluded. Say a brief goodbye before using this tool.",
+          parameters: {
+            type: "object",
+            properties: { reason: { type: "string" } },
+            required: ["reason"]
+          }
+        }],
+        tool_choice: "auto",
+        audio: {
+          input: {
+            format: { type: "audio/pcmu" },
+            transcription: {
+              model: "gpt-live-transcribe",
+              delay: "low",
+              languages: [lang.code]
+            },
+            turn_detection: {
+              type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 250,
+              silence_duration_ms: 500,
+              create_response: true,
+              interrupt_response: true
+            }
+          },
+          output: {
+            format: { type: "audio/pcmu" },
+            voice: s.voice
+          }
+        }
+      }
+    }));
+  });
+
+  ws.on("message", raw => {
+    const ev = safeJson(raw);
+    if (!ev) return;
+    if (ev.type === "session.updated") {
+      s.openaiReady = true;
+      agentSend(s, { type: "state", state: "ready" });
+      maybeStartAgentGreeting(s);
+      return;
+    }
+    if (ev.type === "input_audio_buffer.speech_started") {
+      agentSend(s, { type: "state", state: "listening" });
+      return;
+    }
+    if (ev.type === "input_audio_buffer.speech_stopped") {
+      agentSend(s, { type: "state", state: "thinking" });
+      return;
+    }
+    if (ev.type === "conversation.item.input_audio_transcription.delta" && ev.delta) {
+      agentTranscript(s, "remote", ev.delta, false);
+      return;
+    }
+    if (ev.type === "conversation.item.input_audio_transcription.completed") {
+      agentTranscript(s, "remote", "", true);
+      return;
+    }
+    if ((ev.type === "response.output_audio.delta" || ev.type === "response.audio.delta") && ev.delta) {
+      if (s.telnyxWs?.readyState === WebSocket.OPEN) {
+        s.telnyxWs.send(JSON.stringify({ event: "media", media: { payload: ev.delta } }));
+      }
+      agentSend(s, { type: "state", state: "speaking" });
+      return;
+    }
+    if ((ev.type === "response.output_audio_transcript.delta" || ev.type === "response.audio_transcript.delta") && ev.delta) {
+      agentTranscript(s, "agent", ev.delta, false);
+      return;
+    }
+    if (ev.type === "response.output_audio_transcript.done" || ev.type === "response.audio_transcript.done") {
+      agentTranscript(s, "agent", "", true);
+      return;
+    }
+    if (ev.type === "response.done") {
+      s.realtimeUsd = (s.realtimeUsd || 0) + estimateRealtimeResponseCost(ev.response?.usage || null);
+      agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd });
+      const outputs = Array.isArray(ev.response?.output) ? ev.response.output : [];
+      const tool = outputs.find(x => x?.type === "function_call" && x?.name === "end_call");
+      if (tool) {
+        let reason = "completed";
+        try { reason = JSON.parse(tool.arguments || "{}").reason || reason; } catch {}
+        agentSend(s, { type: "state", state: "ending", reason });
+        setTimeout(() => endAgentTelnyxCall(s), 1200).unref?.();
+      } else {
+        agentSend(s, { type: "state", state: "listening" });
+      }
+      return;
+    }
+    if (ev.type === "error") {
+      const message = ev.error?.message || "OpenAI Realtime error";
+      console.error("Agent OpenAI error:", message);
+      agentSend(s, { type: "error", message });
+    }
+  });
+
+  ws.on("error", e => agentSend(s, { type: "error", message: e.message }));
+}
+
 app.get("/", (_req, res) => res.sendFile(path.resolve("index.html")));
+app.get("/agent", (_req, res) => res.sendFile(path.resolve("agent.html")));
 
 app.get("/health", async (_req, res) => {
   const missing = missingConfig();
@@ -379,6 +613,93 @@ app.post("/api/voice-preview", async (req, res) => {
     res.send(bytes);
   } catch (e) {
     res.status(500).json({ error: e.message || "Nu am putut genera testul de voce" });
+  }
+});
+
+
+app.post("/api/agent-call", async (req, res) => {
+  try {
+    const missing = missingConfig();
+    if (missing.length) return res.status(503).json({ error: "Missing config: " + missing.join(", ") });
+    if (String(req.body.pin || "") !== APP_PIN) return res.status(401).json({ error: "PIN greșit" });
+    const to = normalizePhone(req.body.to);
+    if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
+    const objective = String(req.body.objective || "").trim();
+    if (objective.length < 8) return res.status(400).json({ error: "Scrie mai clar ce trebuie să afle agentul." });
+    if (objective.length > 2500) return res.status(400).json({ error: "Scopul apelului este prea lung." });
+
+    const context = String(req.body.context || "").trim().slice(0, 3000);
+    const language = ["da","en","es","ro"].includes(req.body.language) ? req.body.language : "da";
+    const voice = normalizeVoice(req.body.voice);
+    const connectionId = await resolveConnectionId();
+    const id = crypto.randomUUID();
+    const token = crypto.randomBytes(24).toString("hex");
+
+    const s = {
+      id, token, to, objective, context, language, voice,
+      created: Date.now(), answered: false, ended: false,
+      callControlId: null, client: null, telnyxWs: null, openaiWs: null,
+      openaiReady: false, greetingStarted: false, hangupRequested: false,
+      agentText: "", remoteText: "", summary: "", summaryStarted: false,
+      realtimeUsd: 0
+    };
+    agentSessions.set(id, s);
+
+    const result = await telnyx("/calls", {
+      method: "POST",
+      body: {
+        connection_id: connectionId,
+        to,
+        from: TELNYX_FROM_NUMBER,
+        webhook_url: PUBLIC_BASE_URL + "/agent-webhook?sid=" + encodeURIComponent(id),
+        stream_url: wsBase() + "/agent-media?sid=" + encodeURIComponent(id) + "&token=" + encodeURIComponent(token),
+        stream_track: "inbound_track",
+        stream_codec: "PCMU",
+        stream_bidirectional_mode: "rtp",
+        stream_bidirectional_codec: "PCMU",
+        stream_bidirectional_sampling_rate: 8000,
+        stream_bidirectional_target_legs: "self",
+        command_id: crypto.randomUUID()
+      }
+    });
+
+    s.callControlId = result.data?.call_control_id || null;
+    res.json({ sessionId: id, token, status: "initiated" });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Nu am putut porni agentul" });
+  }
+});
+
+app.post("/api/agent-hangup", async (req, res) => {
+  const s = agentSessions.get(String(req.body.sessionId || ""));
+  if (!s || req.body.token !== s.token) return res.status(401).json({ error: "Sesiune invalidă" });
+  await endAgentTelnyxCall(s);
+  res.json({ ok: true });
+});
+
+app.post("/agent-webhook", async (req, res) => {
+  res.sendStatus(204);
+  const id = String(req.query.sid || "");
+  const s = agentSessions.get(id);
+  const eventType = req.body?.data?.event_type || "";
+  const payload = req.body?.data?.payload || {};
+  console.log("Agent Telnyx webhook:", eventType, payload.call_control_id || payload.call_leg_id || "");
+  if (!s) return;
+  if (payload.call_control_id) s.callControlId = payload.call_control_id;
+
+  if (eventType === "call.initiated") {
+    agentSend(s, { type: "status", status: "initiated" });
+  } else if (eventType === "call.ringing") {
+    agentSend(s, { type: "status", status: "ringing" });
+  } else if (eventType === "call.answered") {
+    s.answered = true;
+    s.answeredAt = Date.now();
+    agentSend(s, { type: "status", status: "answered" });
+    agentSend(s, { type: "call-start", at: s.answeredAt });
+    openAgentRealtime(s);
+    maybeStartAgentGreeting(s);
+  } else if (eventType === "call.hangup") {
+    finalizeAgentSession(s, "completed");
   }
 });
 
@@ -485,6 +806,8 @@ app.post("/telnyx-webhook", async (req, res) => {
 const server = http.createServer(app);
 const clientWss = new WebSocketServer({ noServer: true });
 const telnyxWss = new WebSocketServer({ noServer: true });
+const agentClientWss = new WebSocketServer({ noServer: true });
+const agentMediaWss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
   const u = new URL(req.url, "http://localhost");
@@ -493,6 +816,12 @@ server.on("upgrade", (req, socket, head) => {
   }
   if (u.pathname === "/telnyx-media") {
     return telnyxWss.handleUpgrade(req, socket, head, ws => telnyxWss.emit("connection", ws, req));
+  }
+  if (u.pathname === "/agent-client") {
+    return agentClientWss.handleUpgrade(req, socket, head, ws => agentClientWss.emit("connection", ws, req));
+  }
+  if (u.pathname === "/agent-media") {
+    return agentMediaWss.handleUpgrade(req, socket, head, ws => agentMediaWss.emit("connection", ws, req));
   }
   socket.destroy();
 });
@@ -560,10 +889,69 @@ telnyxWss.on("connection", (ws, req) => {
   });
 });
 
+
+agentClientWss.on("connection", (ws, req) => {
+  const u = new URL(req.url, "http://localhost");
+  const id = u.searchParams.get("sid") || "";
+  const token = u.searchParams.get("token") || "";
+  const s = agentSessions.get(id);
+  if (!s || token !== s.token) return ws.close(1008, "Invalid agent session");
+
+  s.client = ws;
+  agentSend(s, { type: "status", status: s.ended ? "completed" : (s.answered ? "answered" : "app-connected") });
+  if (s.answeredAt) agentSend(s, { type: "call-start", at: s.answeredAt });
+  if (s.agentText) agentSend(s, { type: "transcript-full", who: "agent", text: s.agentText });
+  if (s.remoteText) agentSend(s, { type: "transcript-full", who: "remote", text: s.remoteText });
+  if (s.summary) agentSend(s, { type: "summary", text: s.summary });
+  agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd || 0 });
+
+  ws.on("close", () => {
+    if (s.client === ws) s.client = null;
+  });
+});
+
+agentMediaWss.on("connection", (ws, req) => {
+  const u = new URL(req.url, "http://localhost");
+  const id = u.searchParams.get("sid") || "";
+  const token = u.searchParams.get("token") || "";
+  const s = agentSessions.get(id);
+  if (!s || token !== s.token) return ws.close(1008, "Invalid agent media session");
+
+  s.telnyxWs = ws;
+  openAgentRealtime(s);
+  maybeStartAgentGreeting(s);
+
+  ws.on("message", raw => {
+    const m = safeJson(raw);
+    if (!m) return;
+    if (m.event === "start") {
+      agentSend(s, { type: "state", state: "connected" });
+      openAgentRealtime(s);
+      maybeStartAgentGreeting(s);
+      return;
+    }
+    if (m.event === "media" && m.media?.payload && s.openaiWs?.readyState === WebSocket.OPEN) {
+      s.openaiWs.send(JSON.stringify({ type: "input_audio_buffer.append", audio: m.media.payload }));
+      return;
+    }
+    if (m.event === "stop") agentSend(s, { type: "state", state: "ended" });
+  });
+
+  ws.on("close", () => {
+    if (s.telnyxWs === ws) s.telnyxWs = null;
+  });
+});
+
 setInterval(() => {
   const now = Date.now();
   for (const [id, s] of sessions) {
     if (now - s.created > 2 * 60 * 60 * 1000) cleanup(id, "expired");
+  }
+  for (const [id, s] of agentSessions) {
+    if (now - s.created > 2 * 60 * 60 * 1000) {
+      finalizeAgentSession(s, "expired");
+      agentSessions.delete(id);
+    }
   }
 }, 60000).unref();
 
