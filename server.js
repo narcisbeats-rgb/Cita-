@@ -488,8 +488,9 @@ function openAgentRealtime(s) {
     "Primary objective: " + s.objective + ". " +
     (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
     "Ask concise, natural follow-up questions when information is missing. Confirm important numbers, dates, prices and names when useful. " +
-    "You are INFORMATION-ONLY. Do not make reservations, bookings, purchases, payments, contracts, legal commitments, subscriptions, cancellations, identity verifications, or accept offers/terms on the user's behalf. Do not provide CPR, MitID, bank, card, passwords or other sensitive credentials. " +
-    "If the other person asks for a commitment or sensitive information, say that the person you represent must handle that personally. " +
+    "You may freely obtain information. For a LOW-RISK, NON-BINDING action such as making a simple appointment, holding a reservation with no payment or penalty, confirming a callback/follow-up, or communicating a tentative non-binding preference, you MUST first call the request_user_confirmation tool and wait for Narcis to approve or refuse. Before calling that tool, briefly tell the other person you need a moment to confirm. Never assume approval. " +
+    "Never perform or confirm purchases, payments, contracts, legally binding acceptance, subscriptions, cancellations with financial/legal effect, account changes, identity verification, or anything requiring CPR, MitID, bank/card data, passwords or other sensitive credentials. Those must be handled personally by Narcis even if he approves in the app. " +
+    "If the other person asks for a prohibited commitment or sensitive information, say that Narcis must handle that personally. " +
     "When the objective is answered, briefly recap the key information to the other person if appropriate, thank them, say goodbye, then call the end_call tool. If they refuse or cannot help, politely end the call.";
 
   const ws = new WebSocket(
@@ -504,16 +505,41 @@ function openAgentRealtime(s) {
       session: {
         type: "realtime",
         instructions,
-        tools: [{
-          type: "function",
-          name: "end_call",
-          description: "End the phone call only after the objective is complete, impossible, refused, or the conversation has naturally concluded. Say a brief goodbye before using this tool.",
-          parameters: {
-            type: "object",
-            properties: { reason: { type: "string" } },
-            required: ["reason"]
+        tools: [
+          {
+            type: "function",
+            name: "request_user_confirmation",
+            description: "Ask Narcis for approval before a low-risk, non-binding action. Use only for appointment/reservation/follow-up/tentative non-binding preference. Never use this to authorize payment, purchase, contract, legal acceptance, subscription, sensitive-data disclosure, identity verification, or account changes.",
+            parameters: {
+              type: "object",
+              properties: {
+                category: {
+                  type: "string",
+                  enum: ["appointment", "reservation", "follow_up", "non_binding_preference"]
+                },
+                question_ro: {
+                  type: "string",
+                  description: "A short Romanian yes/no question for Narcis, including exact date, time, price or condition when relevant."
+                },
+                details: {
+                  type: "string",
+                  description: "Concise supporting details from the call, without sensitive credentials."
+                }
+              },
+              required: ["category", "question_ro", "details"]
+            }
+          },
+          {
+            type: "function",
+            name: "end_call",
+            description: "End the phone call only after the objective is complete, impossible, refused, or the conversation has naturally concluded. Say a brief goodbye before using this tool.",
+            parameters: {
+              type: "object",
+              properties: { reason: { type: "string" } },
+              required: ["reason"]
+            }
           }
-        }],
+        ],
         tool_choice: "auto",
         audio: {
           input: {
@@ -585,6 +611,31 @@ function openAgentRealtime(s) {
       s.realtimeUsd = (s.realtimeUsd || 0) + estimateRealtimeResponseCost(ev.response?.usage || null);
       agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd });
       const outputs = Array.isArray(ev.response?.output) ? ev.response.output : [];
+      const confirmationTool = outputs.find(x => x?.type === "function_call" && x?.name === "request_user_confirmation");
+      if (confirmationTool) {
+        let args = {};
+        try { args = JSON.parse(confirmationTool.arguments || "{}"); } catch {}
+        const allowedCategories = new Set(["appointment", "reservation", "follow_up", "non_binding_preference"]);
+        const category = allowedCategories.has(args.category) ? args.category : "follow_up";
+        const confirmationId = crypto.randomUUID();
+        s.pendingConfirmation = {
+          id: confirmationId,
+          callId: confirmationTool.call_id,
+          category,
+          question: String(args.question_ro || "Confirmi această acțiune?").slice(0, 600),
+          details: String(args.details || "").slice(0, 1200),
+          createdAt: Date.now()
+        };
+        agentSend(s, {
+          type: "confirmation-request",
+          id: confirmationId,
+          category,
+          question: s.pendingConfirmation.question,
+          details: s.pendingConfirmation.details
+        });
+        agentSend(s, { type: "state", state: "awaiting-confirmation" });
+        return;
+      }
       const tool = outputs.find(x => x?.type === "function_call" && x?.name === "end_call");
       if (tool) {
         let reason = "completed";
@@ -693,6 +744,7 @@ app.post("/api/agent-call", async (req, res) => {
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
       agentText: "", remoteText: "", summary: "", summaryData: null, summaryStarted: false,
+      pendingConfirmation: null,
       realtimeUsd: 0
     };
     agentSessions.set(id, s);
@@ -720,6 +772,38 @@ app.post("/api/agent-call", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message || "Nu am putut porni agentul" });
   }
+});
+
+app.post("/api/agent-confirm", async (req, res) => {
+  const s = agentSessions.get(String(req.body.sessionId || ""));
+  if (!s || req.body.token !== s.token) return res.status(401).json({ error: "Sesiune invalidă" });
+  const pending = s.pendingConfirmation;
+  if (!pending || req.body.confirmationId !== pending.id) {
+    return res.status(409).json({ error: "Confirmarea nu mai este activă" });
+  }
+  if (!s.openaiWs || s.openaiWs.readyState !== WebSocket.OPEN) {
+    return res.status(409).json({ error: "Agentul nu mai este conectat" });
+  }
+
+  const approved = req.body.approved === true;
+  s.pendingConfirmation = null;
+  s.openaiWs.send(JSON.stringify({
+    type: "conversation.item.create",
+    item: {
+      type: "function_call_output",
+      call_id: pending.callId,
+      output: JSON.stringify({
+        approved,
+        message: approved
+          ? "Narcis approved this specific low-risk action. Proceed only with exactly this action, and stop if payment, contract, legal acceptance, account change, identity verification or sensitive data is required."
+          : "Narcis refused this action. Do not perform or confirm it."
+      })
+    }
+  }));
+  s.openaiWs.send(JSON.stringify({ type: "response.create" }));
+  agentSend(s, { type: "confirmation-result", id: pending.id, approved });
+  agentSend(s, { type: "state", state: "thinking" });
+  res.json({ ok: true, approved });
 });
 
 app.post("/api/agent-hangup", async (req, res) => {
@@ -955,6 +1039,15 @@ agentClientWss.on("connection", (ws, req) => {
   if (s.agentText) agentSend(s, { type: "transcript-full", who: "agent", text: s.agentText });
   if (s.remoteText) agentSend(s, { type: "transcript-full", who: "remote", text: s.remoteText });
   if (s.summary) agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
+  if (s.pendingConfirmation) {
+    agentSend(s, {
+      type: "confirmation-request",
+      id: s.pendingConfirmation.id,
+      category: s.pendingConfirmation.category,
+      question: s.pendingConfirmation.question,
+      details: s.pendingConfirmation.details
+    });
+  }
   agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd || 0 });
 
   ws.on("close", () => {
