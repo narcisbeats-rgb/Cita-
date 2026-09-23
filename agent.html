@@ -27,6 +27,8 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 .summary{background:#0f131a;border:1px solid #32405a;border-radius:14px;padding:13px;white-space:pre-wrap;line-height:1.5;min-height:80px}
 .note{font-size:12px;color:#8792a5;line-height:1.45}.err{color:#ffb6c2;min-height:20px;margin-top:8px;font-size:13px}
 .metric{display:flex;justify-content:space-between;margin-top:10px;background:#0f131a;border-radius:13px;padding:11px 13px;color:#b8c3d4}.metric b{color:#fff}
+.agenda-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.agenda-head h2{font-size:19px;margin:0 0 4px}.agenda-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
+.contacts{display:grid;gap:8px;margin-top:10px}.contact{background:#0f131a;border:1px solid #252b38;border-radius:14px;padding:11px}.contact-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.contact-name{font-weight:800;font-size:15px}.contact-phone{font-size:13px;color:#9ba6b8;margin-top:3px}.contact-context{font-size:12px;color:#8792a5;margin-top:7px;line-height:1.4}.contact-actions{display:flex;gap:7px;margin-top:10px}.mini{width:auto;min-height:38px;padding:0 12px;border-radius:11px;background:#20283a;color:#e9efff;border:1px solid #34405a;font-size:13px}.mini.primary{background:#eef2fa;color:#0b0d12;border:0}.mini.danger{background:#2a171b;color:#ffc8d1;border:1px solid #5a2d36}.empty{font-size:13px;color:#7f899a;padding:10px 2px}
 @media(max-width:620px){.grid,.two{grid-template-columns:1fr}.row{grid-template-columns:1fr 92px}h1{font-size:28px}}
 </style>
 </head>
@@ -35,6 +37,34 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 <div class="top"><a class="back" href="/">← Traducere Live</a></div>
 <h1>Agent AI care sună</h1>
 <p class="sub">Îi spui ce trebuie să afle. Agentul sună în numele tău, pune întrebări și îți lasă transcrierea și rezumatul.</p>
+
+<section class="card">
+  <div class="agenda-head">
+    <div>
+      <h2>Agenda mea</h2>
+      <div class="note">Salvează persoane și firme împreună cu numărul, contextul și setările apelului.</div>
+    </div>
+  </div>
+  <div class="agenda-tools">
+    <input id="contactSearch" placeholder="Caută în agendă…">
+    <button id="newContact" class="mini">Contact nou</button>
+  </div>
+  <div id="contactsList" class="contacts"></div>
+  <div id="contactsEmpty" class="empty">Nu ai contacte salvate încă.</div>
+  <div id="contactEditor" style="display:none;margin-top:12px;border-top:1px solid #252b38;padding-top:12px">
+    <div class="two">
+      <div><label for="contactName">Nume contact</label><input id="contactName" placeholder="Ex.: Monica apartament"></div>
+      <div><label for="contactPhone">Număr</label><input id="contactPhone" inputmode="tel" placeholder="+45 12 34 56 78"></div>
+    </div>
+    <div style="margin-top:9px"><label for="contactDefaultObjective">Scop implicit opțional</label><textarea id="contactDefaultObjective" style="min-height:72px" placeholder="Ex.: Întreabă dacă apartamentul mai este disponibil și când se poate face mutarea."></textarea></div>
+    <div style="margin-top:9px"><label for="contactDefaultContext">Context implicit opțional</label><textarea id="contactDefaultContext" style="min-height:72px" placeholder="Ex.: Am văzut anunțul pe BoligPortal."></textarea></div>
+    <div class="two" style="margin-top:9px">
+      <button id="saveContact" class="mini primary">Salvează contactul</button>
+      <button id="cancelContact" class="mini">Anulează</button>
+    </div>
+    <div id="contactErr" class="err"></div>
+  </div>
+</section>
 
 <section class="card">
   <div class="two">
@@ -92,11 +122,74 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 (() => {
   const $=id=>document.getElementById(id);
   const phone=$("phone"),pin=$("pin"),language=$("language"),voice=$("voice"),personality=$("personality"),personalityHint=$("personalityHint"),objective=$("objective"),context=$("context");
+  const contactSearch=$("contactSearch"),contactsList=$("contactsList"),contactsEmpty=$("contactsEmpty"),newContact=$("newContact"),contactEditor=$("contactEditor"),contactName=$("contactName"),contactPhone=$("contactPhone"),contactDefaultObjective=$("contactDefaultObjective"),contactDefaultContext=$("contactDefaultContext"),saveContact=$("saveContact"),cancelContact=$("cancelContact"),contactErr=$("contactErr");
   const call=$("call"),hang=$("hang"),statusEl=$("status"),dot=$("dot"),phase=$("phase"),err=$("err"),duration=$("duration");
   const agentText=$("agentText"),remoteText=$("remoteText"),summary=$("summary");
   let sid=null,token=null,ws=null,callStartAt=0,timer=null,live=false;
+  let editingContactId=null;
+  const CONTACTS_KEY="aiPhoneAgentContactsV1";
 
   function setError(t=""){err.textContent=t}
+  function getContacts(){
+    try{
+      const value=JSON.parse(localStorage.getItem(CONTACTS_KEY)||"[]");
+      return Array.isArray(value)?value:[];
+    }catch{return []}
+  }
+  function putContacts(items){localStorage.setItem(CONTACTS_KEY,JSON.stringify(items))}
+  function esc(v){return String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
+  function openContactEditor(contact=null){
+    editingContactId=contact?.id||null;
+    contactName.value=contact?.name||"";
+    contactPhone.value=contact?.phone||phone.value||"";
+    contactDefaultObjective.value=contact?.objective||objective.value||"";
+    contactDefaultContext.value=contact?.context||context.value||"";
+    contactErr.textContent="";
+    saveContact.textContent=editingContactId?"Actualizează contactul":"Salvează contactul";
+    contactEditor.style.display="block";
+    setTimeout(()=>contactName.focus(),30);
+  }
+  function closeContactEditor(){
+    editingContactId=null;contactEditor.style.display="none";contactErr.textContent="";
+  }
+  function applyContact(contact){
+    phone.value=contact.phone||"";
+    objective.value=contact.objective||"";
+    context.value=contact.context||"";
+    if(["auto","da","en","es","ro"].includes(contact.language))language.value=contact.language;
+    if(["formal","normal","friendly","negotiator"].includes(contact.personality))personality.value=contact.personality;
+    if(contact.voice)voice.value=contact.voice;
+    updatePersonalityHint();
+    window.scrollTo({top:document.querySelectorAll(".card")[1]?.offsetTop||0,behavior:"smooth"});
+  }
+  function renderContacts(){
+    const q=contactSearch.value.trim().toLowerCase();
+    const contacts=getContacts().filter(x=>!q||[x.name,x.phone,x.context,x.objective].join(" ").toLowerCase().includes(q));
+    contactsEmpty.style.display=contacts.length?"none":"block";
+    contactsList.innerHTML=contacts.map(x=>{
+      const extra=(x.context||x.objective||"").trim();
+      return '<div class="contact" data-id="'+esc(x.id)+'"><div class="contact-top"><div><div class="contact-name">'+esc(x.name)+'</div><div class="contact-phone">'+esc(x.phone)+'</div></div></div>'+
+        (extra?'<div class="contact-context">'+esc(extra.slice(0,150))+(extra.length>150?"…":"")+'</div>':"")+
+        '<div class="contact-actions"><button class="mini primary" data-action="use">Folosește</button><button class="mini" data-action="edit">Editează</button><button class="mini danger" data-action="delete">Șterge</button></div></div>';
+    }).join("");
+  }
+  function saveContactFromEditor(){
+    const name=contactName.value.trim(),number=contactPhone.value.trim();
+    if(!name){contactErr.textContent="Scrie un nume pentru contact.";return}
+    if(!number){contactErr.textContent="Scrie numărul contactului.";return}
+    const items=getContacts();
+    const record={
+      id:editingContactId||("c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7)),
+      name,phone:number,
+      objective:contactDefaultObjective.value.trim(),
+      context:contactDefaultContext.value.trim(),
+      language:language.value,personality:personality.value,voice:voice.value,
+      updatedAt:Date.now()
+    };
+    const idx=items.findIndex(x=>x.id===record.id);
+    if(idx>=0)items[idx]=record;else items.unshift(record);
+    putContacts(items);closeContactEditor();renderContacts();
+  }
   function setStatus(t,on=false){statusEl.textContent=t;dot.classList.toggle("live",on)}
   function setPhase(s){
     const names={connected:"Audio conectat",ready:"Agent pregătit",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește",ending:"Încheie apelul",ended:"Apel încheiat"};
@@ -150,7 +243,25 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     personalityHint.textContent=hints[personality.value]||hints.normal;
   }
   personality.addEventListener("change",updatePersonalityHint);
+  newContact.addEventListener("click",()=>openContactEditor());
+  cancelContact.addEventListener("click",closeContactEditor);
+  saveContact.addEventListener("click",saveContactFromEditor);
+  contactSearch.addEventListener("input",renderContacts);
+  contactsList.addEventListener("click",e=>{
+    const btn=e.target.closest("button[data-action]");if(!btn)return;
+    const row=btn.closest(".contact"),id=row?.dataset.id;
+    const items=getContacts(),contact=items.find(x=>x.id===id);if(!contact)return;
+    const action=btn.dataset.action;
+    if(action==="use")applyContact(contact);
+    else if(action==="edit")openContactEditor(contact);
+    else if(action==="delete"){
+      if(confirm('Ștergi contactul "'+contact.name+'"?')){
+        putContacts(items.filter(x=>x.id!==id));renderContacts();
+      }
+    }
+  });
   updatePersonalityHint();
+  renderContacts();
   call.addEventListener("click",startCall);hang.addEventListener("click",stopCall);
 })();
 </script>
