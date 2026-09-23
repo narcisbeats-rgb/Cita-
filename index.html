@@ -69,6 +69,14 @@ button:disabled{opacity:.42;cursor:not-allowed}
       </select>
     </div>
   </div>
+  <div class="mode">
+    <label for="direction" data-i18n="iSpeak">Eu vorbesc</label>
+    <select id="direction">
+      <option value="local-other" id="directionOther">Română</option>
+      <option value="local-da" id="directionDa">Daneză</option>
+    </select>
+    <div id="directionNote" class="note"></div>
+  </div>
   <button id="preview" class="secondary" data-i18n="previewVoice">Ascultă vocea în daneză</button>
   <div id="previewState" class="preview-state"></div>
 </section>
@@ -110,14 +118,14 @@ button:disabled{opacity:.42;cursor:not-allowed}
   <div class="group-title" data-i18n="youSay">Ce spui tu</div>
   <div class="grid">
     <div class="pane"><h3 id="youOriginalHeading">Original — română</h3><p id="youOriginal"></p></div>
-    <div class="pane"><h3 data-i18n="translationDanish">Traducere — daneză</h3><p id="youDa"></p></div>
+    <div class="pane"><h3 id="youTranslationHeading">Traducere — daneză</h3><p id="youDa"></p></div>
   </div>
 </section>
 
 <section class="card">
   <div class="group-title" data-i18n="theySay">Ce spune interlocutorul</div>
   <div class="grid">
-    <div class="pane"><h3 data-i18n="originalDanish">Original — daneză</h3><p id="themOriginal"></p></div>
+    <div class="pane"><h3 id="themOriginalHeading">Original — daneză</h3><p id="themOriginal"></p></div>
     <div class="pane"><h3 id="themLocalHeading">Traducere — română</h3><p id="themLocal"></p></div>
   </div>
 </section>
@@ -129,16 +137,16 @@ button:disabled{opacity:.42;cursor:not-allowed}
   const uiLanguage=$("uiLanguage");
   const UI_LANG_KEY="appUiLanguageV1";
   const UI_TEXT={
-    ro:{agentLink:"Agent AI care sună →",yourLanguage:"Pereche de traducere",roDa:"Daneză ↔ Română",enDa:"Daneză ↔ Engleză",esDa:"Daneză ↔ Spaniolă",translationVoice:"Vocea traducerii",previewVoice:"Ascultă vocea în daneză",phoneLabel:"Număr telefon",pinLabel:"PIN",call:"Sună",autoMic:"Microfon automat",autoMicNote:"Nu mai trebuie să ții apăsat. Vorbește normal când apelul este conectat.",muteOff:"Dezactivează microfonul",muteOn:"Activează microfonul",repeat:"Repetă ultima replică",hang:"Închide apelul",duration:"Durată",estimatedCost:"Cost estimat*",costNote:"*Estimare: utilizare OpenAI raportată + transcriere live estimată + taxa Voice API/Media Streaming Telnyx. Tariful PSTN către numărul apelat și taxele nu sunt incluse.",youSay:"Ce spui tu",theySay:"Ce spune interlocutorul",translationDanish:"Traducere — daneză",originalDanish:"Original — daneză",titlePrefix:"Traducere Live",subtitle:"Vorbești {lang} normal. Aplicația detectează automat când începi și termini și traduce în ambele direcții.",original:"Original — {lang}",translation:"Traducere — {lang}",startError:"Nu am putut porni apelul",voiceError:"Nu am putut genera vocea",generating:"Generez testul…",playing:"Redau {voice} în daneză…",creditNeeded:"OpenAI: credit necesar",connectionLost:"Conexiune întreruptă"},
-    en:{agentLink:"AI Calling Agent →",yourLanguage:"Translation pair",roDa:"Danish ↔ Romanian",enDa:"Danish ↔ English",esDa:"Danish ↔ Spanish",translationVoice:"Translation voice",previewVoice:"Preview voice in Danish",phoneLabel:"Phone number",pinLabel:"PIN",call:"Call",autoMic:"Automatic microphone",autoMicNote:"No need to hold anything down. Speak normally once the call is connected.",muteOff:"Mute microphone",muteOn:"Unmute microphone",repeat:"Repeat last reply",hang:"End call",duration:"Duration",estimatedCost:"Estimated cost*",costNote:"*Estimate: reported OpenAI usage + estimated live transcription + Telnyx Voice API/Media Streaming fee. PSTN destination rates and taxes are not included.",youSay:"What you say",theySay:"What the other person says",translationDanish:"Translation — Danish",originalDanish:"Original — Danish",titlePrefix:"Live Translation",subtitle:"Speak {lang} normally. The app automatically detects when you start and stop and translates in both directions.",original:"Original — {lang}",translation:"Translation — {lang}",startError:"Could not start the call",voiceError:"Could not generate the voice",generating:"Generating test…",playing:"Playing {voice} in Danish…",creditNeeded:"OpenAI: credit required",connectionLost:"Connection lost"},
-    da:{agentLink:"AI-agent der ringer →",yourLanguage:"Oversættelsespar",roDa:"Dansk ↔ Rumænsk",enDa:"Dansk ↔ Engelsk",esDa:"Dansk ↔ Spansk",translationVoice:"Oversættelsesstemme",previewVoice:"Lyt til stemmen på dansk",phoneLabel:"Telefonnummer",pinLabel:"PIN",call:"Ring",autoMic:"Automatisk mikrofon",autoMicNote:"Du behøver ikke holde noget nede. Tal normalt, når opkaldet er forbundet.",muteOff:"Slå mikrofon fra",muteOn:"Slå mikrofon til",repeat:"Gentag sidste svar",hang:"Afslut opkald",duration:"Varighed",estimatedCost:"Anslået pris*",costNote:"*Estimat: rapporteret OpenAI-forbrug + anslået live-transskription + Telnyx Voice API/Media Streaming-gebyr. PSTN-takst og skatter er ikke inkluderet.",youSay:"Det du siger",theySay:"Det samtalepartneren siger",translationDanish:"Oversættelse — dansk",originalDanish:"Original — dansk",titlePrefix:"Live-oversættelse",subtitle:"Tal normalt på {lang}. Appen registrerer automatisk, hvornår du starter og stopper, og oversætter begge veje.",original:"Original — {lang}",translation:"Oversættelse — {lang}",startError:"Kunne ikke starte opkaldet",voiceError:"Kunne ikke generere stemmen",generating:"Genererer test…",playing:"Afspiller {voice} på dansk…",creditNeeded:"OpenAI: kredit påkrævet",connectionLost:"Forbindelsen blev afbrudt"},
-    es:{agentLink:"Agente de IA que llama →",yourLanguage:"Par de traducción",roDa:"Danés ↔ Rumano",enDa:"Danés ↔ Inglés",esDa:"Danés ↔ Español",translationVoice:"Voz de traducción",previewVoice:"Escuchar la voz en danés",phoneLabel:"Número de teléfono",pinLabel:"PIN",call:"Llamar",autoMic:"Micrófono automático",autoMicNote:"No necesitas mantener nada pulsado. Habla con normalidad cuando la llamada esté conectada.",muteOff:"Silenciar micrófono",muteOn:"Activar micrófono",repeat:"Repetir última respuesta",hang:"Finalizar llamada",duration:"Duración",estimatedCost:"Coste estimado*",costNote:"*Estimación: uso de OpenAI reportado + transcripción en vivo estimada + tarifa de Telnyx Voice API/Media Streaming. No incluye tarifa PSTN del destino ni impuestos.",youSay:"Lo que dices tú",theySay:"Lo que dice el interlocutor",translationDanish:"Traducción — danés",originalDanish:"Original — danés",titlePrefix:"Traducción en vivo",subtitle:"Habla {lang} con normalidad. La aplicación detecta automáticamente cuándo empiezas y terminas y traduce en ambas direcciones.",original:"Original — {lang}",translation:"Traducción — {lang}",startError:"No se pudo iniciar la llamada",voiceError:"No se pudo generar la voz",generating:"Generando prueba…",playing:"Reproduciendo {voice} en danés…",creditNeeded:"OpenAI: se necesita crédito",connectionLost:"Conexión interrumpida"}
+    ro:{agentLink:"Agent AI care sună →",yourLanguage:"Pereche de traducere",iSpeak:"Eu vorbesc",directionNote:"Tu vorbești {local}. Interlocutorul vorbește {remote}.",roDa:"Daneză ↔ Română",enDa:"Daneză ↔ Engleză",esDa:"Daneză ↔ Spaniolă",translationVoice:"Vocea traducerii",previewVoice:"Ascultă vocea în daneză",phoneLabel:"Număr telefon",pinLabel:"PIN",call:"Sună",autoMic:"Microfon automat",autoMicNote:"Nu mai trebuie să ții apăsat. Vorbește normal când apelul este conectat.",muteOff:"Dezactivează microfonul",muteOn:"Activează microfonul",repeat:"Repetă ultima replică",hang:"Închide apelul",duration:"Durată",estimatedCost:"Cost estimat*",costNote:"*Estimare: utilizare OpenAI raportată + transcriere live estimată + taxa Voice API/Media Streaming Telnyx. Tariful PSTN către numărul apelat și taxele nu sunt incluse.",youSay:"Ce spui tu",theySay:"Ce spune interlocutorul",translationDanish:"Traducere — daneză",originalDanish:"Original — daneză",titlePrefix:"Traducere Live",subtitle:"Vorbești {lang} normal. Aplicația detectează automat când începi și termini și traduce în ambele direcții.",original:"Original — {lang}",translation:"Traducere — {lang}",startError:"Nu am putut porni apelul",voiceError:"Nu am putut genera vocea",generating:"Generez testul…",playing:"Redau {voice} în daneză…",creditNeeded:"OpenAI: credit necesar",connectionLost:"Conexiune întreruptă"},
+    en:{agentLink:"AI Calling Agent →",yourLanguage:"Translation pair",iSpeak:"I speak",directionNote:"You speak {local}. The other person speaks {remote}.",roDa:"Danish ↔ Romanian",enDa:"Danish ↔ English",esDa:"Danish ↔ Spanish",translationVoice:"Translation voice",previewVoice:"Preview voice in Danish",phoneLabel:"Phone number",pinLabel:"PIN",call:"Call",autoMic:"Automatic microphone",autoMicNote:"No need to hold anything down. Speak normally once the call is connected.",muteOff:"Mute microphone",muteOn:"Unmute microphone",repeat:"Repeat last reply",hang:"End call",duration:"Duration",estimatedCost:"Estimated cost*",costNote:"*Estimate: reported OpenAI usage + estimated live transcription + Telnyx Voice API/Media Streaming fee. PSTN destination rates and taxes are not included.",youSay:"What you say",theySay:"What the other person says",translationDanish:"Translation — Danish",originalDanish:"Original — Danish",titlePrefix:"Live Translation",subtitle:"Speak {lang} normally. The app automatically detects when you start and stop and translates in both directions.",original:"Original — {lang}",translation:"Translation — {lang}",startError:"Could not start the call",voiceError:"Could not generate the voice",generating:"Generating test…",playing:"Playing {voice} in Danish…",creditNeeded:"OpenAI: credit required",connectionLost:"Connection lost"},
+    da:{agentLink:"AI-agent der ringer →",yourLanguage:"Oversættelsespar",iSpeak:"Jeg taler",directionNote:"Du taler {local}. Samtalepartneren taler {remote}.",roDa:"Dansk ↔ Rumænsk",enDa:"Dansk ↔ Engelsk",esDa:"Dansk ↔ Spansk",translationVoice:"Oversættelsesstemme",previewVoice:"Lyt til stemmen på dansk",phoneLabel:"Telefonnummer",pinLabel:"PIN",call:"Ring",autoMic:"Automatisk mikrofon",autoMicNote:"Du behøver ikke holde noget nede. Tal normalt, når opkaldet er forbundet.",muteOff:"Slå mikrofon fra",muteOn:"Slå mikrofon til",repeat:"Gentag sidste svar",hang:"Afslut opkald",duration:"Varighed",estimatedCost:"Anslået pris*",costNote:"*Estimat: rapporteret OpenAI-forbrug + anslået live-transskription + Telnyx Voice API/Media Streaming-gebyr. PSTN-takst og skatter er ikke inkluderet.",youSay:"Det du siger",theySay:"Det samtalepartneren siger",translationDanish:"Oversættelse — dansk",originalDanish:"Original — dansk",titlePrefix:"Live-oversættelse",subtitle:"Tal normalt på {lang}. Appen registrerer automatisk, hvornår du starter og stopper, og oversætter begge veje.",original:"Original — {lang}",translation:"Oversættelse — {lang}",startError:"Kunne ikke starte opkaldet",voiceError:"Kunne ikke generere stemmen",generating:"Genererer test…",playing:"Afspiller {voice} på dansk…",creditNeeded:"OpenAI: kredit påkrævet",connectionLost:"Forbindelsen blev afbrudt"},
+    es:{agentLink:"Agente de IA que llama →",yourLanguage:"Par de traducción",iSpeak:"Yo hablo",directionNote:"Tú hablas {local}. El interlocutor habla {remote}.",roDa:"Danés ↔ Rumano",enDa:"Danés ↔ Inglés",esDa:"Danés ↔ Español",translationVoice:"Voz de traducción",previewVoice:"Escuchar la voz en danés",phoneLabel:"Número de teléfono",pinLabel:"PIN",call:"Llamar",autoMic:"Micrófono automático",autoMicNote:"No necesitas mantener nada pulsado. Habla con normalidad cuando la llamada esté conectada.",muteOff:"Silenciar micrófono",muteOn:"Activar micrófono",repeat:"Repetir última respuesta",hang:"Finalizar llamada",duration:"Duración",estimatedCost:"Coste estimado*",costNote:"*Estimación: uso de OpenAI reportado + transcripción en vivo estimada + tarifa de Telnyx Voice API/Media Streaming. No incluye tarifa PSTN del destino ni impuestos.",youSay:"Lo que dices tú",theySay:"Lo que dice el interlocutor",translationDanish:"Traducción — danés",originalDanish:"Original — danés",titlePrefix:"Traducción en vivo",subtitle:"Habla {lang} con normalidad. La aplicación detecta automáticamente cuándo empiezas y terminas y traduce en ambas direcciones.",original:"Original — {lang}",translation:"Traducción — {lang}",startError:"No se pudo iniciar la llamada",voiceError:"No se pudo generar la voz",generating:"Generando prueba…",playing:"Reproduciendo {voice} en danés…",creditNeeded:"OpenAI: se necesita crédito",connectionLost:"Conexión interrumpida"}
   };
   const LOCAL_NAMES={
-    ro:{ro:"română",en:"engleză",es:"spaniolă"},
-    en:{ro:"Romanian",en:"English",es:"Spanish"},
-    da:{ro:"rumænsk",en:"engelsk",es:"spansk"},
-    es:{ro:"rumano",en:"inglés",es:"español"}
+    ro:{ro:"română",en:"engleză",es:"spaniolă",da:"daneză"},
+    en:{ro:"Romanian",en:"English",es:"Spanish",da:"Danish"},
+    da:{ro:"rumænsk",en:"engelsk",es:"spansk",da:"dansk"},
+    es:{ro:"rumano",en:"inglés",es:"español",da:"danés"}
   };
   function uiLang(){return UI_TEXT[uiLanguage?.value]?uiLanguage.value:"ro"}
   function t(key){return UI_TEXT[uiLang()]?.[key]??UI_TEXT.ro[key]??key}
@@ -152,9 +160,9 @@ button:disabled{opacity:.42;cursor:not-allowed}
     setStatusCode(currentStatusCode,live);
     mute.textContent=muted?t("muteOn"):t("muteOff");
   }
-  const phone=$("phone"),pin=$("pin"),language=$("language"),voice=$("voice"),call=$("call"),hang=$("hang"),mute=$("mute"),repeat=$("repeat"),preview=$("preview");
+  const phone=$("phone"),pin=$("pin"),language=$("language"),direction=$("direction"),directionOther=$("directionOther"),directionDa=$("directionDa"),directionNote=$("directionNote"),voice=$("voice"),call=$("call"),hang=$("hang"),mute=$("mute"),repeat=$("repeat"),preview=$("preview");
   const statusEl=$("status"),dot=$("dot"),phase=$("phase"),err=$("err"),previewState=$("previewState"),duration=$("duration"),cost=$("cost");
-  const title=$("title"),subtitle=$("subtitle"),youOriginalHeading=$("youOriginalHeading"),themLocalHeading=$("themLocalHeading");
+  const title=$("title"),subtitle=$("subtitle"),youOriginalHeading=$("youOriginalHeading"),youTranslationHeading=$("youTranslationHeading"),themOriginalHeading=$("themOriginalHeading"),themLocalHeading=$("themLocalHeading");
   const panes={
     "you-original":$("youOriginal"),
     "you-da":$("youDa"),
@@ -174,10 +182,19 @@ button:disabled{opacity:.42;cursor:not-allowed}
   }
   function updateLanguageUi(){
     const l=languageInfo();
+    const localIsDanish=direction.value==="local-da";
+    const danishName=LOCAL_NAMES[uiLang()].da;
+    const localName=localIsDanish?danishName:l.name;
+    const remoteName=localIsDanish?l.name:danishName;
     title.textContent=t("titlePrefix")+" DA ↔ "+l.short;
-    subtitle.textContent=tpl(t("subtitle"),{lang:l.name});
-    youOriginalHeading.textContent=tpl(t("original"),{lang:l.name});
-    themLocalHeading.textContent=tpl(t("translation"),{lang:l.name});
+    subtitle.textContent=tpl(t("directionNote"),{local:localName,remote:remoteName});
+    directionOther.textContent=l.name;
+    directionDa.textContent=danishName;
+    directionNote.textContent=tpl(t("directionNote"),{local:localName,remote:remoteName});
+    youOriginalHeading.textContent=tpl(t("original"),{lang:localName});
+    youTranslationHeading.textContent=tpl(t("translation"),{lang:remoteName});
+    themOriginalHeading.textContent=tpl(t("original"),{lang:remoteName});
+    themLocalHeading.textContent=tpl(t("translation"),{lang:localName});
   }
   function setError(text=""){err.textContent=text}
   const STATUS_TEXT={
@@ -187,10 +204,10 @@ button:disabled{opacity:.42;cursor:not-allowed}
     es:{ready:"Listo","app-connected":"Aplicación conectada",initiated:"Iniciando llamada…",ringing:"Llamando…","audio-connected":"Audio conectado","call-audio-live":"Llamada conectada",completed:"Llamada finalizada","call-stream-ended":"Flujo de audio finalizado",expired:"Sesión caducada",lost:"Conexión interrumpida"}
   };
   const PHASE_TEXT={
-    ro:{waiting:"În așteptare",listening:"Ascult","local-speaking":"Tu vorbești","translating-to-danish":"Traduc în daneză","speaking-to-remote":"Danezul aude traducerea","remote-speaking":"Interlocutorul vorbește","translating-to-local":"Traduc pentru tine","playing-local":"Auzi traducerea",reconnecting:"Reconectare…",credit:"OpenAI: credit necesar"},
-    en:{waiting:"Waiting",listening:"Listening","local-speaking":"You are speaking","translating-to-danish":"Translating to Danish","speaking-to-remote":"The other person hears the translation","remote-speaking":"The other person is speaking","translating-to-local":"Translating for you","playing-local":"You hear the translation",reconnecting:"Reconnecting…",credit:"OpenAI: credit required"},
-    da:{waiting:"Venter",listening:"Lytter","local-speaking":"Du taler","translating-to-danish":"Oversætter til dansk","speaking-to-remote":"Samtalepartneren hører oversættelsen","remote-speaking":"Samtalepartneren taler","translating-to-local":"Oversætter til dig","playing-local":"Du hører oversættelsen",reconnecting:"Forbinder igen…",credit:"OpenAI: kredit påkrævet"},
-    es:{waiting:"En espera",listening:"Escuchando","local-speaking":"Estás hablando","translating-to-danish":"Traduciendo al danés","speaking-to-remote":"El interlocutor oye la traducción","remote-speaking":"El interlocutor habla","translating-to-local":"Traduciendo para ti","playing-local":"Oyes la traducción",reconnecting:"Reconectando…",credit:"OpenAI: se necesita crédito"}
+    ro:{waiting:"În așteptare",listening:"Ascult","local-speaking":"Tu vorbești","translating-to-danish":"Traduc în daneză","translating-to-remote":"Traduc pentru interlocutor","speaking-to-remote":"Interlocutorul aude traducerea","remote-speaking":"Interlocutorul vorbește","translating-to-local":"Traduc pentru tine","translating-to-you":"Traduc pentru tine","playing-local":"Auzi traducerea",reconnecting:"Reconectare…",credit:"OpenAI: credit necesar"},
+    en:{waiting:"Waiting",listening:"Listening","local-speaking":"You are speaking","translating-to-danish":"Translating to Danish","translating-to-remote":"Translating for the other person","speaking-to-remote":"The other person hears the translation","remote-speaking":"The other person is speaking","translating-to-local":"Translating for you","translating-to-you":"Translating for you","playing-local":"You hear the translation",reconnecting:"Reconnecting…",credit:"OpenAI: credit required"},
+    da:{waiting:"Venter",listening:"Lytter","local-speaking":"Du taler","translating-to-danish":"Oversætter til dansk","translating-to-remote":"Oversætter til samtalepartneren","speaking-to-remote":"Samtalepartneren hører oversættelsen","remote-speaking":"Samtalepartneren taler","translating-to-local":"Oversætter til dig","translating-to-you":"Oversætter til dig","playing-local":"Du hører oversættelsen",reconnecting:"Forbinder igen…",credit:"OpenAI: kredit påkrævet"},
+    es:{waiting:"En espera",listening:"Escuchando","local-speaking":"Estás hablando","translating-to-danish":"Traduciendo al danés","translating-to-remote":"Traduciendo para el interlocutor","speaking-to-remote":"El interlocutor oye la traducción","remote-speaking":"El interlocutor habla","translating-to-local":"Traduciendo para ti","translating-to-you":"Traduciendo para ti","playing-local":"Oyes la traducción",reconnecting:"Reconectando…",credit:"OpenAI: se necesita crédito"}
   };
   function setStatusCode(code,on=false){currentStatusCode=code;statusEl.textContent=STATUS_TEXT[uiLang()]?.[code]||code||"";dot.classList.toggle("live",on)}
   function setPhase(code){currentPhaseCode=code;phase.textContent=PHASE_TEXT[uiLang()]?.[code]||code||""}
@@ -368,7 +385,7 @@ button:disabled{opacity:.42;cursor:not-allowed}
 
   async function startCall(){
     setError("");
-    call.disabled=true;language.disabled=true;voice.disabled=true;preview.disabled=true;
+    call.disabled=true;language.disabled=true;direction.disabled=true;voice.disabled=true;preview.disabled=true;
     for(const p of Object.values(panes))p.textContent="";
     lastReply=[];currentReply=[];repeat.disabled=true;realtimeUsd=0;callStartAt=0;updateMetrics();
     try{
@@ -376,7 +393,7 @@ button:disabled{opacity:.42;cursor:not-allowed}
       const response=await fetch("/api/call",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({to:phone.value,pin:pin.value,language:language.value,voice:voice.value})
+        body:JSON.stringify({to:phone.value,pin:pin.value,language:language.value,direction:direction.value,voice:voice.value})
       });
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||t("startError"));
@@ -387,7 +404,7 @@ button:disabled{opacity:.42;cursor:not-allowed}
       setPhase("waiting");
     }catch(e){
       setError(e.message||String(e));
-      call.disabled=false;language.disabled=false;voice.disabled=false;preview.disabled=false;
+      call.disabled=false;language.disabled=false;direction.disabled=false;voice.disabled=false;preview.disabled=false;
     }
   }
 
@@ -414,7 +431,7 @@ button:disabled{opacity:.42;cursor:not-allowed}
     finalizeReply();
     clearPlayback();
     mute.disabled=true;mute.classList.remove("active");mute.textContent=t("muteOff");
-    hang.disabled=true;call.disabled=false;language.disabled=false;voice.disabled=false;preview.disabled=false;
+    hang.disabled=true;call.disabled=false;language.disabled=false;direction.disabled=false;voice.disabled=false;preview.disabled=false;
   }
 
   function toggleMute(){
@@ -470,6 +487,7 @@ button:disabled{opacity:.42;cursor:not-allowed}
   uiLanguage.addEventListener("change",()=>{localStorage.setItem(UI_LANG_KEY,uiLanguage.value);applyUiLanguage()});
   applyUiLanguage();
   language.addEventListener("change",updateLanguageUi);
+  direction.addEventListener("change",updateLanguageUi);
   call.addEventListener("click",startCall);
   hang.addEventListener("click",hangup);
   mute.addEventListener("click",toggleMute);
