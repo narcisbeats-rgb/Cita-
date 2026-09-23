@@ -294,4 +294,7 @@ setInterval(() => {
   }
 }, 60000).unref();
 
-server.listen(PORT, () => {\n  console.log("Live RO↔DA translator listening on :" + PORT);\n  console.log("Missing runtime config:", missingConfig().join(", ") || "none");\n});
+server.listen(PORT, () => {
+  console.log("Live RO↔DA translator listening on :" + PORT);
+  console.log("Missing runtime config:", missingConfig().join(", ") || "none");
+});
