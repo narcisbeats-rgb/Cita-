@@ -100,7 +100,7 @@ function openRealtime({ instructions, inputFormat, outputFormat, turnDetection, 
           },
           output: {
             format: outputFormat,
-            voice: "marin"
+            voice: "cedar"
           }
         }
       }
