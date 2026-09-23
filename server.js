@@ -11,10 +11,10 @@ app.use(express.urlencoded({ extended: false }));
 
 const PORT = Number(process.env.PORT || 3000);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const OPENAI_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime";
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
-const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || "";
+const OPENAI_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-translate";
+const PLIVO_AUTH_ID = process.env.PLIVO_AUTH_ID || "";
+const PLIVO_AUTH_TOKEN = process.env.PLIVO_AUTH_TOKEN || "";
+const PLIVO_FROM_NUMBER = process.env.PLIVO_FROM_NUMBER || "";
 const APP_PIN = process.env.APP_PIN || "";
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 
@@ -22,9 +22,9 @@ const sessions = new Map();
 
 const missingConfig = () => Object.entries({
   OPENAI_API_KEY,
-  TWILIO_ACCOUNT_SID,
-  TWILIO_AUTH_TOKEN,
-  TWILIO_FROM_NUMBER,
+  PLIVO_AUTH_ID,
+  PLIVO_AUTH_TOKEN,
+  PLIVO_FROM_NUMBER,
   APP_PIN,
   PUBLIC_BASE_URL
 }).filter(([,v]) => !v).map(([k]) => k);
@@ -42,19 +42,22 @@ function xml(value) {
 function wsBase() {
   return PUBLIC_BASE_URL.replace(/^https:/,"wss:").replace(/^http:/,"ws:");
 }
-function basicAuth() {
-  return "Basic " + Buffer.from(TWILIO_ACCOUNT_SID + ":" + TWILIO_AUTH_TOKEN).toString("base64");
+function plivoAuth() {
+  return "Basic " + Buffer.from(PLIVO_AUTH_ID + ":" + PLIVO_AUTH_TOKEN).toString("base64");
 }
-async function twilioPost(pathname, fields) {
-  const response = await fetch("https://api.twilio.com/2010-04-01/Accounts/" + TWILIO_ACCOUNT_SID + pathname, {
-    method: "POST",
-    headers: { Authorization: basicAuth(), "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(fields)
+async function plivoRequest(pathname, { method = "GET", body } = {}) {
+  const response = await fetch("https://api.plivo.com/v1/Account/" + encodeURIComponent(PLIVO_AUTH_ID) + pathname, {
+    method,
+    headers: {
+      Authorization: plivoAuth(),
+      ...(body ? { "Content-Type": "application/json" } : {})
+    },
+    body: body ? JSON.stringify(body) : undefined
   });
   const raw = await response.text();
   let data = {};
-  try { data = JSON.parse(raw); } catch { data = { raw }; }
-  if (!response.ok) throw new Error(data.message || data.raw || ("Twilio HTTP " + response.status));
+  try { data = raw ? JSON.parse(raw) : {}; } catch { data = { raw }; }
+  if (!response.ok) throw new Error(data.error || data.message || data.raw || ("Plivo HTTP " + response.status));
   return data;
 }
 function closeSocket(ws) {
@@ -66,9 +69,17 @@ function cleanup(id, finalStatus = "ended") {
   safeSend(s.client, { type: "status", status: finalStatus });
   closeSocket(s.roDa);
   closeSocket(s.daRo);
-  closeSocket(s.twilio);
+  closeSocket(s.plivo);
   closeSocket(s.client);
   sessions.delete(id);
+}
+function parseExtraHeaders(value) {
+  const out = {};
+  for (const part of String(value || "").split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0) out[part.slice(0,i)] = part.slice(i+1);
+  }
+  return out;
 }
 function openRealtime({ instructions, inputFormat, outputFormat, turnDetection, onAudio, onText, onReady, onError }) {
   const ws = new WebSocket(
@@ -108,7 +119,7 @@ function openRealtime({ instructions, inputFormat, outputFormat, turnDetection, 
   return ws;
 }
 function ensureRealtime(s) {
-  if (!s.twilio || !s.streamSid) return;
+  if (!s.plivo || !s.streamId) return;
 
   if (!s.roDa || s.roDa.readyState > WebSocket.OPEN) {
     s.roDa = openRealtime({
@@ -117,8 +128,15 @@ function ensureRealtime(s) {
       outputFormat: "g711_ulaw",
       turnDetection: null,
       onAudio: audio => {
-        if (s.twilio?.readyState === WebSocket.OPEN && s.streamSid) {
-          s.twilio.send(JSON.stringify({ event: "media", streamSid: s.streamSid, media: { payload: audio } }));
+        if (s.plivo?.readyState === WebSocket.OPEN) {
+          s.plivo.send(JSON.stringify({
+            event: "playAudio",
+            media: {
+              contentType: "audio/x-mulaw",
+              sampleRate: 8000,
+              payload: audio
+            }
+          }));
         }
       },
       onText: delta => safeSend(s.client, { type: "text", lane: "you-da", delta }),
@@ -144,7 +162,7 @@ function ensureRealtime(s) {
 app.get("/", (_req, res) => res.sendFile(path.resolve("index.html")));
 app.get("/health", (_req, res) => {
   const missing = missingConfig();
-  res.status(missing.length ? 503 : 200).json({ ok: missing.length === 0, service: "live-ro-da-translator", missing });
+  res.status(missing.length ? 503 : 200).json({ ok: missing.length === 0, service: "live-ro-da-translator-plivo", missing });
 });
 
 app.post("/api/call", async (req, res) => {
@@ -158,24 +176,30 @@ app.post("/api/call", async (req, res) => {
 
     const id = crypto.randomUUID();
     const token = crypto.randomBytes(24).toString("hex");
-    const s = { id, token, to, created: Date.now(), client: null, twilio: null, streamSid: null, callSid: null, roDa: null, daRo: null };
+    const s = {
+      id, token, to, created: Date.now(),
+      client: null, plivo: null, streamId: null,
+      callUuid: null, requestUuid: null,
+      roDa: null, daRo: null
+    };
     sessions.set(id, s);
 
-    const call = await twilioPost("/Calls.json", {
-      To: to,
-      From: TWILIO_FROM_NUMBER,
-      Url: PUBLIC_BASE_URL + "/twiml?sid=" + encodeURIComponent(id),
-      Method: "POST",
-      StatusCallback: PUBLIC_BASE_URL + "/twilio-status?sid=" + encodeURIComponent(id),
-      StatusCallbackMethod: "POST",
-      "StatusCallbackEvent[0]": "initiated",
-      "StatusCallbackEvent[1]": "ringing",
-      "StatusCallbackEvent[2]": "answered",
-      "StatusCallbackEvent[3]": "completed"
+    const call = await plivoRequest("/Call/", {
+      method: "POST",
+      body: {
+        from: PLIVO_FROM_NUMBER,
+        to,
+        answer_url: PUBLIC_BASE_URL + "/plivo-answer?sid=" + encodeURIComponent(id),
+        answer_method: "POST",
+        ring_url: PUBLIC_BASE_URL + "/plivo-ring?sid=" + encodeURIComponent(id),
+        ring_method: "POST",
+        hangup_url: PUBLIC_BASE_URL + "/plivo-hangup?sid=" + encodeURIComponent(id),
+        hangup_method: "POST"
+      }
     });
 
-    s.callSid = call.sid;
-    res.json({ sessionId: id, token, callSid: call.sid, status: call.status });
+    s.requestUuid = call.request_uuid || null;
+    res.json({ sessionId: id, token, requestUuid: s.requestUuid, status: "initiated" });
   } catch (e) {
     res.status(500).json({ error: e.message || "Nu am putut porni apelul" });
   }
@@ -184,48 +208,111 @@ app.post("/api/call", async (req, res) => {
 app.post("/api/hangup", async (req, res) => {
   const s = sessions.get(String(req.body.sessionId || ""));
   if (!s || req.body.token !== s.token) return res.status(401).json({ error: "Sesiune invalidă" });
+
   try {
-    if (s.callSid) await twilioPost("/Calls/" + encodeURIComponent(s.callSid) + ".json", { Status: "completed" });
+    if (s.callUuid) {
+      await plivoRequest("/Call/" + encodeURIComponent(s.callUuid) + "/", { method: "DELETE" });
+    }
   } catch {}
   cleanup(s.id, "completed");
   res.json({ ok: true });
 });
 
-app.post("/twilio-status", (req, res) => {
+app.post("/api/verify-caller/start", async (req, res) => {
+  try {
+    if (String(req.body.pin || "") !== APP_PIN) return res.status(401).json({ error: "PIN greșit" });
+    if (!PLIVO_AUTH_ID || !PLIVO_AUTH_TOKEN) return res.status(503).json({ error: "Plivo nu este configurat încă" });
+    const number = normalizePhone(req.body.phone || PLIVO_FROM_NUMBER);
+    if (!number) return res.status(400).json({ error: "Număr invalid" });
+
+    const result = await plivoRequest("/VerifiedCallerId/", {
+      method: "POST",
+      body: {
+        phone_number: number,
+        alias: "Personal Danish number",
+        channel: req.body.channel === "call" ? "call" : "sms"
+      }
+    });
+    res.json({
+      ok: true,
+      verificationUuid: result.verification_uuid,
+      message: result.message || "Cod trimis"
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Nu am putut porni verificarea" });
+  }
+});
+
+app.post("/api/verify-caller/complete", async (req, res) => {
+  try {
+    if (String(req.body.pin || "") !== APP_PIN) return res.status(401).json({ error: "PIN greșit" });
+    if (!PLIVO_AUTH_ID || !PLIVO_AUTH_TOKEN) return res.status(503).json({ error: "Plivo nu este configurat încă" });
+    const uuid = String(req.body.verificationUuid || "");
+    const otp = String(req.body.otp || "").trim();
+    if (!uuid || !/^\d{4,8}$/.test(otp)) return res.status(400).json({ error: "UUID sau cod OTP invalid" });
+
+    const result = await plivoRequest("/VerifiedCallerId/Verification/" + encodeURIComponent(uuid) + "/", {
+      method: "POST",
+      body: { otp }
+    });
+    res.json({ ok: true, result });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Verificarea nu a reușit" });
+  }
+});
+
+app.post("/plivo-ring", (req, res) => {
   const s = sessions.get(String(req.query.sid || ""));
   if (s) {
-    const status = String(req.body.CallStatus || "unknown");
-    safeSend(s.client, { type: "status", status });
-    if (["completed","busy","failed","no-answer","canceled"].includes(status)) {
-      setTimeout(() => cleanup(s.id, status), 1200);
-    }
+    s.callUuid = req.body.CallUUID || s.callUuid;
+    safeSend(s.client, { type: "status", status: "ringing" });
   }
   res.sendStatus(204);
 });
 
-app.post("/twiml", (req, res) => {
+app.post("/plivo-hangup", (req, res) => {
+  const s = sessions.get(String(req.query.sid || ""));
+  if (s) {
+    s.callUuid = req.body.CallUUID || s.callUuid;
+    safeSend(s.client, {
+      type: "status",
+      status: "completed",
+      cause: req.body.HangupCauseName || req.body.HangupCause || ""
+    });
+    setTimeout(() => cleanup(s.id, "completed"), 800);
+  }
+  res.sendStatus(204);
+});
+
+app.post("/plivo-answer", (req, res) => {
   const id = String(req.query.sid || "");
-  if (!sessions.has(id)) return res.type("text/xml").send('<?xml version="1.0"?><Response><Hangup/></Response>');
+  const s = sessions.get(id);
+  if (!s) return res.type("text/xml").send('<?xml version="1.0"?><Response><Hangup/></Response>');
+
+  s.callUuid = req.body.CallUUID || s.callUuid;
+  safeSend(s.client, { type: "status", status: "answered" });
 
   const disclosure = "Denne samtale bruger automatisk oversættelse mellem rumænsk og dansk.";
-  const body = '<?xml version="1.0" encoding="UTF-8"?>' +
+  const streamUrl = wsBase() + "/plivo-media";
+  const responseXml = '<?xml version="1.0" encoding="UTF-8"?>' +
     '<Response>' +
-      '<Say language="da-DK">' + xml(disclosure) + '</Say>' +
-      '<Connect><Stream url="' + xml(wsBase() + "/twilio-media") + '">' +
-        '<Parameter name="sessionId" value="' + xml(id) + '"/>' +
-      '</Stream></Connect>' +
+      '<Speak language="da-DK" voice="WOMAN">' + xml(disclosure) + '</Speak>' +
+      '<Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000" extraHeaders="sessionId=' + xml(id) + '">' +
+        xml(streamUrl) +
+      '</Stream>' +
     '</Response>';
-  res.type("text/xml").send(body);
+
+  res.type("text/xml").send(responseXml);
 });
 
 const server = http.createServer(app);
 const clientWss = new WebSocketServer({ noServer: true });
-const twilioWss = new WebSocketServer({ noServer: true });
+const plivoWss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
   const u = new URL(req.url, "http://localhost");
   if (u.pathname === "/client") return clientWss.handleUpgrade(req, socket, head, ws => clientWss.emit("connection", ws, req));
-  if (u.pathname === "/twilio-media") return twilioWss.handleUpgrade(req, socket, head, ws => twilioWss.emit("connection", ws, req));
+  if (u.pathname === "/plivo-media") return plivoWss.handleUpgrade(req, socket, head, ws => plivoWss.emit("connection", ws, req));
   socket.destroy();
 });
 
@@ -256,7 +343,7 @@ clientWss.on("connection", (ws, req) => {
   ws.on("close", () => { if (s.client === ws) s.client = null; });
 });
 
-twilioWss.on("connection", ws => {
+plivoWss.on("connection", ws => {
   let s = null;
 
   ws.on("message", raw => {
@@ -264,11 +351,14 @@ twilioWss.on("connection", ws => {
     try { m = JSON.parse(raw.toString()); } catch { return; }
 
     if (m.event === "start") {
-      const id = m.start?.customParameters?.sessionId || "";
+      const headers = parseExtraHeaders(m.extra_headers);
+      const id = headers.sessionId || "";
       s = sessions.get(id);
       if (!s) return ws.close(1008, "Unknown session");
-      s.twilio = ws;
-      s.streamSid = m.streamSid || m.start?.streamSid || "";
+
+      s.plivo = ws;
+      s.streamId = m.start?.streamId || "";
+      s.callUuid = m.start?.callId || s.callUuid;
       safeSend(s.client, { type: "status", status: "call-audio-live" });
       ensureRealtime(s);
       return;
@@ -280,9 +370,9 @@ twilioWss.on("connection", ws => {
   });
 
   ws.on("close", () => {
-    if (s?.twilio === ws) {
-      s.twilio = null;
-      s.streamSid = null;
+    if (s?.plivo === ws) {
+      s.plivo = null;
+      s.streamId = null;
     }
   });
 });
@@ -295,6 +385,6 @@ setInterval(() => {
 }, 60000).unref();
 
 server.listen(PORT, () => {
-  console.log("Live RO↔DA translator listening on :" + PORT);
+  console.log("Live RO↔DA translator (Plivo) listening on :" + PORT);
   console.log("Missing runtime config:", missingConfig().join(", ") || "none");
 });
