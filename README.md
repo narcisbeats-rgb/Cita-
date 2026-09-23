@@ -1,25 +1,33 @@
-# Live Romanian ↔ Danish phone translator
+# Traducere Live RO/ES ↔ DA
 
-Live phone translation using Telnyx Voice API + OpenAI Realtime Translation. The caller can choose Romanian ↔ Danish or Spanish ↔ Danish before starting a call.
+Aplicație mobilă pentru apeluri telefonice traduse în timp real prin Telnyx + OpenAI Realtime.
 
-## Flow
-1. Enter a destination phone number and the private app PIN.
-2. Telnyx starts the outbound call using the verified Danish caller ID.
-3. The called party hears a short Danish disclosure that automatic translation is being used.
-4. Choose Romanian or Spanish, then hold push-to-talk and speak.
-5. OpenAI Realtime Translate returns Danish PCMU audio directly into the Telnyx call.
-6. The called party's Danish PCMU audio is translated back into the selected language for the browser.
+## Funcții
+- Română ↔ daneză și spaniolă ↔ daneză
+- conversație hands-free, fără push-to-talk
+- detectare automată a vorbirii și întreruperi naturale
+- voce selectabilă (Cedar implicit)
+- test de voce înainte de apel
+- transcriere live: original + traducere pentru ambii participanți
+- repetarea ultimei replici traduse
+- stare live: ascultă / traduce / redă
+- durată și cost estimat în timpul apelului
+- fără înregistrarea apelurilor
 
-No call recording is enabled.
+## Stack
+- Telnyx Voice API + bidirectional Media Streaming
+- OpenAI Realtime `gpt-realtime-2.1-mini`
+- `gpt-live-transcribe` pentru transcrieri
+- `gpt-4o-mini-tts` pentru preview voce
+- Node.js + WebSocket + Render
 
-## Telnyx
-The backend automatically discovers the Voice API application named `Traducere Live`, so a manual Connection ID is optional.
-
-## Render environment variables
+## Environment
 - TELNYX_API_KEY
-- TELNYX_FROM_NUMBER = +4581948173
-- TELNYX_APP_NAME = Traducere Live
+- TELNYX_FROM_NUMBER
+- TELNYX_APP_NAME
 - OPENAI_API_KEY
-- OPENAI_REALTIME_MODEL = gpt-realtime-translate
+- OPENAI_REALTIME_MODEL = gpt-realtime-2.1-mini
 - APP_PIN
 - PUBLIC_BASE_URL
+
+Cheile rămân doar în variabilele de mediu Render și nu sunt trimise în browser.
