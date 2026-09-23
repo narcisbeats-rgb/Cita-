@@ -335,12 +335,13 @@ function agentPersonalityInstructions(code) {
 }
 function agentLanguageConfig(code) {
   const table = {
+    auto: { code: null, name: "Automatic", initial: "Danish" },
     da: { code: "da", name: "Danish" },
     en: { code: "en", name: "English" },
     es: { code: "es", name: "Spanish" },
     ro: { code: "ro", name: "Romanian" }
   };
-  return table[code] || table.da;
+  return table[code] || table.auto;
 }
 function agentSend(s, data) {
   safeSend(s?.client, data);
@@ -441,8 +442,11 @@ function openAgentRealtime(s) {
   if (!s || s.openaiWs || !OPENAI_API_KEY) return;
   const lang = agentLanguageConfig(s.language);
   const personality = agentPersonalityInstructions(s.personality);
+  const languageInstruction = s.language === "auto"
+    ? "Start the call in Danish. Automatically detect the language actually spoken by the other party. If they clearly reply in another language, switch to that language and continue naturally in it. If they later change language, follow them. Do not announce that you detected or switched languages."
+    : "Speak ONLY in " + lang.name + ".";
   const instructions =
-    "You are a phone-call assistant. Speak ONLY in " + lang.name + ". " +
+    "You are a phone-call assistant. " + languageInstruction + " " +
     "Conversation style: " + personality + " " +
     "You are calling on behalf of Narcis Rug to obtain information. At the beginning of the call, clearly say that you are calling on behalf of Narcis Rug and then state the purpose. Do not announce that you are an AI assistant, but never claim to be Narcis Rug or falsely claim to be human. " +
     "Primary objective: " + s.objective + ". " +
@@ -481,7 +485,7 @@ function openAgentRealtime(s) {
             transcription: {
               model: "gpt-live-transcribe",
               delay: "low",
-              languages: [lang.code]
+              ...(lang.code ? { languages: [lang.code] } : {})
             },
             turn_detection: {
               type: "server_vad",
@@ -640,7 +644,7 @@ app.post("/api/agent-call", async (req, res) => {
     if (objective.length > 2500) return res.status(400).json({ error: "Scopul apelului este prea lung." });
 
     const context = String(req.body.context || "").trim().slice(0, 3000);
-    const language = ["da","en","es","ro"].includes(req.body.language) ? req.body.language : "da";
+    const language = ["auto","da","en","es","ro"].includes(req.body.language) ? req.body.language : "auto";
     const personality = ["formal","normal","friendly","negotiator"].includes(req.body.personality) ? req.body.personality : "normal";
     const voice = normalizeVoice(req.body.voice);
     const connectionId = await resolveConnectionId();
