@@ -14,8 +14,7 @@ label{font-size:13px;color:#aeb7c8;display:block;margin:0 0 7px}input,select{wid
 input:focus,select:focus{border-color:#6e8cff}.row{display:grid;grid-template-columns:1fr 110px;gap:10px}.mode{margin-bottom:12px}
 button{width:100%;border:0;border-radius:16px;min-height:54px;font-size:17px;font-weight:750;cursor:pointer}
 button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0b0d12;margin-top:12px}
-.hang{background:#361c22;color:#ffd8df;border:1px solid #63303b;margin-top:10px}.ptt{min-height:126px;background:#355fe8;color:white;font-size:20px;touch-action:none;user-select:none;-webkit-user-select:none;margin-top:12px}
-.ptt.on{background:#264bd0;transform:scale(.985)}.status{display:inline-flex;gap:8px;align-items:center;background:#0f131a;border-radius:99px;padding:8px 11px;color:#c7d0df;font-size:13px}
+.hang{background:#361c22;color:#ffd8df;border:1px solid #63303b;margin-top:10px}.auto-listen{margin-top:12px;background:#0f131a;border:1px solid #2d3748;border-radius:16px;padding:16px;font-size:15px;color:#d8e0ee}.status{display:inline-flex;gap:8px;align-items:center;background:#0f131a;border-radius:99px;padding:8px 11px;color:#c7d0df;font-size:13px}
 .dot{width:9px;height:9px;background:#697386;border-radius:50%}.dot.live{background:#55d187;box-shadow:0 0 0 4px rgba(85,209,135,.12)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pane{background:#0f131a;border:1px solid #252b38;border-radius:14px;padding:12px;min-height:120px}
 .pane h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#9ba6b8;margin:0 0 8px}.pane p{white-space:pre-wrap;line-height:1.45;margin:0}
@@ -46,7 +45,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 
 <section class="card">
   <div class="status"><span id="dot" class="dot"></span><span id="status">Pregătit</span></div>
-  <button id="ptt" class="ptt" disabled>ȚINE APĂSAT ȘI VORBEȘTE ÎN ROMÂNĂ</button>
+  <div id="autoListen" class="auto-listen">Microfonul pornește automat după ce apelul este conectat.</div>
   <button id="hang" class="hang" disabled>Închide apelul</button>
 </section>
 
@@ -61,10 +60,10 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const phone=$("phone"),pin=$("pin"),language=$("language"),call=$("call"),hang=$("hang"),ptt=$("ptt"),statusEl=$("status"),dot=$("dot"),err=$("err");
+  const phone=$("phone"),pin=$("pin"),language=$("language"),call=$("call"),hang=$("hang"),autoListen=$("autoListen"),statusEl=$("status"),dot=$("dot"),err=$("err");
   const title=$("title"),subtitle=$("subtitle"),youHeading=$("youHeading"),themHeading=$("themHeading");
   const panes={"you-da":$("youDa"),"them-local":$("themLocal")};
-  let sid=null,token=null,ws=null,ctx=null,mic=null,src=null,proc=null,gain=null,talking=false,live=false,playAt=0;
+  let sid=null,token=null,ws=null,ctx=null,mic=null,src=null,proc=null,gain=null,live=false,playAt=0;
 
   function setStatus(text,on=false){statusEl.textContent=text;dot.classList.toggle("live",on)}
   function setError(text=""){err.textContent=text}
@@ -79,7 +78,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     subtitle.textContent="Tu vorbești "+l.name+". Cealaltă persoană aude daneză. Când răspunde în daneză, tu auzi "+l.name+".";
     youHeading.textContent="Tu → daneză";
     themHeading.textContent="Ei → "+l.name;
-    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN "+l.upper;
+    autoListen.textContent="Vorbește normal în "+l.name+". Traducerea pornește automat când detectează că ai terminat.";
   }
   function bytesToB64(bytes){let out="";for(let i=0;i<bytes.length;i+=32768)out+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(out)}
   function b64ToBytes(text){const s=atob(text),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a}
@@ -119,7 +118,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     src.connect(proc);proc.connect(gain);gain.connect(ctx.destination);
 
     proc.onaudioprocess=e=>{
-      if(!talking||!live||!ws||ws.readyState!==WebSocket.OPEN)return;
+      if(!live||!ws||ws.readyState!==WebSocket.OPEN)return;
       const raw=e.inputBuffer.getChannelData(0);
       const pcm=resample(raw,ctx.sampleRate,24000);
       ws.send(JSON.stringify({type:"mic",audio:pcm16Base64(pcm)}));
@@ -165,7 +164,9 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
         if(m.status==="call-audio-live")live=true;
         if(["completed","busy","failed","no-answer","canceled"].includes(m.status))live=false;
         setStatus(names[m.status]||m.status,live);
-        ptt.disabled=!live;
+        autoListen.textContent=live
+          ? "Ascult automat. Vorbește normal — nu mai trebuie să ții apăsat nimic."
+          : autoListen.textContent;
         if(!live&&["completed","busy","failed","no-answer","canceled"].includes(m.status))finishUi();
       } else if(m.type==="audio"&&m.audio){
         playPcm16(m.audio);
@@ -219,39 +220,16 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   }
 
   function finishUi(){
-    live=false;talking=false;
-    ptt.disabled=true;
-    ptt.classList.remove("on");
-    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN "+languageInfo().upper;
+    live=false;
+    autoListen.textContent="Microfonul pornește automat după ce apelul este conectat.";
     hang.disabled=true;
     call.disabled=false;
-  }
-
-  function press(e){
-    if(ptt.disabled)return;
-    e.preventDefault();
-    talking=true;
-    ptt.classList.add("on");
-    ptt.textContent="VORBEȘTE…";
-  }
-
-  function release(e){
-    e?.preventDefault?.();
-    if(!talking)return;
-    talking=false;
-    ptt.classList.remove("on");
-    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN "+languageInfo().upper;
-    if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"ptt-end"}));
   }
 
   language.addEventListener("change",updateLanguageUi);
   updateLanguageUi();
   call.addEventListener("click",startCall);
   hang.addEventListener("click",hangup);
-  ptt.addEventListener("pointerdown",press);
-  ptt.addEventListener("pointerup",release);
-  ptt.addEventListener("pointercancel",release);
-  ptt.addEventListener("pointerleave",e=>{if(talking)release(e)});
 })();
 </script>
 </body>
