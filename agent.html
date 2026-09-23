@@ -227,7 +227,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   }
   function setStatus(t,on=false){statusEl.textContent=t;dot.classList.toggle("live",on)}
   function setPhase(s){
-    const names={connected:"Audio conectat",ready:"Agent pregătit",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește","awaiting-confirmation":"Așteaptă confirmarea ta",ending:"Încheie apelul",ended:"Apel încheiat"};
+    const names={connected:"Audio conectat",ready:"Agent pregătit","checking-human":"Verifică dacă a răspuns o persoană","human-detected":"Persoană detectată","voicemail-detected":"Robot / voicemail detectat",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește","awaiting-confirmation":"Așteaptă confirmarea ta",ending:"Încheie apelul",ended:"Apel încheiat"};
     phase.textContent=names[s]||s||"";
   }
   function fmt(sec){sec=Math.max(0,Math.floor(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0")}
@@ -238,7 +238,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     ws.onmessage=e=>{
       let m;try{m=JSON.parse(e.data)}catch{return}
       if(m.type==="status"){
-        const names={"app-connected":"Aplicația conectată",initiated:"Se inițiază…",ringing:"Sună…",answered:"A răspuns",completed:"Apel încheiat",expired:"Sesiune expirată"};
+        const names={"app-connected":"Aplicația conectată",initiated:"Se inițiază…",ringing:"Sună…",answered:"A răspuns — verificare în curs","human-detected":"Persoană detectată","amd-uncertain":"Detectare neclară — continuă apelul",voicemail:"Robot / voicemail — se închide",completed:"Apel încheiat",expired:"Sesiune expirată"};
         if(m.status==="answered")live=true;
         if(["completed","expired"].includes(m.status)){live=false;finish()}
         setStatus(names[m.status]||m.status,live);
