@@ -468,7 +468,9 @@ function maybeStartAgentGreeting(s) {
       role: "user",
       content: [{
         type: "input_text",
-        text: "The phone has just been answered. Start the call now. Say naturally that you are calling on behalf of Narcis Rug, state the purpose, and pursue the objective. Do not announce that you are an AI assistant and do not claim to be Narcis Rug."
+        text: s.testMode
+          ? "The phone has just been answered. This is a test call to Narcis Rug. Start naturally, clearly say this is a short test call, and follow the test objective. Do not say you are calling on behalf of Narcis Rug."
+          : "The phone has just been answered. Start the call now. Say naturally that you are calling on behalf of Narcis Rug, state the purpose, and pursue the objective. Do not announce that you are an AI assistant and do not claim to be Narcis Rug."
       }]
     }
   }));
@@ -479,12 +481,17 @@ function openAgentRealtime(s) {
   const lang = agentLanguageConfig(s.language);
   const personality = agentPersonalityInstructions(s.personality);
   const languageInstruction = s.language === "auto"
-    ? "Start the call in Danish. Automatically detect the language actually spoken by the other party. If they clearly reply in another language, switch to that language and continue naturally in it. If they later change language, follow them. Do not announce that you detected or switched languages."
+    ? (s.testMode
+        ? "Start the test call in Romanian. Automatically detect the language actually spoken by Narcis. If he clearly switches to another language, switch with him naturally. Do not announce language detection."
+        : "Start the call in Danish. Automatically detect the language actually spoken by the other party. If they clearly reply in another language, switch to that language and continue naturally in it. If they later change language, follow them. Do not announce that you detected or switched languages.")
     : "Speak ONLY in " + lang.name + ".";
+  const identityInstruction = s.testMode
+    ? "This is a test call directly to Narcis Rug. At the beginning, say naturally that this is a short test call to check the agent audio and behavior. Do not say you are calling on behalf of Narcis Rug."
+    : "You are calling on behalf of Narcis Rug to obtain information. At the beginning of the call, clearly say that you are calling on behalf of Narcis Rug and then state the purpose. Do not announce that you are an AI assistant, but never claim to be Narcis Rug or falsely claim to be human.";
   const instructions =
     "You are a phone-call assistant. " + languageInstruction + " " +
     "Conversation style: " + personality + " " +
-    "You are calling on behalf of Narcis Rug to obtain information. At the beginning of the call, clearly say that you are calling on behalf of Narcis Rug and then state the purpose. Do not announce that you are an AI assistant, but never claim to be Narcis Rug or falsely claim to be human. " +
+    identityInstruction + " " +
     "Primary objective: " + s.objective + ". " +
     (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
     "Ask concise, natural follow-up questions when information is missing. Confirm important numbers, dates, prices and names when useful. " +
@@ -731,6 +738,7 @@ app.post("/api/agent-call", async (req, res) => {
     if (objective.length > 2500) return res.status(400).json({ error: "Scopul apelului este prea lung." });
 
     const context = String(req.body.context || "").trim().slice(0, 3000);
+    const testMode = req.body.testMode === true;
     const language = ["auto","da","en","es","ro"].includes(req.body.language) ? req.body.language : "auto";
     const personality = ["formal","normal","friendly","negotiator"].includes(req.body.personality) ? req.body.personality : "normal";
     const voice = normalizeVoice(req.body.voice);
@@ -739,7 +747,7 @@ app.post("/api/agent-call", async (req, res) => {
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, objective, context, language, personality, voice,
+      id, token, to, objective, context, language, personality, voice, testMode,
       created: Date.now(), answered: false, amdHuman: false, amdResult: null, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
