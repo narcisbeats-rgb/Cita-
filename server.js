@@ -363,13 +363,43 @@ function extractResponseText(data) {
   }
   return parts.join("\n").trim();
 }
+function parseStructuredAgentSummary(text) {
+  const cleaned = String(text || "").trim()
+    .replace(/^\`\`\`(?:json)?\s*/i, "")
+    .replace(/\s*\`\`\`$/, "");
+  try {
+    const value = JSON.parse(cleaned);
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const list = key => Array.isArray(value[key]) ? value[key].filter(Boolean).slice(0, 20) : [];
+    return {
+      status: String(value.status || "Parțial").slice(0, 40),
+      result: String(value.result || "").slice(0, 1200),
+      answers: list("answers").map(x => ({
+        question: String(x?.question || "").slice(0, 500),
+        answer: String(x?.answer || "").slice(0, 1000)
+      })).filter(x => x.question || x.answer),
+      facts: list("facts").map(x => ({
+        label: String(x?.label || "").slice(0, 200),
+        value: String(x?.value || "").slice(0, 1000)
+      })).filter(x => x.label || x.value),
+      prices: list("prices").map(String).map(x => x.slice(0, 500)),
+      dates: list("dates").map(String).map(x => x.slice(0, 500)),
+      conditions: list("conditions").map(String).map(x => x.slice(0, 800)),
+      unanswered: list("unanswered").map(String).map(x => x.slice(0, 800)),
+      next_steps: list("next_steps").map(String).map(x => x.slice(0, 800))
+    };
+  } catch {
+    return null;
+  }
+}
 async function summarizeAgentCall(s) {
   if (!s || s.summaryStarted) return;
   s.summaryStarted = true;
   const transcript = ("AGENT:\n" + s.agentText + "\nINTERLOCUTOR:\n" + s.remoteText).trim();
   if (!OPENAI_API_KEY || transcript.length < 20) {
     s.summary = transcript.length < 20 ? "Nu există suficientă conversație pentru un rezumat." : "Rezumat indisponibil.";
-    agentSend(s, { type: "summary", text: s.summary });
+    s.summaryData = null;
+    agentSend(s, { type: "summary", text: s.summary, data: null });
     return;
   }
   try {
@@ -382,21 +412,27 @@ async function summarizeAgentCall(s) {
       body: JSON.stringify({
         model: "gpt-5.4-nano",
         input:
-          "Objective of the call: " + s.objective + "\n\n" +
+          "Objective of the call: " + s.objective + "\n" +
+          "User context: " + (s.context || "none") + "\n\n" +
           "Transcript:\n" + transcript + "\n\n" +
-          "Write a concise Romanian summary for the user. Include: what was learned, direct answers to the objective, anything still unanswered, and any next step the user may need to do personally. Do not invent facts."
+          "Return ONLY valid JSON in Romanian, with no markdown and no code fences. Use exactly this shape: " +
+          '{"status":"Obținut|Parțial|Fără răspuns","result":"one clear overall result","answers":[{"question":"what needed to be learned","answer":"direct answer"}],"facts":[{"label":"short label","value":"exact useful fact"}],"prices":["price or money fact"],"dates":["date/time/deadline"],"conditions":["condition, requirement, limitation or offer"],"unanswered":["important point not answered"],"next_steps":["what Narcis should do next, if anything"]}. ' +
+          "Put only information explicitly supported by the call. Preserve exact numbers, currencies, dates, names and addresses when stated. Do not invent or infer missing facts. Avoid duplicating the same fact across several sections unless necessary."
       })
     });
     const raw = await response.text();
     let data = {};
     try { data = raw ? JSON.parse(raw) : {}; } catch {}
     if (!response.ok) throw new Error(data?.error?.message || raw || "OpenAI summary error");
-    s.summary = extractResponseText(data) || "Apel încheiat. Rezumatul automat nu a returnat text.";
+    const summaryText = extractResponseText(data);
+    s.summaryData = parseStructuredAgentSummary(summaryText);
+    s.summary = s.summaryData?.result || summaryText || "Apel încheiat. Rezumatul automat nu a returnat text.";
   } catch (e) {
     console.error("Agent summary error:", e.message);
+    s.summaryData = null;
     s.summary = "Apel încheiat. Rezumatul automat nu a putut fi generat: " + e.message;
   }
-  agentSend(s, { type: "summary", text: s.summary });
+  agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
 }
 async function endAgentTelnyxCall(s) {
   if (!s?.callControlId || s.hangupRequested) return;
@@ -656,7 +692,7 @@ app.post("/api/agent-call", async (req, res) => {
       created: Date.now(), answered: false, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
-      agentText: "", remoteText: "", summary: "", summaryStarted: false,
+      agentText: "", remoteText: "", summary: "", summaryData: null, summaryStarted: false,
       realtimeUsd: 0
     };
     agentSessions.set(id, s);
@@ -918,7 +954,7 @@ agentClientWss.on("connection", (ws, req) => {
   if (s.answeredAt) agentSend(s, { type: "call-start", at: s.answeredAt });
   if (s.agentText) agentSend(s, { type: "transcript-full", who: "agent", text: s.agentText });
   if (s.remoteText) agentSend(s, { type: "transcript-full", who: "remote", text: s.remoteText });
-  if (s.summary) agentSend(s, { type: "summary", text: s.summary });
+  if (s.summary) agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
   agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd || 0 });
 
   ws.on("close", () => {
