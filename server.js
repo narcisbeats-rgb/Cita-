@@ -126,15 +126,23 @@ function openRealtime({ instructions, inputFormat, outputFormat, turnDetection, 
   ws.on("error", e => onError?.(e.message));
   return ws;
 }
+function languageConfig(code) {
+  return code === "es"
+    ? { code: "es", english: "Spanish", danish: "spansk" }
+    : { code: "ro", english: "Romanian", danish: "rumænsk" };
+}
+
 function ensureRealtime(s) {
   if (!OPENAI_API_KEY) {
     safeSend(s.client, { type: "error", message: "OPENAI_API_KEY lipsește din Render" });
     return;
   }
 
+  const lang = languageConfig(s.language);
+
   if (!s.roDa || s.roDa.readyState > WebSocket.OPEN) {
     s.roDa = openRealtime({
-      instructions: "You are a strict live interpreter. Translate ONLY Romanian speech into natural spoken Danish. Preserve names, numbers, meaning and tone. Never answer the speaker, never explain, never add information. Output only the Danish translation.",
+      instructions: "You are a strict live interpreter. Translate ONLY " + lang.english + " speech into natural spoken Danish. Preserve names, numbers, meaning and tone. Never answer the speaker, never explain, never add information. Output only the Danish translation.",
       inputFormat: { type: "audio/pcm", rate: 24000 },
       outputFormat: { type: "audio/pcmu" },
       turnDetection: null,
@@ -151,7 +159,7 @@ function ensureRealtime(s) {
 
   if (!s.daRo || s.daRo.readyState > WebSocket.OPEN) {
     s.daRo = openRealtime({
-      instructions: "You are a strict live interpreter. Translate ONLY Danish speech into natural spoken Romanian. Preserve names, numbers, meaning and tone. Never answer the speaker, never explain, never add information. Output only the Romanian translation.",
+      instructions: "You are a strict live interpreter. Translate ONLY Danish speech into natural spoken " + lang.english + ". Preserve names, numbers, meaning and tone. Never answer the speaker, never explain, never add information. Output only the " + lang.english + " translation.",
       inputFormat: { type: "audio/pcmu" },
       outputFormat: { type: "audio/pcm", rate: 24000 },
       turnDetection: {
@@ -163,8 +171,8 @@ function ensureRealtime(s) {
         interrupt_response: true
       },
       onAudio: audio => safeSend(s.client, { type: "audio", audio, sampleRate: 24000 }),
-      onText: delta => safeSend(s.client, { type: "text", lane: "them-ro", delta }),
-      onReady: () => safeSend(s.client, { type: "ready", lane: "da-ro" }),
+      onText: delta => safeSend(s.client, { type: "text", lane: "them-local", delta }),
+      onReady: () => safeSend(s.client, { type: "ready", lane: "da-local" }),
       onError: message => safeSend(s.client, { type: "error", message })
     });
   }
@@ -173,10 +181,11 @@ async function playDisclosure(s) {
   if (!s?.callControlId || s.disclosureSent) return;
   s.disclosureSent = true;
   try {
+    const lang = languageConfig(s.language);
     await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/speak", {
       method: "POST",
       body: {
-        payload: "Denne samtale bruger automatisk oversættelse mellem rumænsk og dansk.",
+        payload: "Denne samtale bruger automatisk oversættelse mellem " + lang.danish + " og dansk.",
         payload_type: "text",
         service_level: "basic",
         voice: "female",
@@ -225,12 +234,14 @@ app.post("/api/call", async (req, res) => {
     const to = normalizePhone(req.body.to);
     if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
 
+    const language = req.body.language === "es" ? "es" : "ro";
+
     const connectionId = await resolveConnectionId();
     const id = crypto.randomUUID();
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, created: Date.now(),
+      id, token, to, language, created: Date.now(),
       callControlId: null,
       client: null,
       telnyxWs: null,
@@ -264,7 +275,8 @@ app.post("/api/call", async (req, res) => {
       sessionId: id,
       token,
       callControlId: s.callControlId,
-      status: "initiated"
+      status: "initiated",
+      language
     });
   } catch (e) {
     res.status(500).json({ error: e.message || "Nu am putut porni apelul" });
