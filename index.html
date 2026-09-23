@@ -1,167 +1,236 @@
 <!doctype html>
-<html lang="es">
+<html lang="ro">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0d12" />
-  <meta name="description" content="Detector de citas para trámites de Extranjería y Policía en Madrid con avisos por SMS." />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Detector de Citas" />
-  <title>Citas de Extranjería Madrid</title>
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root{--bg:#0b0d12;--card:#121722;--card2:#171e2b;--text:#f7f8fb;--muted:#9ca7b8;--line:#263044;--accent:#f3c94b;--ok:#32d583;--danger:#f04438}
-    *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:radial-gradient(circle at top,#172033 0,#0b0d12 42%);color:var(--text);min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
-    button,input,select{font:inherit}.wrap{max-width:980px;margin:0 auto;padding:22px 18px 70px}.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}.brand{font-weight:800;letter-spacing:-.6px;font-size:19px}.brand span{color:var(--accent)}.pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:13px}
-    .hero{text-align:center;padding:22px 0 28px}.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border-radius:999px;background:#1a2230;border:1px solid var(--line);color:#cbd3df;font-size:13px}.dot{width:8px;height:8px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 4px #32d58320}.hero h1{font-size:clamp(38px,8vw,68px);line-height:.98;margin:18px auto 16px;letter-spacing:-2.6px;max-width:850px}.hero p{max-width:760px;margin:0 auto;color:var(--muted);font-size:18px;line-height:1.55}
-    .how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:760px;margin:22px auto 0;text-align:left}.how div{background:#101620;border:1px solid var(--line);border-radius:16px;padding:13px}.how b{display:block;font-size:13px;margin-bottom:5px}.how span{color:var(--muted);font-size:12px;line-height:1.4}
-    .shell{background:linear-gradient(180deg,#141a25,#0f141e);border:1px solid var(--line);border-radius:28px;padding:20px;box-shadow:0 20px 70px #0007}.stephead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.stephead small{color:var(--muted)}.progress{height:6px;background:#202838;border-radius:99px;overflow:hidden;margin-bottom:24px}.progress i{display:block;height:100%;width:25%;background:var(--accent);transition:.25s}
-    .procedure-groups{display:grid;gap:24px}.procedure-group h3{margin:0 0 5px;font-size:18px}.procedure-group>p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.choice{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:18px;text-align:left;cursor:pointer;color:var(--text);transition:.15s;min-height:132px}.choice:hover,.choice.active{transform:translateY(-2px);border-color:#725f22;background:#1b2130}.choice b{display:block;font-size:17px;margin-bottom:7px}.choice span{color:var(--muted);font-size:13px;line-height:1.45}.choice .ico{font-size:23px;margin-bottom:12px;display:block}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{margin-bottom:15px}.field label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.field input,.field select{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);outline:none}.field input:focus,.field select:focus{border-color:#725f22}.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.btn{border:0;border-radius:14px;padding:13px 18px;font-weight:700;cursor:pointer}.btn:disabled{opacity:.55;cursor:not-allowed}.btn.secondary{background:#1b2230;color:#dce2ea}.btn.primary{background:var(--accent);color:#16130b}.hidden{display:none!important}
-    .mapping{background:#0e141d;border:1px solid var(--line);padding:16px;border-radius:16px;margin:15px 0}.mapping strong{display:block;margin-bottom:5px}.mapping p{color:var(--muted);margin:0;font-size:14px;line-height:1.5}.tag{display:inline-flex;padding:5px 9px;border:1px solid #3a455c;border-radius:999px;font-size:12px;color:#c7d0dd;margin-top:10px}
-    .notice{margin-top:15px;padding:14px;border-radius:14px;background:#1a1609;border:1px solid #5a4918;color:#e9d992;font-size:13px;line-height:1.5}.consent{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;line-height:1.5;margin-top:16px}.consent input{margin-top:3px}.formmsg{min-height:22px;margin-top:10px;color:#fca5a5;font-size:13px}.formmsg.ok{color:#9be7bd}
-    .smsbox{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center;padding:17px;background:#0e141d;border:1px solid var(--line);border-radius:18px}.smsicon{width:64px;height:64px;border-radius:18px;background:#f3c94b;color:#16130b;display:grid;place-items:center;font-size:30px}.smsbox h3{margin:0 0 6px;font-size:18px}.smsbox p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}.phonebox{margin-top:16px}.phonebox label{display:block;font-size:13px;color:#c8d0dc;margin-bottom:7px}.phonebox input{width:100%;padding:15px;border-radius:14px;border:1px solid var(--line);background:#0d121a;color:var(--text);outline:none;font-size:18px}.phonebox input:focus{border-color:#725f22}
-    .dash{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}.panel{background:#101620;border:1px solid var(--line);border-radius:20px;padding:18px}.statusline{display:flex;gap:11px;align-items:center;margin-bottom:14px}.statusdot{width:12px;height:12px;background:var(--ok);border-radius:50%;box-shadow:0 0 0 6px #32d58317}.big{font-size:28px;font-weight:800;letter-spacing:-1px}.muted{color:var(--muted)}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.kpi{background:#0d131c;border:1px solid #20293a;border-radius:15px;padding:13px}.kpi b{display:block;font-size:18px}.kpi small{color:var(--muted)}.alert{padding:14px;border-radius:14px;background:#10261c;border:1px solid #205b3c;margin-top:15px;color:#b7efcf}.human{padding:14px;border-radius:14px;background:#281c0d;border:1px solid #704713;margin-top:12px;color:#f3d19a}.dangerbtn{background:#35171a!important;color:#fecaca!important}.footer{margin-top:28px;text-align:center;color:#6f7b8c;font-size:12px;line-height:1.6}
-    @media(max-width:700px){.wrap{padding:16px 13px 54px}.grid,.row,.dash,.how{grid-template-columns:1fr}.hero{padding-top:8px}.hero h1{font-size:43px}.hero p{font-size:16px}.shell{padding:15px;border-radius:22px}.kpis{grid-template-columns:1fr 1fr 1fr}.nav .pill{display:none}.smsbox{grid-template-columns:54px 1fr}.smsicon{width:54px;height:54px;border-radius:15px}.actions .btn{flex:1;min-width:130px}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>Apel RO ↔ DA</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,sans-serif;color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;background:#0b0d12;color:#f5f7fb;min-height:100vh}.wrap{max-width:760px;margin:auto;padding:22px 16px 40px}
+h1{font-size:34px;margin:4px 0 6px}.sub{color:#aeb7c8;line-height:1.45;margin:0 0 18px}
+.card{background:#141821;border:1px solid #252b38;border-radius:20px;padding:16px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+label{font-size:13px;color:#aeb7c8;display:block;margin:0 0 7px}input{width:100%;background:#0f131a;color:white;border:1px solid #313a4b;border-radius:14px;padding:14px;font-size:17px;outline:none}
+input:focus{border-color:#6e8cff}.row{display:grid;grid-template-columns:1fr 110px;gap:10px}
+button{width:100%;border:0;border-radius:16px;min-height:54px;font-size:17px;font-weight:750;cursor:pointer}
+button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0b0d12;margin-top:12px}
+.hang{background:#361c22;color:#ffd8df;border:1px solid #63303b;margin-top:10px}.ptt{min-height:126px;background:#355fe8;color:white;font-size:20px;touch-action:none;user-select:none;-webkit-user-select:none;margin-top:12px}
+.ptt.on{background:#264bd0;transform:scale(.985)}.status{display:inline-flex;gap:8px;align-items:center;background:#0f131a;border-radius:99px;padding:8px 11px;color:#c7d0df;font-size:13px}
+.dot{width:9px;height:9px;background:#697386;border-radius:50%}.dot.live{background:#55d187;box-shadow:0 0 0 4px rgba(85,209,135,.12)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pane{background:#0f131a;border:1px solid #252b38;border-radius:14px;padding:12px;min-height:120px}
+.pane h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#9ba6b8;margin:0 0 8px}.pane p{white-space:pre-wrap;line-height:1.45;margin:0}
+.note{font-size:12px;color:#8792a5;line-height:1.4;margin-top:10px}.err{color:#ffb6c2;min-height:20px;margin-top:8px}
+@media(max-width:580px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr 95px}h1{font-size:30px}}
+</style>
 </head>
 <body>
-<div class="wrap">
-  <div class="nav"><div class="brand">Detector de <span>Citas</span></div><div class="pill">Avisos por SMS · Madrid</div></div>
-  <section class="hero">
-    <div class="eyebrow"><span class="dot"></span> Monitorización automática de citas</div>
-    <h1>Detectamos citas disponibles por ti.</h1>
-    <p>Elige tu trámite de Extranjería o Policía con un nombre fácil de entender. Nosotros abrimos directamente la página oficial de Madrid, seleccionamos la opción exacta y te avisamos por SMS cuando haya un cambio.</p>
-    <div class="how">
-      <div><b>1. Eliges el trámite</b><span>Te guiamos para evitar seleccionar una cita incorrecta.</span></div>
-      <div><b>2. Guardas tus datos</b><span>Los conservamos cifrados para agilizar el formulario cuando sea posible.</span></div>
-      <div><b>3. Te avisamos por SMS</b><span>Recibes el aviso directamente en tu móvil cuando hay un cambio relevante.</span></div>
-    </div>
-  </section>
-  <main class="shell">
-    <div id="wizard">
-      <div class="stephead"><b id="stepTitle">¿Qué necesitas?</b><small id="stepCounter">Paso 1 de 4</small></div>
-      <div class="progress"><i id="bar"></i></div>
-      <section id="s1">
-        <div class="procedure-groups" id="choices">
-          <div class="procedure-group">
-            <h3>NIE y tarjetas TIE</h3>
-            <p>Las opciones más habituales para obtener el NIE, poner huellas o recoger una tarjeta.</p>
-            <div class="grid">
-              <button class="choice" data-key="nie_new"><span class="ico">🪪</span><b>Sacar el NIE por primera vez</b><span>Asignación inicial del número NIE. No es para renovar una tarjeta.</span></button>
-              <button class="choice" data-key="tie_fingerprint"><span class="ico">☝️</span><b>Huellas para TIE</b><span>Primera tarjeta, renovación, duplicado o Ley 14/2013.</span></button>
-              <button class="choice" data-key="tie_pickup"><span class="ico">📬</span><b>Recoger mi tarjeta TIE</b><span>Cuando la tarjeta ya está fabricada y la comisaría exige cita.</span></button>
-              <button class="choice" data-key="eu_registration"><span class="ico">🇪🇺</span><b>Certificado UE (papel verde)</b><span>Para ciudadanos de la Unión Europea que residirán en España.</span></button>
-            </div>
-          </div>
-          <div class="procedure-group">
-            <h3>Viajes, visitas y certificados</h3>
-            <p>Permisos para regresar, invitaciones y certificados emitidos por Policía.</p>
-            <div class="grid">
-              <button class="choice" data-key="return_authorization"><span class="ico">✈️</span><b>Autorización de regreso</b><span>Para salir de España y volver mientras tu residencia o TIE se renueva.</span></button>
-              <button class="choice" data-key="invitation_letter"><span class="ico">✉️</span><b>Carta de invitación</b><span>Para invitar a un familiar o amigo extranjero a alojarse en tu domicilio.</span></button>
-              <button class="choice" data-key="police_certificates"><span class="ico">📑</span><b>Certificados de residencia o concordancia</b><span>Residencia, no residencia o concordancia de datos.</span></button>
-              <button class="choice" data-key="stay_extension"><span class="ico">🗓️</span><b>Prórroga de estancia</b><span>Para ampliar una estancia corta cuando la normativa lo permite.</span></button>
-            </div>
-          </div>
-          <div class="procedure-group">
-            <h3>Protección y documentación especial</h3>
-            <p>Asilo y documentos destinados a situaciones concretas.</p>
-            <div class="grid">
-              <button class="choice" data-key="asylum_first"><span class="ico">🛡️</span><b>Primera cita de asilo</b><span>Primera solicitud de protección internacional en Madrid.</span></button>
-              <button class="choice" data-key="registration_card"><span class="ico">📘</span><b>Cédula de inscripción</b><span>Para quien no puede ser documentado por las autoridades de su país.</span></button>
-              <button class="choice" data-key="ukraine_card"><span class="ico">🇺🇦</span><b>Tarjeta temporal — Ucrania</b><span>Para personas desplazadas con protección temporal por el conflicto.</span></button>
-              <button class="choice" data-key="brexit_card"><span class="ico">🇬🇧</span><b>Tarjeta Brexit</b><span>Para británicos y familiares incluidos en el Acuerdo de Retirada.</span></button>
-            </div>
-          </div>
-          <div class="procedure-group">
-            <h3>Autorizaciones de Gestión Migratoria</h3>
-            <p>Elige estas opciones solo si tu resolución menciona expresamente la Dirección General de Gestión Migratoria.</p>
-            <div class="grid">
-              <button class="choice" data-key="migration_card_issue"><span class="ico">🏛️</span><b>Expedir tarjeta autorizada por Migraciones</b><span>Para iniciar la expedición de la tarjeta indicada en esa resolución.</span></button>
-              <button class="choice" data-key="migration_card_pickup"><span class="ico">✅</span><b>Recoger tarjeta autorizada por Migraciones</b><span>Para recoger la TIE después de esa autorización especial.</span></button>
-            </div>
-          </div>
-        </div>
-        <div class="actions"><button class="btn primary" id="next1" disabled>Continuar</button></div>
-      </section>
-      <section id="s2" class="hidden">
-        <div id="mapping" class="mapping"></div>
-        <div class="row">
-          <div class="field"><label>Provincia</label><input value="Madrid" disabled /></div>
-          <div class="field"><label>Página oficial de inicio</label><input value="Madrid ya seleccionado" disabled /></div>
-        </div>
-        <div class="notice">Comprueba que la explicación coincide con tu caso. Al continuar, la aplicación buscará exactamente el nombre oficial mostrado arriba.</div>
-        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="next2">Continuar</button></div>
-      </section>
-      <section id="s3" class="hidden">
-        <div class="smsbox"><div class="smsicon">💬</div><div><h3>¿Dónde quieres recibir el aviso?</h3><p>Introduce tu número y te enviaremos un SMS cuando detectemos una posible cita o cuando el portal requiera tu intervención.</p></div></div>
-        <div class="phonebox"><label>Número de móvil</label><input id="smsPhone" inputmode="tel" autocomplete="tel" value="+34" placeholder="+34 600 000 000" /></div>
-        <label class="consent"><input id="consent" type="checkbox" /> <span>Acepto recibir SMS relacionados exclusivamente con la monitorización de este trámite durante 30 días. Puedo detener el servicio y borrar mis datos cuando quiera.</span></label>
-        <div class="notice">Tu número se utiliza para enviarte avisos del servicio. La cita oficial sigue siendo gratuita. No guardamos contraseñas, PIN de Cl@ve ni códigos SMS.</div>
-        <div class="formmsg" id="smsMsg"></div>
-        <div class="actions"><button class="btn secondary back">Atrás</button><button class="btn primary" id="enableSms">Empezar monitorización</button></div>
-      </section>
-      <section id="s4" class="hidden">
-        <div class="dash">
-          <div class="panel">
-            <div class="statusline"><span class="statusdot"></span><div><b>Monitorización activa</b><div class="muted" style="font-size:13px">Madrid · 30 días</div></div></div>
-            <div class="big" id="dashService">NIE / TIE</div>
-            <p class="muted">Buscamos de lunes a viernes a las 08:00, 09:00, 10:00, 11:00, 12:00 y 13:00, hora de Madrid. Cuando encontremos una cita, recibirás un SMS inmediatamente.</p>
-            <div class="kpis"><div class="kpi"><b id="checks">0</b><small>comprobaciones</small></div><div class="kpi"><b>30</b><small>días</small></div><div class="kpi"><b>Madrid</b><small>provincia</small></div></div>
-            <div class="alert" id="monitorMessage">En este momento no hay citas disponibles. El sistema seguirá buscando automáticamente por ti y te avisará inmediatamente por SMS.</div>
-            <div class="human"><b>Intervención humana:</b> si el portal solicita CAPTCHA, Cl@ve, un código SMS o confirmación personal, la automatización se detiene y te avisamos.</div>
-          </div>
-          <div class="panel">
-            <b>Avisos</b><p class="muted" style="font-size:14px" id="smsTarget">📩 SMS activado</p><p class="muted" style="font-size:14px" id="lastAlert">Sin avisos enviados todavía</p>
-            <hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><b>Próxima comprobación</b><div class="big" style="font-size:22px;margin-top:8px">Programada</div>
-            <button class="btn secondary" style="width:100%;margin-top:18px" id="refreshStatus">Actualizar estado</button><button class="btn secondary dangerbtn" style="width:100%;margin-top:10px" id="unsubscribe">Detener y borrar mis datos</button>
-          </div>
-        </div>
-      </section>
-    </div>
-  </main>
-  <div class="footer">Detector de Citas monitoriza y avisa; no vende citas ni garantiza disponibilidad. Si el portal requiere CAPTCHA, Cl@ve, SMS o confirmación personal, la acción debe completarla una persona.</div>
-</div>
+<main class="wrap">
+<h1>Apel RO ↔ DA</h1>
+<p class="sub">Tu vorbești română. Cealaltă persoană aude daneză. Când răspunde în daneză, tu auzi română.</p>
+
+<section class="card">
+  <div class="row">
+    <div><label for="phone">Număr telefon</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="+45 12 34 56 78"></div>
+    <div><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>
+  </div>
+  <button id="call" class="call">Sună</button>
+  <div id="err" class="err"></div>
+</section>
+
+<section class="card">
+  <div class="status"><span id="dot" class="dot"></span><span id="status">Pregătit</span></div>
+  <button id="ptt" class="ptt" disabled>ȚINE APĂSAT ȘI VORBEȘTE ÎN ROMÂNĂ</button>
+  <button id="hang" class="hang" disabled>Închide apelul</button>
+  <div class="note">La început, interlocutorul aude o singură informare scurtă în daneză că se folosește traducere automată.</div>
+</section>
+
+<section class="card">
+  <div class="grid">
+    <div class="pane"><h3>Tu → daneză</h3><p id="youDa"></p></div>
+    <div class="pane"><h3>Ei → română</h3><p id="themRo"></p></div>
+  </div>
+</section>
+</main>
+
 <script>
-const MAP={
-  asylum_first:{label:'Primera cita de asilo',official:'ASILO - PRIMERA CITA - provincia de Madrid',desc:'Para pedir por primera vez protección internacional o asilo en Madrid.'},
-  return_authorization:{label:'Autorización de regreso',official:'AUTORIZACIÓN DE REGRESO',desc:'Para salir de España y poder volver mientras tu residencia o TIE está en renovación.'},
-  tie_pickup:{label:'Recoger mi tarjeta TIE',official:'POLICIA - RECOGIDA DE TARJETA DE IDENTIDAD DE EXTRANJERO (TIE)',desc:'Para recoger una TIE que ya está fabricada, cuando la comisaría exige cita previa.'},
-  nie_new:{label:'Sacar el NIE por primera vez',official:'POLICIA-ASIGNACIÓN DE N.I.E.',desc:'Para solicitar la asignación inicial de un número NIE. No sirve para renovar la TIE.'},
-  invitation_letter:{label:'Carta de invitación',official:'POLICIA-CARTA DE INVITACIÓN',desc:'Para invitar a España a un familiar o amigo extranjero que se alojará en tu domicilio.'},
-  eu_registration:{label:'Certificado UE (papel verde)',official:'POLICIA-CERTIFICADO DE REGISTRO DE CIUDADANO DE LA U.E.',desc:'Para ciudadanos de la Unión Europea que van a residir en España.'},
-  police_certificates:{label:'Certificados de residencia o concordancia',official:'POLICIA-CERTIFICADOS (DE RESIDENCIA, DE NO RESIDENCIA Y DE CONCORDANCIA)',desc:'Para pedir un certificado de residencia, no residencia o concordancia de datos.'},
-  registration_card:{label:'Cédula de inscripción',official:'POLICIA - CÉDULA DE INSCRIPCIÓN',desc:'Para extranjeros que no pueden ser documentados por las autoridades de su país.'},
-  ukraine_card:{label:'Tarjeta de protección temporal — Ucrania',official:'POLICIA TARJETA CONFLICTO UCRANIA–ПОЛІЦІЯ -КАРТКА ДЛЯ ПЕРЕМІЩЕНИХ ОСІБ',desc:'Para personas desplazadas por la guerra de Ucrania que tienen protección temporal.'},
-  brexit_card:{label:'Tarjeta Brexit para británicos y familiares',official:'POLICÍA-EXP.TARJETA ASOCIADA AL ACUERDO DE RETIRADA CIUDADANOS BRITÁNICOS Y SUS FAMILIARES (BREXIT)',desc:'Para ciudadanos británicos y familiares incluidos en el Acuerdo de Retirada.'},
-  migration_card_issue:{label:'Expedir tarjeta autorizada por Migraciones',official:'POLICÍA-EXPEDICIÓN DE TARJETAS CUYA AUTORIZACIÓN RESUELVE LA DIRECCIÓN GENERAL DE GESTIÓN MIGRATORIA',desc:'Solo si tu resolución dice que la autorización la concede la Dirección General de Gestión Migratoria.'},
-  stay_extension:{label:'Prórroga de estancia',official:'POLICÍA-PRÓRROGA DE ESTANCIA',desc:'Para solicitar más tiempo de estancia de corta duración cuando la normativa lo permite.'},
-  migration_card_pickup:{label:'Recoger tarjeta autorizada por Migraciones',official:'POLICÍA-RECOGIDA DE LA TIE CUYA AUTORIZACIÓN RESUELVE LA DIRECCIÓN GENERAL DE GESTIÓN MIGRATORIA',desc:'Para recoger una TIE cuya autorización resolvió la Dirección General de Gestión Migratoria.'},
-  tie_fingerprint:{label:'Huellas para TIE: inicial, renovación o duplicado',official:'POLICÍA-TOMA DE HUELLAS (EXPEDICIÓN DE TARJETA) INICIAL, RENOVACIÓN, DUPLICADO Y LEY 14/2013',desc:'Para poner huellas y expedir la TIE por primera vez, renovarla o pedir un duplicado.'},
-  lost:{label:'TIE perdida, robada o deteriorada'},
-  tie_renew:{label:'Renovar TIE'},
-  tie_duplicate:{label:'Duplicado TIE'}
-};
-const state={step:1,key:null};
-const qs=(s)=>document.querySelector(s),qsa=(s)=>[...document.querySelectorAll(s)];
-const errors={sms_not_configured:'El envío de SMS todavía no está conectado en el servidor.',invalid_phone:'Introduce un número de móvil válido. Puedes usar +34 para España.',consent_required:'Debes aceptar los avisos por SMS para continuar.',too_many_requests:'Demasiados intentos. Espera unos minutos.',sms_send_failed:'No pudimos enviar el SMS de prueba. Revisa el número e inténtalo de nuevo.',internal_error:'No se pudo completar. Inténtalo de nuevo.'};
-function show(n){state.step=n;for(let i=1;i<=4;i++)qs('#s'+i).classList.toggle('hidden',i!==n);qs('#stepCounter').textContent=`Paso ${n} de 4`;qs('#bar').style.width=(n*25)+'%';qs('#stepTitle').textContent=['','¿Qué necesitas?','Confirmamos el trámite','Tu número para los avisos','Monitorización'][n];}
-async function api(url,options={}){const response=await fetch(url,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'internal_error');error.code=data.error;throw error}return data}
-function busy(button,on,label){button.disabled=on;if(label)button.textContent=label}
-qsa('.choice').forEach(b=>b.onclick=()=>{qsa('.choice').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.key=b.dataset.key;qs('#next1').disabled=false});
-qs('#next1').onclick=()=>{const m=MAP[state.key];qs('#mapping').innerHTML=`<strong>${m.official}</strong><p>${m.desc}</p><span class="tag">Inicio directo · Madrid</span>`;show(2)};
-qs('#next2').onclick=()=>show(3);qsa('.back').forEach(b=>b.onclick=()=>show(Math.max(1,state.step-1)));
-qs('#enableSms').onclick=async()=>{const button=qs('#enableSms'),msg=qs('#smsMsg');msg.className='formmsg';msg.textContent='';if(!qs('#consent').checked){msg.textContent=errors.consent_required;return}const phone=qs('#smsPhone').value.trim();busy(button,true,'Configurando…');try{const config=await api('/api/config');if(!config.smsReady)throw Object.assign(new Error('sms_not_configured'),{code:'sms_not_configured'});const data=await api('/api/sms/subscribe',{method:'POST',body:JSON.stringify({phone,serviceKey:state.key,consent:true})});localStorage.setItem('citaNieAccessToken',data.accessToken);msg.className='formmsg ok';msg.textContent='Monitorización activada. Enviando un SMS de prueba…';await api('/api/sms/test',{method:'POST',headers:{authorization:`Bearer ${data.accessToken}`},body:'{}'});msg.textContent='✓ Listo. Revisa tu móvil: acabamos de enviar un SMS de prueba.';await loadDashboard()}catch(error){msg.textContent=errors[error.code]||errors.internal_error}finally{busy(button,false,'Empezar monitorización')}};
-async function loadDashboard(){const token=localStorage.getItem('citaNieAccessToken');if(!token)return;try{const data=await api('/api/subscription',{headers:{authorization:`Bearer ${token}`}});state.key=data.serviceKey;qs('#dashService').textContent=MAP[data.serviceKey]?.label||'Trámite de Extranjería';qs('#checks').textContent=data.checks||0;qs('#smsTarget').textContent=data.channel==='sms'?`📩 SMS a ${data.phone||'tu móvil'}`:'Avisos activos';qs('#lastAlert').textContent=data.lastAlertAt?`Último aviso: ${new Date(data.lastAlertAt).toLocaleString('es-ES')}`:'Sin avisos enviados todavía';const status=data.lastResult?.state;if(status==='AVAILABILITY_DETECTED')qs('#monitorMessage').textContent='¡Posible disponibilidad detectada! Revisa el SMS y entra cuanto antes.';else if(status==='HUMAN_GATE')qs('#monitorMessage').textContent='El portal requiere intervención humana. Te hemos avisado por SMS.';else qs('#monitorMessage').textContent='En este momento no hay citas disponibles. El sistema seguirá buscando automáticamente por ti, de lunes a viernes, a las 08:00, 09:00, 10:00, 11:00, 12:00 y 13:00 (Madrid), y te avisará inmediatamente por SMS.';show(4)}catch{localStorage.removeItem('citaNieAccessToken')}}
-qs('#refreshStatus').onclick=async()=>{busy(qs('#refreshStatus'),true,'Actualizando…');await loadDashboard();busy(qs('#refreshStatus'),false,'Actualizar estado')};
-qs('#unsubscribe').onclick=async()=>{if(!confirm('¿Quieres detener la monitorización y borrar tus datos?'))return;const token=localStorage.getItem('citaNieAccessToken');try{if(token)await api('/api/subscription',{method:'DELETE',headers:{authorization:`Bearer ${token}`}})}catch{}localStorage.removeItem('citaNieAccessToken');location.reload()};
-loadDashboard();
+(() => {
+  const $ = id => document.getElementById(id);
+  const phone=$("phone"),pin=$("pin"),call=$("call"),hang=$("hang"),ptt=$("ptt"),statusEl=$("status"),dot=$("dot"),err=$("err");
+  const panes={"you-da":$("youDa"),"them-ro":$("themRo")};
+  let sid=null,token=null,ws=null,ctx=null,mic=null,src=null,proc=null,gain=null,talking=false,live=false,playAt=0;
+
+  function setStatus(text,on=false){statusEl.textContent=text;dot.classList.toggle("live",on)}
+  function setError(text=""){err.textContent=text}
+  function bytesToB64(bytes){let out="";for(let i=0;i<bytes.length;i+=32768)out+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(out)}
+  function b64ToBytes(text){const s=atob(text),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a}
+
+  function resample(input,fromRate,toRate){
+    if(fromRate===toRate)return input;
+    const ratio=fromRate/toRate;
+    const n=Math.max(1,Math.round(input.length/ratio));
+    const out=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      const pos=i*ratio,idx=Math.floor(pos),frac=pos-idx;
+      const a=input[Math.min(idx,input.length-1)]||0;
+      const b=input[Math.min(idx+1,input.length-1)]||a;
+      out[i]=a+(b-a)*frac;
+    }
+    return out;
+  }
+
+  function pcm16Base64(floatData){
+    const pcm=new Int16Array(floatData.length);
+    for(let i=0;i<floatData.length;i++){
+      const v=Math.max(-1,Math.min(1,floatData[i]));
+      pcm[i]=v<0?Math.round(v*32768):Math.round(v*32767);
+    }
+    return bytesToB64(new Uint8Array(pcm.buffer));
+  }
+
+  async function prepareAudio(){
+    if(ctx&&mic)return;
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    await ctx.resume();
+    mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    src=ctx.createMediaStreamSource(mic);
+    proc=ctx.createScriptProcessor(4096,1,1);
+    gain=ctx.createGain();
+    gain.gain.value=0;
+    src.connect(proc);proc.connect(gain);gain.connect(ctx.destination);
+
+    proc.onaudioprocess=e=>{
+      if(!talking||!live||!ws||ws.readyState!==WebSocket.OPEN)return;
+      const raw=e.inputBuffer.getChannelData(0);
+      const pcm=resample(raw,ctx.sampleRate,24000);
+      ws.send(JSON.stringify({type:"mic",audio:pcm16Base64(pcm)}));
+    };
+  }
+
+  function playPcm16(base64){
+    if(!ctx)return;
+    const bytes=b64ToBytes(base64);
+    const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+    const samples=new Float32Array(Math.floor(bytes.byteLength/2));
+    for(let i=0;i<samples.length;i++)samples[i]=view.getInt16(i*2,true)/32768;
+    const buffer=ctx.createBuffer(1,samples.length,24000);
+    buffer.copyToChannel(samples,0);
+    const node=ctx.createBufferSource();
+    node.buffer=buffer;
+    node.connect(ctx.destination);
+    const now=ctx.currentTime;
+    if(playAt<now+.03)playAt=now+.03;
+    node.start(playAt);
+    playAt+=buffer.duration;
+  }
+
+  function connectAppSocket(){
+    const scheme=location.protocol==="https:"?"wss":"ws";
+    ws=new WebSocket(scheme+"://"+location.host+"/client?sid="+encodeURIComponent(sid)+"&token="+encodeURIComponent(token));
+
+    ws.onmessage=e=>{
+      let m;try{m=JSON.parse(e.data)}catch{return}
+      if(m.type==="status"){
+        const names={
+          "app-connected":"Aplicația este conectată",
+          initiated:"Se inițiază apelul…",
+          ringing:"Sună…",
+          answered:"A răspuns",
+          "call-audio-live":"Traducerea este live",
+          completed:"Apel încheiat",
+          busy:"Ocupat",
+          failed:"Apel eșuat",
+          "no-answer":"Nu a răspuns",
+          canceled:"Apel anulat"
+        };
+        if(m.status==="call-audio-live")live=true;
+        if(["completed","busy","failed","no-answer","canceled"].includes(m.status))live=false;
+        setStatus(names[m.status]||m.status,live);
+        ptt.disabled=!live;
+        if(!live&&["completed","busy","failed","no-answer","canceled"].includes(m.status))finishUi();
+      } else if(m.type==="audio"&&m.audio){
+        playPcm16(m.audio);
+      } else if(m.type==="text"&&panes[m.lane]){
+        panes[m.lane].textContent+=m.delta||"";
+      } else if(m.type==="error"){
+        setError(m.message||"Eroare");
+      }
+    };
+
+    ws.onclose=()=>{if(sid&&!live)setStatus("Conexiunea aplicației s-a închis")};
+  }
+
+  async function startCall(){
+    setError("");
+    call.disabled=true;
+    try{
+      await prepareAudio();
+      const response=await fetch("/api/call",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({to:phone.value,pin:pin.value})
+      });
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||"Nu am putut porni apelul");
+      sid=data.sessionId;
+      token=data.token;
+      connectAppSocket();
+      hang.disabled=false;
+      setStatus("Se inițiază apelul…");
+    }catch(e){
+      setError(e.message||String(e));
+      call.disabled=false;
+    }
+  }
+
+  async function hangup(){
+    if(!sid)return;
+    hang.disabled=true;
+    try{
+      await fetch("/api/hangup",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sessionId:sid,token})
+      });
+    }catch{}
+    try{ws?.close()}catch{}
+    sid=null;token=null;ws=null;
+    finishUi();
+    setStatus("Apel încheiat");
+  }
+
+  function finishUi(){
+    live=false;talking=false;
+    ptt.disabled=true;
+    ptt.classList.remove("on");
+    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN ROMÂNĂ";
+    hang.disabled=true;
+    call.disabled=false;
+  }
+
+  function press(e){
+    if(ptt.disabled)return;
+    e.preventDefault();
+    talking=true;
+    ptt.classList.add("on");
+    ptt.textContent="VORBEȘTE…";
+  }
+
+  function release(e){
+    e?.preventDefault?.();
+    if(!talking)return;
+    talking=false;
+    ptt.classList.remove("on");
+    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN ROMÂNĂ";
+    if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"ptt-end"}));
+  }
+
+  call.addEventListener("click",startCall);
+  hang.addEventListener("click",hangup);
+  ptt.addEventListener("pointerdown",press);
+  ptt.addEventListener("pointerup",release);
+  ptt.addEventListener("pointercancel",release);
+  ptt.addEventListener("pointerleave",e=>{if(talking)release(e)});
+})();
 </script>
 </body>
 </html>
