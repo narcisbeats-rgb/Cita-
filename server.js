@@ -459,7 +459,7 @@ function finalizeAgentSession(s, status = "completed") {
   }, 30 * 60 * 1000).unref?.();
 }
 function maybeStartAgentGreeting(s) {
-  if (!s || !s.answered || !s.openaiReady || s.greetingStarted || s.openaiWs?.readyState !== WebSocket.OPEN || s.telnyxWs?.readyState !== WebSocket.OPEN) return;
+  if (!s || !s.answered || !s.amdHuman || !s.openaiReady || s.greetingStarted || s.openaiWs?.readyState !== WebSocket.OPEN || s.telnyxWs?.readyState !== WebSocket.OPEN) return;
   s.greetingStarted = true;
   s.openaiWs.send(JSON.stringify({
     type: "conversation.item.create",
@@ -475,7 +475,7 @@ function maybeStartAgentGreeting(s) {
   s.openaiWs.send(JSON.stringify({ type: "response.create" }));
 }
 function openAgentRealtime(s) {
-  if (!s || s.openaiWs || !OPENAI_API_KEY) return;
+  if (!s || !s.amdHuman || s.openaiWs || !OPENAI_API_KEY) return;
   const lang = agentLanguageConfig(s.language);
   const personality = agentPersonalityInstructions(s.personality);
   const languageInstruction = s.language === "auto"
@@ -740,7 +740,7 @@ app.post("/api/agent-call", async (req, res) => {
 
     const s = {
       id, token, to, objective, context, language, personality, voice,
-      created: Date.now(), answered: false, ended: false,
+      created: Date.now(), answered: false, amdHuman: false, amdResult: null, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
       agentText: "", remoteText: "", summary: "", summaryData: null, summaryStarted: false,
@@ -763,6 +763,7 @@ app.post("/api/agent-call", async (req, res) => {
         stream_bidirectional_codec: "PCMU",
         stream_bidirectional_sampling_rate: 8000,
         stream_bidirectional_target_legs: "self",
+        answering_machine_detection: "premium",
         command_id: crypto.randomUUID()
       }
     });
@@ -831,9 +832,32 @@ app.post("/agent-webhook", async (req, res) => {
     s.answered = true;
     s.answeredAt = Date.now();
     agentSend(s, { type: "status", status: "answered" });
+    agentSend(s, { type: "state", state: "checking-human" });
     agentSend(s, { type: "call-start", at: s.answeredAt });
-    openAgentRealtime(s);
-    maybeStartAgentGreeting(s);
+  } else if (eventType === "call.machine.premium.detection.ended") {
+    const result = String(payload.result || "").toLowerCase();
+    s.amdResult = result || "unknown";
+    const human = result === "human_residence" || result === "human_business";
+    const machine = result === "machine" || result === "silence" || result === "fax_detected";
+    if (machine) {
+      agentSend(s, { type: "status", status: "voicemail" });
+      agentSend(s, { type: "state", state: "voicemail-detected" });
+      setTimeout(() => endAgentTelnyxCall(s), 150).unref?.();
+    } else {
+      s.amdHuman = true;
+      agentSend(s, { type: "status", status: human ? "human-detected" : "amd-uncertain" });
+      agentSend(s, { type: "state", state: "human-detected" });
+      openAgentRealtime(s);
+      maybeStartAgentGreeting(s);
+    }
+  } else if (eventType === "call.machine.premium.greeting.ended") {
+    const result = String(payload.result || "").toLowerCase();
+    if (result === "beep_detected" && !s.amdHuman) {
+      s.amdResult = "machine";
+      agentSend(s, { type: "status", status: "voicemail" });
+      agentSend(s, { type: "state", state: "voicemail-detected" });
+      setTimeout(() => endAgentTelnyxCall(s), 100).unref?.();
+    }
   } else if (eventType === "call.hangup") {
     finalizeAgentSession(s, "completed");
   }
