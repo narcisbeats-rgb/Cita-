@@ -43,9 +43,12 @@ function wsBase() {
   return PUBLIC_BASE_URL.replace(/^https:/, "wss:").replace(/^http:/, "ws:");
 }
 function languageConfig(code) {
-  return code === "es"
-    ? { code: "es", english: "Spanish", local: "spaniolă" }
-    : { code: "ro", english: "Romanian", local: "română" };
+  const table = {
+    ro: { code: "ro", english: "Romanian", local: "română" },
+    en: { code: "en", english: "English", local: "engleză" },
+    es: { code: "es", english: "Spanish", local: "spaniolă" }
+  };
+  return table[code] || table.ro;
 }
 function normalizeVoice(value) {
   return VOICES.has(String(value || "").toLowerCase()) ? String(value).toLowerCase() : "cedar";
@@ -989,7 +992,7 @@ app.post("/api/call", async (req, res) => {
     const to = normalizePhone(req.body.to);
     if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
 
-    const language = req.body.language === "es" ? "es" : "ro";
+    const language = ["ro","en","es"].includes(req.body.language) ? req.body.language : "ro";
     const voice = normalizeVoice(req.body.voice);
     const connectionId = await resolveConnectionId();
     const id = crypto.randomUUID();
