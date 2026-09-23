@@ -9,7 +9,7 @@
 :root{font-family:Inter,system-ui,-apple-system,sans-serif;color-scheme:dark}
 *{box-sizing:border-box}body{margin:0;background:#0b0d12;color:#f5f7fb;min-height:100vh}
 .wrap{max-width:820px;margin:auto;padding:18px 14px 42px}
-.top{display:flex;justify-content:space-between;gap:10px;align-items:center}.back{color:#c9d6ff;text-decoration:none;font-size:14px}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:center}.back{color:#c9d6ff;text-decoration:none;font-size:14px}.ui-language{display:flex;align-items:center;gap:7px}.ui-language span{font-size:12px;color:#8f9bad}.ui-language select{width:auto;min-width:118px;padding:9px 11px;font-size:14px;border-radius:11px}
 h1{font-size:31px;margin:10px 0 5px}.sub{color:#aeb7c8;line-height:1.45;margin:0 0 15px}
 .card{background:#141821;border:1px solid #252b38;border-radius:20px;padding:15px;margin:11px 0}
 label{font-size:13px;color:#aeb7c8;display:block;margin:0 0 7px}
@@ -37,47 +37,47 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 </head>
 <body>
 <main class="wrap">
-<div class="top"><a class="back" href="/">← Traducere Live</a></div>
-<h1>Agent AI care sună</h1>
-<p class="sub">Îi spui ce trebuie să afle. Agentul sună în numele tău, pune întrebări și îți lasă transcrierea și rezumatul.</p>
+<div class="top"><a class="back" href="/" data-i18n="backTranslator">← Traducere Live</a><div class="ui-language"><span>Language</span><select id="uiLanguage" aria-label="Language"><option value="ro" data-i18n="langRomanian">Română</option><option value="en">English</option><option value="da">Danish</option><option value="es">Spanish</option></select></div></div>
+<h1 data-i18n="title">Agent AI care sună</h1>
+<p class="sub" data-i18n="subtitle">Îi spui ce trebuie să afle. Agentul sună în numele tău, pune întrebări și îți lasă transcrierea și rezumatul.</p>
 
 <section class="card">
   <div class="agenda-head">
     <div>
-      <h2>Apel de test către mine</h2>
-      <div class="note">Agentul te sună pentru o conversație scurtă ca să verifici vocea, microfonul, întreruperile, limba și personalitatea selectată.</div>
+      <h2 data-i18n="testTitle">Apel de test către mine</h2>
+      <div class="note" data-i18n="testNote">Agentul te sună pentru o conversație scurtă ca să verifici vocea, microfonul, întreruperile, limba și personalitatea selectată.</div>
     </div>
   </div>
   <div class="agenda-tools">
-    <input id="testPhone" inputmode="tel" autocomplete="tel" placeholder="Numărul meu, ex. +45 12 34 56 78">
-    <button id="testCall" class="mini primary">Sună-mă pentru test</button>
+    <input id="testPhone" inputmode="tel" autocomplete="tel" placeholder="Numărul meu, ex. +45 12 34 56 78" data-i18n-placeholder="testPhonePlaceholder">
+    <button id="testCall" class="mini primary" data-i18n="testButton">Sună-mă pentru test</button>
   </div>
-  <div class="note" style="margin-top:7px">Numărul se salvează doar în browserul tău. Pentru test ai nevoie și de PIN-ul completat mai jos.</div>
+  <div class="note" style="margin-top:7px" data-i18n="testSaveNote">Numărul se salvează doar în browserul tău. Pentru test ai nevoie și de PIN-ul completat mai jos.</div>
 </section>
 
 <section class="card">
   <div class="agenda-head">
     <div>
-      <h2>Agenda mea</h2>
-      <div class="note">Salvează persoane și firme împreună cu numărul, contextul și setările apelului.</div>
+      <h2 data-i18n="agendaTitle">Agenda mea</h2>
+      <div class="note" data-i18n="agendaNote">Salvează persoane și firme împreună cu numărul, contextul și setările apelului.</div>
     </div>
   </div>
   <div class="agenda-tools">
-    <input id="contactSearch" placeholder="Caută în agendă…">
-    <button id="newContact" class="mini">Contact nou</button>
+    <input id="contactSearch" placeholder="Caută în agendă…" data-i18n-placeholder="searchPlaceholder">
+    <button id="newContact" class="mini" data-i18n="newContact">Contact nou</button>
   </div>
   <div id="contactsList" class="contacts"></div>
-  <div id="contactsEmpty" class="empty">Nu ai contacte salvate încă.</div>
+  <div id="contactsEmpty" class="empty" data-i18n="noContacts">Nu ai contacte salvate încă.</div>
   <div id="contactEditor" style="display:none;margin-top:12px;border-top:1px solid #252b38;padding-top:12px">
     <div class="two">
-      <div><label for="contactName">Nume contact</label><input id="contactName" placeholder="Ex.: Monica apartament"></div>
-      <div><label for="contactPhone">Număr</label><input id="contactPhone" inputmode="tel" placeholder="+45 12 34 56 78"></div>
+      <div><label for="contactName" data-i18n="contactNameLabel">Nume contact</label><input id="contactName" placeholder="Ex.: Monica apartament" data-i18n-placeholder="contactNamePlaceholder"></div>
+      <div><label for="contactPhone" data-i18n="contactPhoneLabel">Număr</label><input id="contactPhone" inputmode="tel" placeholder="+45 12 34 56 78"></div>
     </div>
-    <div style="margin-top:9px"><label for="contactDefaultObjective">Scop implicit opțional</label><textarea id="contactDefaultObjective" style="min-height:72px" placeholder="Ex.: Întreabă dacă apartamentul mai este disponibil și când se poate face mutarea."></textarea></div>
-    <div style="margin-top:9px"><label for="contactDefaultContext">Context implicit opțional</label><textarea id="contactDefaultContext" style="min-height:72px" placeholder="Ex.: Am văzut anunțul pe BoligPortal."></textarea></div>
+    <div style="margin-top:9px"><label for="contactDefaultObjective" data-i18n="defaultObjectiveLabel">Scop implicit opțional</label><textarea id="contactDefaultObjective" style="min-height:72px" placeholder="Ex.: Întreabă dacă apartamentul mai este disponibil și când se poate face mutarea." data-i18n-placeholder="defaultObjectivePlaceholder"></textarea></div>
+    <div style="margin-top:9px"><label for="contactDefaultContext" data-i18n="defaultContextLabel">Context implicit opțional</label><textarea id="contactDefaultContext" style="min-height:72px" placeholder="Ex.: Am văzut anunțul pe BoligPortal." data-i18n-placeholder="defaultContextPlaceholder"></textarea></div>
     <div class="two" style="margin-top:9px">
-      <button id="saveContact" class="mini primary">Salvează contactul</button>
-      <button id="cancelContact" class="mini">Anulează</button>
+      <button id="saveContact" class="mini primary" data-i18n="saveContact">Salvează contactul</button>
+      <button id="cancelContact" class="mini" data-i18n="cancel">Anulează</button>
     </div>
     <div id="contactErr" class="err"></div>
   </div>
@@ -85,68 +85,88 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 
 <section class="card">
   <div class="two">
-    <div><label for="language">Limba apelului</label><select id="language">
-      <option value="auto" selected>Auto — detectează limba</option><option value="da">Daneză</option><option value="en">Engleză</option><option value="es">Spaniolă</option><option value="ro">Română</option>
-    </select><div class="note" style="margin-top:6px">În Auto începe în daneză și schimbă singur limba după interlocutor.</div></div>
-    <div><label for="voice">Voce</label><select id="voice">
+    <div><label for="language" data-i18n="callLanguageLabel">Limba apelului</label><select id="language">
+      <option value="auto" selected data-i18n="autoDetect">Auto — detectează limba</option><option value="da" data-i18n="langDanish">Daneză</option><option value="en" data-i18n="langEnglish">Engleză</option><option value="es" data-i18n="langSpanish">Spaniolă</option><option value="ro">Română</option>
+    </select><div class="note" style="margin-top:6px" data-i18n="autoNote">În Auto începe în daneză și schimbă singur limba după interlocutor.</div></div>
+    <div><label for="voice" data-i18n="voiceLabel">Voce</label><select id="voice">
       <option value="cedar" selected>Cedar</option><option value="marin">Marin</option><option value="alloy">Alloy</option><option value="ash">Ash</option><option value="coral">Coral</option><option value="echo">Echo</option><option value="sage">Sage</option><option value="shimmer">Shimmer</option><option value="verse">Verse</option>
     </select></div>
   </div>
   <div style="margin-top:10px">
-    <label for="personality">Personalitate</label>
+    <label for="personality" data-i18n="personalityLabel">Personalitate</label>
     <select id="personality">
-      <option value="normal" selected>Normal</option>
-      <option value="formal">Formal</option>
-      <option value="friendly">Prietenos</option>
-      <option value="negotiator">Negociator</option>
+      <option value="normal" selected data-i18n="personalityNormal">Normal</option>
+      <option value="formal" data-i18n="personalityFormal">Formal</option>
+      <option value="friendly" data-i18n="personalityFriendly">Prietenos</option>
+      <option value="negotiator" data-i18n="personalityNegotiator">Negociator</option>
     </select>
     <div id="personalityHint" class="note" style="margin-top:6px">Natural, politicos și direct.</div>
   </div>
   <div class="row" style="margin-top:10px">
-    <div><label for="phone">Numărul pe care să-l sune</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="+45 12 34 56 78"></div>
-    <div><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>
+    <div><label for="phone" data-i18n="phoneToCallLabel">Numărul pe care să-l sune</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="+45 12 34 56 78"></div>
+    <div><label for="pin" data-i18n="pinLabel">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>
   </div>
-  <div style="margin-top:10px"><label for="objective">Ce trebuie să afle?</label><textarea id="objective" placeholder="Ex.: Sună și întreabă dacă apartamentul mai este disponibil, cât este depozitul, chiria totală cu cheltuieli și când se poate face mutarea."></textarea></div>
-  <div style="margin-top:10px"><label for="context">Context opțional</label><textarea id="context" style="min-height:82px" placeholder="Ex.: Am văzut anunțul pe BoligPortal. Nu vreau să facă rezervare, doar să afle informațiile."></textarea></div>
-  <button id="call" class="call" style="margin-top:11px">Sună cu agentul AI</button>
+  <div style="margin-top:10px"><label for="objective" data-i18n="objectiveLabel">Ce trebuie să afle?</label><textarea id="objective" placeholder="Ex.: Sună și întreabă dacă apartamentul mai este disponibil, cât este depozitul, chiria totală cu cheltuieli și când se poate face mutarea." data-i18n-placeholder="objectivePlaceholder"></textarea></div>
+  <div style="margin-top:10px"><label for="context" data-i18n="contextLabel">Context opțional</label><textarea id="context" style="min-height:82px" placeholder="Ex.: Am văzut anunțul pe BoligPortal. Nu vreau să facă rezervare, doar să afle informațiile." data-i18n-placeholder="contextPlaceholder"></textarea></div>
+  <button id="call" class="call" style="margin-top:11px" data-i18n="callButton">Sună cu agentul AI</button>
   <div id="err" class="err"></div>
-  <div class="note">Pentru acțiuni simple, fără plată sau obligație juridică, agentul îți cere confirmarea în timp real. Plățile, contractele, identificarea și datele sensibile rămân întotdeauna la tine.</div>
+  <div class="note" data-i18n="safetyNote">Pentru acțiuni simple, fără plată sau obligație juridică, agentul îți cere confirmarea în timp real. Plățile, contractele, identificarea și datele sensibile rămân întotdeauna la tine.</div>
 </section>
 
 <section class="card">
   <div class="statusline">
-    <div class="status"><span id="dot" class="dot"></span><span id="status">Pregătit</span></div>
-    <div id="phase" class="phase">În așteptare</div>
+    <div class="status"><span id="dot" class="dot"></span><span id="status" data-i18n="ready">Pregătit</span></div>
+    <div id="phase" class="phase" data-i18n="waiting">În așteptare</div>
   </div>
-  <div class="metric"><span>Durată apel</span><b id="duration">00:00</b></div>
+  <div class="metric"><span data-i18n="callDuration">Durată apel</span><b id="duration">00:00</b></div>
   <div id="confirmBox" class="confirm-box">
-    <div class="confirm-title">Agentul așteaptă confirmarea ta</div>
+    <div class="confirm-title" data-i18n="confirmTitle">Agentul așteaptă confirmarea ta</div>
     <div id="confirmQuestion" class="confirm-question"></div>
     <div id="confirmDetails" class="confirm-details"></div>
     <div class="confirm-actions">
-      <button id="confirmYes" class="approve">Accept</button>
-      <button id="confirmNo" class="decline">Refuz</button>
+      <button id="confirmYes" class="approve" data-i18n="accept">Accept</button>
+      <button id="confirmNo" class="decline" data-i18n="decline">Refuz</button>
     </div>
   </div>
-  <button id="hang" class="hang" disabled style="margin-top:10px">Oprește apelul</button>
+  <button id="hang" class="hang" disabled style="margin-top:10px" data-i18n="hangup">Oprește apelul</button>
 </section>
 
 <section class="card">
   <div class="grid">
-    <div class="pane"><h3>Agentul AI</h3><p id="agentText"></p></div>
-    <div class="pane"><h3>Interlocutorul</h3><p id="remoteText"></p></div>
+    <div class="pane"><h3 data-i18n="agentPane">Agentul AI</h3><p id="agentText"></p></div>
+    <div class="pane"><h3 data-i18n="remotePane">Interlocutorul</h3><p id="remoteText"></p></div>
   </div>
 </section>
 
 <section class="card">
-  <label>Rezumat după apel</label>
-  <div id="summary" class="summary">Va apărea aici după încheierea apelului.</div>
+  <label data-i18n="summaryLabel">Rezumat după apel</label>
+  <div id="summary" class="summary" data-i18n="summaryInitial">Va apărea aici după încheierea apelului.</div>
 </section>
 </main>
 
 <script>
 (() => {
   const $=id=>document.getElementById(id);
+  const uiLanguage=$("uiLanguage");
+  const UI_LANG_KEY="appUiLanguageV1";
+  const UI_TEXT={
+    ro:{backTranslator:"← Traducere Live",title:"Agent AI care sună",subtitle:"Îi spui ce trebuie să afle. Agentul sună în numele tău, pune întrebări și îți lasă transcrierea și rezumatul.",testTitle:"Apel de test către mine",testNote:"Agentul te sună pentru o conversație scurtă ca să verifici vocea, microfonul, întreruperile, limba și personalitatea selectată.",testPhonePlaceholder:"Numărul meu, ex. +45 12 34 56 78",testButton:"Sună-mă pentru test",testSaveNote:"Numărul se salvează doar în browserul tău. Pentru test ai nevoie și de PIN-ul completat mai jos.",agendaTitle:"Agenda mea",agendaNote:"Salvează persoane și firme împreună cu numărul, contextul și setările apelului.",searchPlaceholder:"Caută în agendă…",newContact:"Contact nou",noContacts:"Nu ai contacte salvate încă.",contactNameLabel:"Nume contact",contactNamePlaceholder:"Ex.: Monica apartament",contactPhoneLabel:"Număr",defaultObjectiveLabel:"Scop implicit opțional",defaultObjectivePlaceholder:"Ex.: Întreabă dacă apartamentul mai este disponibil și când se poate face mutarea.",defaultContextLabel:"Context implicit opțional",defaultContextPlaceholder:"Ex.: Am văzut anunțul pe BoligPortal.",saveContact:"Salvează contactul",updateContact:"Actualizează contactul",cancel:"Anulează",callLanguageLabel:"Limba apelului",autoDetect:"Auto — detectează limba",langDanish:"Daneză",langEnglish:"Engleză",langSpanish:"Spaniolă",langRomanian:"Română",autoNote:"În Auto începe în daneză și schimbă singur limba după interlocutor.",voiceLabel:"Voce",personalityLabel:"Personalitate",personalityNormal:"Normal",personalityFormal:"Formal",personalityFriendly:"Prietenos",personalityNegotiator:"Negociator",phoneToCallLabel:"Numărul pe care să-l sune",pinLabel:"PIN",objectiveLabel:"Ce trebuie să afle?",objectivePlaceholder:"Ex.: Sună și întreabă dacă apartamentul mai este disponibil, cât este depozitul, chiria totală cu cheltuieli și când se poate face mutarea.",contextLabel:"Context opțional",contextPlaceholder:"Ex.: Am văzut anunțul pe BoligPortal. Nu vreau să facă rezervare, doar să afle informațiile.",callButton:"Sună cu agentul AI",safetyNote:"Pentru acțiuni simple, fără plată sau obligație juridică, agentul îți cere confirmarea în timp real. Plățile, contractele, identificarea și datele sensibile rămân întotdeauna la tine.",ready:"Pregătit",waiting:"În așteptare",callDuration:"Durată apel",confirmTitle:"Agentul așteaptă confirmarea ta",accept:"Accept",decline:"Refuz",hangup:"Oprește apelul",agentPane:"Agentul AI",remotePane:"Interlocutorul",summaryLabel:"Rezumat după apel",summaryInitial:"Va apărea aici după încheierea apelului.",contactUse:"Folosește",contactEdit:"Editează",contactDelete:"Șterge",deleteConfirm:"Ștergi contactul",reportDirect:"Răspunsuri directe",reportImportant:"Informații importante",reportPrices:"Prețuri / sume",reportDates:"Date / termene",reportConditions:"Condiții / cerințe",reportUnclear:"Ce a rămas neclar",reportNext:"Ce faci mai departe",reportQuestion:"Întrebare",reportDetail:"Detaliu",reportEmpty:"Fără informații suficiente pentru raport.",noSummary:"Fără rezumat.",callInProgress:"Apel în desfășurare…",confirmDefault:"Confirmi această acțiune?",testPhoneError:"Scrie numărul tău pentru apelul de test.",nameError:"Scrie un nume pentru contact.",numberError:"Scrie numărul contactului.",startError:"Nu am putut porni apelul",confirmError:"Nu am putut trimite confirmarea",phNormal:"Natural, politicos și direct.",phFormal:"Profesional, foarte politicos și fără conversație inutilă.",phFriendly:"Cald, relaxat și prietenos, dar rămâne concentrat pe scop.",phNegotiator:"Calm și ferm; caută flexibilitate, alternative și cel mai bun preț/termen fără presiune sau promisiuni."},
+    en:{backTranslator:"← Live Translator",title:"AI Calling Agent",subtitle:"Tell it what to find out. The agent calls on your behalf, asks questions, and leaves you the transcript and summary.",testTitle:"Test call to me",testNote:"The agent calls you for a short conversation so you can check the voice, microphone, interruptions, language, and selected personality.",testPhonePlaceholder:"My number, e.g. +45 12 34 56 78",testButton:"Call me for a test",testSaveNote:"The number is stored only in your browser. For the test, fill in the PIN below as well.",agendaTitle:"My contacts",agendaNote:"Save people and businesses together with their number, context, and call settings.",searchPlaceholder:"Search contacts…",newContact:"New contact",noContacts:"No saved contacts yet.",contactNameLabel:"Contact name",contactNamePlaceholder:"E.g. Monica apartment",contactPhoneLabel:"Number",defaultObjectiveLabel:"Optional default objective",defaultObjectivePlaceholder:"E.g. Ask whether the apartment is still available and when move-in is possible.",defaultContextLabel:"Optional default context",defaultContextPlaceholder:"E.g. I saw the listing on BoligPortal.",saveContact:"Save contact",updateContact:"Update contact",cancel:"Cancel",callLanguageLabel:"Call language",autoDetect:"Auto — detect language",langDanish:"Danish",langEnglish:"English",langSpanish:"Spanish",langRomanian:"Romanian",autoNote:"In Auto, it starts in Danish and switches language automatically based on the other person.",voiceLabel:"Voice",personalityLabel:"Personality",personalityNormal:"Normal",personalityFormal:"Formal",personalityFriendly:"Friendly",personalityNegotiator:"Negotiator",phoneToCallLabel:"Number to call",pinLabel:"PIN",objectiveLabel:"What should it find out?",objectivePlaceholder:"E.g. Call and ask whether the apartment is still available, the deposit, total rent with expenses, and move-in date.",contextLabel:"Optional context",contextPlaceholder:"E.g. I saw the listing on BoligPortal. Do not reserve it; only collect information.",callButton:"Call with AI agent",safetyNote:"For simple actions without payment or legal obligation, the agent asks for your confirmation in real time. Payments, contracts, identity checks, and sensitive data always remain with you.",ready:"Ready",waiting:"Waiting",callDuration:"Call duration",confirmTitle:"The agent is waiting for your confirmation",accept:"Accept",decline:"Decline",hangup:"End call",agentPane:"AI agent",remotePane:"Other person",summaryLabel:"Post-call summary",summaryInitial:"It will appear here after the call ends.",contactUse:"Use",contactEdit:"Edit",contactDelete:"Delete",deleteConfirm:"Delete contact",reportDirect:"Direct answers",reportImportant:"Important information",reportPrices:"Prices / amounts",reportDates:"Dates / deadlines",reportConditions:"Conditions / requirements",reportUnclear:"Still unclear",reportNext:"What to do next",reportQuestion:"Question",reportDetail:"Detail",reportEmpty:"Not enough information for a report.",noSummary:"No summary.",callInProgress:"Call in progress…",confirmDefault:"Do you confirm this action?",testPhoneError:"Enter your number for the test call.",nameError:"Enter a contact name.",numberError:"Enter the contact number.",startError:"Could not start the call",confirmError:"Could not send the confirmation",phNormal:"Natural, polite, and direct.",phFormal:"Professional, very polite, and without unnecessary conversation.",phFriendly:"Warm, relaxed, and friendly while staying focused on the goal.",phNegotiator:"Calm and firm; looks for flexibility, alternatives, and better price/terms without pressure or commitments."},
+    da:{backTranslator:"← Live-oversættelse",title:"AI-agent der ringer",subtitle:"Fortæl hvad den skal finde ud af. Agenten ringer på dine vegne, stiller spørgsmål og giver dig transskription og resumé.",testTitle:"Testopkald til mig",testNote:"Agenten ringer til dig i en kort samtale, så du kan kontrollere stemme, mikrofon, afbrydelser, sprog og valgt personlighed.",testPhonePlaceholder:"Mit nummer, fx +45 12 34 56 78",testButton:"Ring til mig som test",testSaveNote:"Nummeret gemmes kun i din browser. Til testen skal du også udfylde PIN-koden nedenfor.",agendaTitle:"Mine kontakter",agendaNote:"Gem personer og virksomheder sammen med nummer, kontekst og opkaldsindstillinger.",searchPlaceholder:"Søg i kontakter…",newContact:"Ny kontakt",noContacts:"Ingen gemte kontakter endnu.",contactNameLabel:"Kontaktnavn",contactNamePlaceholder:"Fx Monica lejlighed",contactPhoneLabel:"Nummer",defaultObjectiveLabel:"Valgfrit standardmål",defaultObjectivePlaceholder:"Fx spørg om lejligheden stadig er ledig, og hvornår man kan flytte ind.",defaultContextLabel:"Valgfri standardkontekst",defaultContextPlaceholder:"Fx jeg så annoncen på BoligPortal.",saveContact:"Gem kontakt",updateContact:"Opdater kontakt",cancel:"Annuller",callLanguageLabel:"Opkaldssprog",autoDetect:"Auto — registrer sprog",langDanish:"Dansk",langEnglish:"Engelsk",langSpanish:"Spansk",langRomanian:"Rumænsk",autoNote:"I Auto starter den på dansk og skifter automatisk sprog efter den anden person.",voiceLabel:"Stemme",personalityLabel:"Personlighed",personalityNormal:"Normal",personalityFormal:"Formel",personalityFriendly:"Venlig",personalityNegotiator:"Forhandler",phoneToCallLabel:"Nummer der skal ringes til",pinLabel:"PIN",objectiveLabel:"Hvad skal den finde ud af?",objectivePlaceholder:"Fx ring og spørg om lejligheden stadig er ledig, depositum, samlet husleje med udgifter og indflytningsdato.",contextLabel:"Valgfri kontekst",contextPlaceholder:"Fx jeg så annoncen på BoligPortal. Foretag ingen reservation; indhent kun oplysninger.",callButton:"Ring med AI-agent",safetyNote:"Ved simple handlinger uden betaling eller juridisk forpligtelse beder agenten om din bekræftelse i realtid. Betalinger, kontrakter, identitetskontrol og følsomme data håndteres altid af dig.",ready:"Klar",waiting:"Venter",callDuration:"Opkaldstid",confirmTitle:"Agenten venter på din bekræftelse",accept:"Accepter",decline:"Afvis",hangup:"Afslut opkald",agentPane:"AI-agent",remotePane:"Samtalepartner",summaryLabel:"Resumé efter opkald",summaryInitial:"Vises her, når opkaldet er afsluttet.",contactUse:"Brug",contactEdit:"Rediger",contactDelete:"Slet",deleteConfirm:"Slet kontakt",reportDirect:"Direkte svar",reportImportant:"Vigtige oplysninger",reportPrices:"Priser / beløb",reportDates:"Datoer / frister",reportConditions:"Betingelser / krav",reportUnclear:"Stadig uklart",reportNext:"Næste skridt",reportQuestion:"Spørgsmål",reportDetail:"Detalje",reportEmpty:"Ikke nok oplysninger til en rapport.",noSummary:"Intet resumé.",callInProgress:"Opkald i gang…",confirmDefault:"Bekræfter du denne handling?",testPhoneError:"Indtast dit nummer til testopkaldet.",nameError:"Indtast et kontaktnavn.",numberError:"Indtast kontaktens nummer.",startError:"Kunne ikke starte opkaldet",confirmError:"Kunne ikke sende bekræftelsen",phNormal:"Naturlig, høflig og direkte.",phFormal:"Professionel, meget høflig og uden unødvendig smalltalk.",phFriendly:"Varm, afslappet og venlig, men stadig fokuseret på målet.",phNegotiator:"Rolig og fast; søger fleksibilitet, alternativer og bedre pris/vilkår uden pres eller forpligtelser."},
+    es:{backTranslator:"← Traducción en vivo",title:"Agente de IA que llama",subtitle:"Dile qué debe averiguar. El agente llama en tu nombre, hace preguntas y te deja la transcripción y el resumen.",testTitle:"Llamada de prueba a mí",testNote:"El agente te llama para una conversación breve para comprobar la voz, el micrófono, las interrupciones, el idioma y la personalidad seleccionada.",testPhonePlaceholder:"Mi número, ej. +45 12 34 56 78",testButton:"Llámame para probar",testSaveNote:"El número se guarda solo en tu navegador. Para la prueba también necesitas completar el PIN de abajo.",agendaTitle:"Mis contactos",agendaNote:"Guarda personas y empresas junto con su número, contexto y ajustes de llamada.",searchPlaceholder:"Buscar contactos…",newContact:"Nuevo contacto",noContacts:"Aún no hay contactos guardados.",contactNameLabel:"Nombre del contacto",contactNamePlaceholder:"Ej. Monica apartamento",contactPhoneLabel:"Número",defaultObjectiveLabel:"Objetivo predeterminado opcional",defaultObjectivePlaceholder:"Ej. Pregunta si el apartamento sigue disponible y cuándo se puede entrar.",defaultContextLabel:"Contexto predeterminado opcional",defaultContextPlaceholder:"Ej. Vi el anuncio en BoligPortal.",saveContact:"Guardar contacto",updateContact:"Actualizar contacto",cancel:"Cancelar",callLanguageLabel:"Idioma de la llamada",autoDetect:"Auto — detectar idioma",langDanish:"Danés",langEnglish:"Inglés",langSpanish:"Español",langRomanian:"Rumano",autoNote:"En Auto empieza en danés y cambia automáticamente según el interlocutor.",voiceLabel:"Voz",personalityLabel:"Personalidad",personalityNormal:"Normal",personalityFormal:"Formal",personalityFriendly:"Amable",personalityNegotiator:"Negociador",phoneToCallLabel:"Número al que llamar",pinLabel:"PIN",objectiveLabel:"¿Qué debe averiguar?",objectivePlaceholder:"Ej. Llama y pregunta si el apartamento sigue disponible, el depósito, el alquiler total con gastos y la fecha de entrada.",contextLabel:"Contexto opcional",contextPlaceholder:"Ej. Vi el anuncio en BoligPortal. No hagas una reserva; solo averigua la información.",callButton:"Llamar con el agente de IA",safetyNote:"Para acciones simples sin pago ni obligación legal, el agente te pide confirmación en tiempo real. Los pagos, contratos, verificación de identidad y datos sensibles siempre quedan en tus manos.",ready:"Listo",waiting:"En espera",callDuration:"Duración de la llamada",confirmTitle:"El agente espera tu confirmación",accept:"Aceptar",decline:"Rechazar",hangup:"Finalizar llamada",agentPane:"Agente de IA",remotePane:"Interlocutor",summaryLabel:"Resumen después de la llamada",summaryInitial:"Aparecerá aquí cuando termine la llamada.",contactUse:"Usar",contactEdit:"Editar",contactDelete:"Eliminar",deleteConfirm:"Eliminar contacto",reportDirect:"Respuestas directas",reportImportant:"Información importante",reportPrices:"Precios / importes",reportDates:"Fechas / plazos",reportConditions:"Condiciones / requisitos",reportUnclear:"Lo que sigue sin aclarar",reportNext:"Qué hacer después",reportQuestion:"Pregunta",reportDetail:"Detalle",reportEmpty:"No hay suficiente información para un informe.",noSummary:"Sin resumen.",callInProgress:"Llamada en curso…",confirmDefault:"¿Confirmas esta acción?",testPhoneError:"Escribe tu número para la llamada de prueba.",nameError:"Escribe un nombre para el contacto.",numberError:"Escribe el número del contacto.",startError:"No se pudo iniciar la llamada",confirmError:"No se pudo enviar la confirmación",phNormal:"Natural, educado y directo.",phFormal:"Profesional, muy educado y sin conversación innecesaria.",phFriendly:"Cálido, relajado y amable, manteniendo el foco en el objetivo.",phNegotiator:"Tranquilo y firme; busca flexibilidad, alternativas y mejores precios/condiciones sin presión ni compromisos."}
+  };
+  function uiLang(){return UI_TEXT[uiLanguage?.value] ? uiLanguage.value : "ro"}
+  function t(key){return UI_TEXT[uiLang()]?.[key] ?? UI_TEXT.ro[key] ?? key}
+  function applyUiLanguage(){
+    const lang=uiLang();
+    document.documentElement.lang=lang;
+    document.querySelectorAll("[data-i18n]").forEach(el=>{const key=el.dataset.i18n;if(UI_TEXT[lang]?.[key])el.textContent=UI_TEXT[lang][key]});
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>{const key=el.dataset.i18nPlaceholder;if(UI_TEXT[lang]?.[key])el.placeholder=UI_TEXT[lang][key]});
+    updatePersonalityHint();
+    renderContacts();
+    if(currentPhaseCode)setPhase(currentPhaseCode);
+    if(currentStatusCode)setStatusCode(currentStatusCode,live);
+  }
   const phone=$("phone"),pin=$("pin"),language=$("language"),voice=$("voice"),personality=$("personality"),personalityHint=$("personalityHint"),objective=$("objective"),context=$("context");
   const testPhone=$("testPhone"),testCall=$("testCall");
   const contactSearch=$("contactSearch"),contactsList=$("contactsList"),contactsEmpty=$("contactsEmpty"),newContact=$("newContact"),contactEditor=$("contactEditor"),contactName=$("contactName"),contactPhone=$("contactPhone"),contactDefaultObjective=$("contactDefaultObjective"),contactDefaultContext=$("contactDefaultContext"),saveContact=$("saveContact"),cancelContact=$("cancelContact"),contactErr=$("contactErr");
@@ -154,6 +174,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   const confirmBox=$("confirmBox"),confirmQuestion=$("confirmQuestion"),confirmDetails=$("confirmDetails"),confirmYes=$("confirmYes"),confirmNo=$("confirmNo");
   const agentText=$("agentText"),remoteText=$("remoteText"),summary=$("summary");
   let sid=null,token=null,ws=null,callStartAt=0,timer=null,live=false;
+  let currentStatusCode="ready",currentPhaseCode="waiting";
   let activeConfirmationId=null,confirmationBusy=false;
   let editingContactId=null;
   const CONTACTS_KEY="aiPhoneAgentContactsV1";
@@ -162,7 +183,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   function setError(t=""){err.textContent=t}
   function renderSummary(data,text){
     if(!data){
-      summary.textContent=text||"Fără rezumat.";
+      summary.textContent=text||t("noSummary");
       return;
     }
     const status=String(data.status||"Parțial");
@@ -172,14 +193,14 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       return '<div class="report-section"><div class="report-title">'+esc(title)+'</div><div class="report-list">'+items.map(renderer).join("")+'</div></div>';
     };
     let html='<div class="report-head"><div class="report-result">'+esc(data.result||text||"Apel încheiat.")+'</div><div class="report-status '+statusClass+'">'+esc(status)+'</div></div>';
-    html+=section("Răspunsuri directe",data.answers,x=>'<div class="report-item"><b>'+esc(x.question||"Întrebare")+'</b>'+esc(x.answer||"—")+'</div>');
-    html+=section("Informații importante",data.facts,x=>'<div class="report-item"><b>'+esc(x.label||"Detaliu")+'</b>'+esc(x.value||"—")+'</div>');
-    html+=section("Prețuri / sume",data.prices,x=>'<div class="report-item">'+esc(x)+'</div>');
-    html+=section("Date / termene",data.dates,x=>'<div class="report-item">'+esc(x)+'</div>');
-    html+=section("Condiții / cerințe",data.conditions,x=>'<div class="report-item">'+esc(x)+'</div>');
-    html+=section("Ce a rămas neclar",data.unanswered,x=>'<div class="report-item">'+esc(x)+'</div>');
-    html+=section("Ce faci mai departe",data.next_steps,x=>'<div class="report-item">'+esc(x)+'</div>');
-    summary.innerHTML=html||'<div class="report-muted">Fără informații suficiente pentru raport.</div>';
+    html+=section(t("reportDirect"),data.answers,x=>'<div class="report-item"><b>'+esc(x.question||t("reportQuestion"))+'</b>'+esc(x.answer||"—")+'</div>');
+    html+=section(t("reportImportant"),data.facts,x=>'<div class="report-item"><b>'+esc(x.label||t("reportDetail"))+'</b>'+esc(x.value||"—")+'</div>');
+    html+=section(t("reportPrices"),data.prices,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section(t("reportDates"),data.dates,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section(t("reportConditions"),data.conditions,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section(t("reportUnclear"),data.unanswered,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section(t("reportNext"),data.next_steps,x=>'<div class="report-item">'+esc(x)+'</div>');
+    summary.innerHTML=html||'<div class="report-muted">'+esc(t("reportEmpty"))+'</div>';
   }
   function getContacts(){
     try{
@@ -196,7 +217,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     contactDefaultObjective.value=contact?.objective||objective.value||"";
     contactDefaultContext.value=contact?.context||context.value||"";
     contactErr.textContent="";
-    saveContact.textContent=editingContactId?"Actualizează contactul":"Salvează contactul";
+    saveContact.textContent=editingContactId?t("updateContact"):t("saveContact");
     contactEditor.style.display="block";
     setTimeout(()=>contactName.focus(),30);
   }
@@ -221,13 +242,13 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       const extra=(x.context||x.objective||"").trim();
       return '<div class="contact" data-id="'+esc(x.id)+'"><div class="contact-top"><div><div class="contact-name">'+esc(x.name)+'</div><div class="contact-phone">'+esc(x.phone)+'</div></div></div>'+
         (extra?'<div class="contact-context">'+esc(extra.slice(0,150))+(extra.length>150?"…":"")+'</div>':"")+
-        '<div class="contact-actions"><button class="mini primary" data-action="use">Folosește</button><button class="mini" data-action="edit">Editează</button><button class="mini danger" data-action="delete">Șterge</button></div></div>';
+        '<div class="contact-actions"><button class="mini primary" data-action="use">'+esc(t("contactUse"))+'</button><button class="mini" data-action="edit">'+esc(t("contactEdit"))+'</button><button class="mini danger" data-action="delete">'+esc(t("contactDelete"))+'</button></div></div>';
     }).join("");
   }
   function saveContactFromEditor(){
     const name=contactName.value.trim(),number=contactPhone.value.trim();
-    if(!name){contactErr.textContent="Scrie un nume pentru contact.";return}
-    if(!number){contactErr.textContent="Scrie numărul contactului.";return}
+    if(!name){contactErr.textContent=t("nameError");return}
+    if(!number){contactErr.textContent=t("numberError");return}
     const items=getContacts();
     const record={
       id:editingContactId||("c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7)),
@@ -241,11 +262,21 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     if(idx>=0)items[idx]=record;else items.unshift(record);
     putContacts(items);closeContactEditor();renderContacts();
   }
-  function setStatus(t,on=false){statusEl.textContent=t;dot.classList.toggle("live",on)}
-  function setPhase(s){
-    const names={connected:"Audio conectat",ready:"Agent pregătit","checking-human":"Verifică dacă a răspuns o persoană","human-detected":"Persoană detectată","voicemail-detected":"Robot / voicemail detectat",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește","awaiting-confirmation":"Așteaptă confirmarea ta",ending:"Încheie apelul",ended:"Apel încheiat"};
-    phase.textContent=names[s]||s||"";
-  }
+  const STATUS_TEXT={
+    ro:{ready:"Pregătit","app-connected":"Aplicația conectată",initiated:"Se inițiază…",ringing:"Sună…",answered:"A răspuns — verificare în curs","human-detected":"Persoană detectată","amd-uncertain":"Detectare neclară — continuă apelul",voicemail:"Robot / voicemail — se închide",completed:"Apel încheiat",expired:"Sesiune expirată"},
+    en:{ready:"Ready","app-connected":"App connected",initiated:"Starting…",ringing:"Ringing…",answered:"Answered — checking","human-detected":"Human detected","amd-uncertain":"Detection uncertain — continuing call",voicemail:"Robot / voicemail — ending call",completed:"Call ended",expired:"Session expired"},
+    da:{ready:"Klar","app-connected":"App tilsluttet",initiated:"Starter…",ringing:"Ringer…",answered:"Besvaret — kontrollerer","human-detected":"Person registreret","amd-uncertain":"Usikker registrering — fortsætter opkaldet",voicemail:"Robot / voicemail — afslutter",completed:"Opkald afsluttet",expired:"Session udløbet"},
+    es:{ready:"Listo","app-connected":"Aplicación conectada",initiated:"Iniciando…",ringing:"Llamando…",answered:"Ha respondido — comprobando","human-detected":"Persona detectada","amd-uncertain":"Detección incierta — continúa la llamada",voicemail:"Robot / buzón de voz — finalizando",completed:"Llamada finalizada",expired:"Sesión caducada"}
+  };
+  const PHASE_TEXT={
+    ro:{waiting:"În așteptare",connected:"Audio conectat",ready:"Agent pregătit","checking-human":"Verifică dacă a răspuns o persoană","human-detected":"Persoană detectată","voicemail-detected":"Robot / voicemail detectat",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește","awaiting-confirmation":"Așteaptă confirmarea ta",ending:"Încheie apelul",ended:"Apel încheiat"},
+    en:{waiting:"Waiting",connected:"Audio connected",ready:"Agent ready","checking-human":"Checking whether a person answered","human-detected":"Human detected","voicemail-detected":"Robot / voicemail detected",listening:"Listening to the other person",thinking:"Preparing response",speaking:"Agent speaking","awaiting-confirmation":"Waiting for your confirmation",ending:"Ending call",ended:"Call ended"},
+    da:{waiting:"Venter",connected:"Lyd tilsluttet",ready:"Agent klar","checking-human":"Kontrollerer om en person har svaret","human-detected":"Person registreret","voicemail-detected":"Robot / voicemail registreret",listening:"Lytter til samtalepartneren",thinking:"Forbereder svar",speaking:"Agenten taler","awaiting-confirmation":"Venter på din bekræftelse",ending:"Afslutter opkald",ended:"Opkald afsluttet"},
+    es:{waiting:"En espera",connected:"Audio conectado",ready:"Agente listo","checking-human":"Comprobando si respondió una persona","human-detected":"Persona detectada","voicemail-detected":"Robot / buzón detectado",listening:"Escuchando al interlocutor",thinking:"Preparando respuesta",speaking:"El agente habla","awaiting-confirmation":"Esperando tu confirmación",ending:"Finalizando llamada",ended:"Llamada finalizada"}
+  };
+  function setStatusCode(code,on=false){currentStatusCode=code;statusEl.textContent=STATUS_TEXT[uiLang()]?.[code]||code||"";dot.classList.toggle("live",on)}
+  function setPhase(code){currentPhaseCode=code;phase.textContent=PHASE_TEXT[uiLang()]?.[code]||code||""}
+
   function fmt(sec){sec=Math.max(0,Math.floor(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0")}
   function startTimer(){clearInterval(timer);timer=setInterval(()=>{duration.textContent=fmt((Date.now()-callStartAt)/1000)},1000)}
   function connect(){
@@ -254,10 +285,9 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     ws.onmessage=e=>{
       let m;try{m=JSON.parse(e.data)}catch{return}
       if(m.type==="status"){
-        const names={"app-connected":"Aplicația conectată",initiated:"Se inițiază…",ringing:"Sună…",answered:"A răspuns — verificare în curs","human-detected":"Persoană detectată","amd-uncertain":"Detectare neclară — continuă apelul",voicemail:"Robot / voicemail — se închide",completed:"Apel încheiat",expired:"Sesiune expirată"};
         if(m.status==="answered")live=true;
         if(["completed","expired"].includes(m.status)){live=false;finish()}
-        setStatus(names[m.status]||m.status,live);
+        setStatusCode(m.status,live);
       }else if(m.type==="state"){setPhase(m.state)}
       else if(m.type==="call-start"){callStartAt=Number(m.at)||Date.now();startTimer()}
       else if(m.type==="transcript"){const el=m.who==="agent"?agentText:remoteText;if(m.delta)el.textContent+=m.delta;if(m.final&&!el.textContent.endsWith("\n"))el.textContent+="\n"}
@@ -266,7 +296,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       else if(m.type==="confirmation-request"){
         activeConfirmationId=m.id;
         confirmationBusy=false;
-        confirmQuestion.textContent=m.question||"Confirmi această acțiune?";
+        confirmQuestion.textContent=m.question||t("confirmDefault");
         confirmDetails.textContent=m.details||"";
         confirmDetails.style.display=m.details?"block":"none";
         confirmYes.disabled=false;confirmNo.disabled=false;
@@ -280,13 +310,13 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     };
   }
   async function launchAgentCall(payload){
-    setError("");summary.textContent="Apel în desfășurare…";agentText.textContent="";remoteText.textContent="";
+    setError("");summary.textContent=t("callInProgress");agentText.textContent="";remoteText.textContent="";
     activeConfirmationId=null;confirmationBusy=false;confirmBox.style.display="none";
     call.disabled=true;testCall.disabled=true;hang.disabled=false;language.disabled=true;voice.disabled=true;personality.disabled=true;
     try{
       const r=await fetch("/api/agent-call",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      const d=await r.json();if(!r.ok)throw new Error(d.error||"Nu am putut porni apelul");
-      sid=d.sessionId;token=d.token;connect();setStatus("Se inițiază…");setPhase("În așteptare");
+      const d=await r.json();if(!r.ok)throw new Error(d.error||t("startError"));
+      sid=d.sessionId;token=d.token;connect();setStatusCode("initiated");setPhase("waiting");
     }catch(e){
       setError(e.message||String(e));call.disabled=false;testCall.disabled=false;hang.disabled=true;language.disabled=false;voice.disabled=false;personality.disabled=false;
     }
@@ -299,7 +329,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   }
   async function startTestCall(){
     const to=testPhone.value.trim();
-    if(!to){setError("Scrie numărul tău pentru apelul de test.");testPhone.focus();return}
+    if(!to){setError(t("testPhoneError"));testPhone.focus();return}
     localStorage.setItem(TEST_PHONE_KEY,to);
     await launchAgentCall({
       to,pin:pin.value,language:language.value,voice:voice.value,personality:personality.value,testMode:true,
@@ -315,7 +345,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
         sessionId:sid,token,confirmationId:activeConfirmationId,approved
       })});
       const d=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(d.error||"Nu am putut trimite confirmarea");
+      if(!r.ok)throw new Error(d.error||t("confirmError"));
       activeConfirmationId=null;confirmBox.style.display="none";
     }catch(e){
       confirmationBusy=false;confirmYes.disabled=false;confirmNo.disabled=false;setError(e.message||String(e));
@@ -330,13 +360,8 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     activeConfirmationId=null;confirmationBusy=false;confirmBox.style.display="none";setPhase("ended");
   }
   function updatePersonalityHint(){
-    const hints={
-      normal:"Natural, politicos și direct.",
-      formal:"Profesional, foarte politicos și fără conversație inutilă.",
-      friendly:"Cald, relaxat și prietenos, dar rămâne concentrat pe scop.",
-      negotiator:"Calm și ferm; caută flexibilitate, alternative și cel mai bun preț/termen fără presiune sau promisiuni."
-    };
-    personalityHint.textContent=hints[personality.value]||hints.normal;
+    const keys={normal:"phNormal",formal:"phFormal",friendly:"phFriendly",negotiator:"phNegotiator"};
+    personalityHint.textContent=t(keys[personality.value]||"phNormal");
   }
   personality.addEventListener("change",updatePersonalityHint);
   newContact.addEventListener("click",()=>openContactEditor());
@@ -351,11 +376,15 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     if(action==="use")applyContact(contact);
     else if(action==="edit")openContactEditor(contact);
     else if(action==="delete"){
-      if(confirm('Ștergi contactul "'+contact.name+'"?')){
+      if(confirm(t("deleteConfirm")+' "'+contact.name+'"?')){
         putContacts(items.filter(x=>x.id!==id));renderContacts();
       }
     }
   });
+  uiLanguage.value=localStorage.getItem(UI_LANG_KEY)||"ro";
+  if(!UI_TEXT[uiLanguage.value])uiLanguage.value="ro";
+  uiLanguage.addEventListener("change",()=>{localStorage.setItem(UI_LANG_KEY,uiLanguage.value);applyUiLanguage()});
+  applyUiLanguage();
   testPhone.value=localStorage.getItem(TEST_PHONE_KEY)||"";
   testPhone.addEventListener("change",()=>localStorage.setItem(TEST_PHONE_KEY,testPhone.value.trim()));
   testCall.addEventListener("click",startTestCall);
