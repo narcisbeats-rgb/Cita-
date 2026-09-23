@@ -1,295 +1,297 @@
-import http from 'node:http';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
-import {
-  authenticatedSubscription, dbRequest, digest, encryptedSeedProfile, madridTimeZone,
-  maskPhone, monitorableServices, normalizePhone, packSmsNumber, publicAppUrl, unpackSmsNumber
-} from './lib/app-store.js';
-import {
-  clicksendConfigured, getSmsDelivery, packPushSubscription, pushConfigured,
-  resumeLink, sendPush, sendSms, smsConfigured, unpackPushSubscription,
-  validPushSubscription, validResume
-} from './lib/messaging.js';
-import { cleanupRetentionDays, monitorHours, monitorIntervalMinutes, monitorScheduleTimeZone, monitorState, resultForService, runMonitor, schedulerTick } from './lib/monitoring.js';
+import crypto from "node:crypto";
+import http from "node:http";
+import path from "node:path";
+import express from "express";
+import { WebSocketServer, WebSocket } from "ws";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const port = Number(process.env.PORT || 3000);
-const paymentRequired = String(process.env.PAYMENT_REQUIRED || 'false').toLowerCase() === 'true';
-const checkoutUrl = String(process.env.CHECKOUT_URL || '').trim();
-const paymentWebhookSecret = String(process.env.PAYMENT_WEBHOOK_SECRET || '').trim();
-const adminDashboardKey = String(process.env.ADMIN_DASHBOARD_KEY || '').trim();
-const requestWindows = new Map();
+const app = express();
+app.set("trust proxy", 1);
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: false }));
 
-function json(res, status, payload) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
-  res.end(JSON.stringify(payload));
-}
-async function readJson(req) {
-  let body = '';
-  for await (const chunk of req) {
-    body += chunk;
-    if (body.length > 32_768) throw new Error('payload_too_large');
-  }
-  try { return JSON.parse(body || '{}'); } catch { throw new Error('invalid_json'); }
-}
-function clientIp(req) { return String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(); }
-function rateLimited(key, limit, windowMs) {
-  const now = Date.now();
-  const current = requestWindows.get(key);
-  if (!current || current.resetAt <= now) { requestWindows.set(key, { count: 1, resetAt: now + windowMs }); return false; }
-  current.count += 1;
-  return current.count > limit;
-}
+const PORT = Number(process.env.PORT || 3000);
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime";
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
+const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || "";
+const APP_PIN = process.env.APP_PIN || "";
+const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 
-async function beginPushSubscription(req, res) {
-  if (!pushConfigured()) return json(res, 503, { error: 'push_not_configured' });
-  const body = await readJson(req);
-  if (body.consent !== true) return json(res, 400, { error: 'consent_required' });
-  if (!validPushSubscription(body.subscription)) return json(res, 400, { error: 'invalid_push_subscription' });
-  const serviceKey = monitorableServices.has(body.serviceKey) ? body.serviceKey : 'tie_fingerprint';
-  const accessToken = crypto.randomBytes(32).toString('base64url');
-  const now = new Date();
-  await dbRequest('subscriptions?on_conflict=phone', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: {
-    phone: packPushSubscription(body.subscription), service_key: serviceKey, consent_at: now.toISOString(), active: true,
-    verified_at: now.toISOString(), access_token_hash: digest(accessToken), otp_hash: null, otp_expires_at: null,
-    otp_attempts: 0, subscription_expires_at: new Date(now.getTime() + 30 * 86400000).toISOString(), updated_at: now.toISOString()
-  }});
-  return json(res, 200, { ok: true, accessToken, expiresInDays: 30 });
-}
+const sessions = new Map();
 
-async function beginSmsSubscription(req, res) {
-  if (!smsConfigured()) return json(res, 503, { error: 'sms_not_configured' });
-  const body = await readJson(req);
-  if (body.consent !== true) return json(res, 400, { error: 'consent_required' });
-  const phone = normalizePhone(body.phone);
-  if (!phone) return json(res, 400, { error: 'invalid_phone' });
-  if (rateLimited(`sms-start:${clientIp(req)}`, 8, 15 * 60_000)) return json(res, 429, { error: 'too_many_requests' });
-  if (body.serviceKey === 'nie_renew') return json(res, 409, { error: 'procedure_needs_clarification' });
-  const serviceKey = monitorableServices.has(body.serviceKey) ? body.serviceKey : 'tie_fingerprint';
-  const now = new Date();
-  const packedPhone = packSmsNumber(phone);
-  const existing = await dbRequest(`subscriptions?phone=eq.${encodeURIComponent(packedPhone)}&select=id,otp_hash`);
-  const accessToken = crypto.randomBytes(32).toString('base64url');
-  const active = !paymentRequired;
-  const common = {
-    service_key: serviceKey, consent_at: now.toISOString(), active, verified_at: null,
-    access_token_hash: active ? digest(accessToken) : null, otp_expires_at: null, otp_attempts: 0,
-    subscription_expires_at: new Date(now.getTime() + (active ? 30 : 1) * 86400000).toISOString(), updated_at: now.toISOString()
-  };
-  let row;
-  if (existing?.[0]) {
-    const result = await dbRequest(`subscriptions?id=eq.${existing[0].id}`, { method: 'PATCH', prefer: 'return=representation', body: common });
-    row = result?.[0] || { id: existing[0].id };
-  } else {
-    const result = await dbRequest('subscriptions', { method: 'POST', prefer: 'return=representation', body: { ...common, phone: packedPhone, otp_hash: encryptedSeedProfile(phone) } });
-    row = result?.[0];
-  }
-  if (paymentRequired) {
-    if (!checkoutUrl) return json(res, 503, { error: 'payment_not_configured' });
-    const url = new URL(checkoutUrl);
-    url.searchParams.set('reference', String(row.id));
-    return json(res, 402, { error: 'payment_required', checkoutUrl: url.toString(), reference: String(row.id) });
-  }
-  return json(res, 200, { ok: true, accessToken, expiresInDays: 30, phone: maskPhone(phone) });
-}
+const missingConfig = () => Object.entries({
+  OPENAI_API_KEY,
+  TWILIO_ACCOUNT_SID,
+  TWILIO_AUTH_TOKEN,
+  TWILIO_FROM_NUMBER,
+  APP_PIN,
+  PUBLIC_BASE_URL
+}).filter(([,v]) => !v).map(([k]) => k);
 
-async function getSubscription(req, res) {
-  const record = await authenticatedSubscription(req);
-  if (!record) return json(res, 401, { error: 'unauthorized' });
-  const expired = new Date(record.subscription_expires_at).getTime() <= Date.now();
-  const smsPhone = unpackSmsNumber(record.phone);
-  const serviceResult = resultForService(record.service_key);
-  const delivery = smsPhone ? await getSmsDelivery(record) : null;
-  const currentMonitorState = monitorState();
-  return json(res, 200, {
-    active: Boolean(record.active) && !expired,
-    channel: smsPhone ? 'sms' : 'push',
-    phone: smsPhone ? maskPhone(smsPhone) : null,
-    serviceKey: record.service_key,
-    verifiedAt: record.verified_at,
-    expiresAt: record.subscription_expires_at,
-    checks: record.check_count || 0,
-    lastAlertAt: record.last_alert_at,
-    lastCheckedAt: serviceResult?.finishedAt || null,
-    lastResult: serviceResult,
-    smsDelivery: delivery,
-    nextCheckAt: currentMonitorState.nextCheckAt,
-    monitorHours: currentMonitorState.monitorHours,
-    scheduleTimeZone: currentMonitorState.scheduleTimeZone
+function safeSend(ws, data) {
+  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+}
+function normalizePhone(value) {
+  const p = String(value || "").replace(/[\s()-]/g, "");
+  return /^\+[1-9]\d{7,14}$/.test(p) ? p : null;
+}
+function xml(value) {
+  return String(value).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&apos;");
+}
+function wsBase() {
+  return PUBLIC_BASE_URL.replace(/^https:/,"wss:").replace(/^http:/,"ws:");
+}
+function basicAuth() {
+  return "Basic " + Buffer.from(TWILIO_ACCOUNT_SID + ":" + TWILIO_AUTH_TOKEN).toString("base64");
+}
+async function twilioPost(pathname, fields) {
+  const response = await fetch("https://api.twilio.com/2010-04-01/Accounts/" + TWILIO_ACCOUNT_SID + pathname, {
+    method: "POST",
+    headers: { Authorization: basicAuth(), "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(fields)
   });
+  const raw = await response.text();
+  let data = {};
+  try { data = JSON.parse(raw); } catch { data = { raw }; }
+  if (!response.ok) throw new Error(data.message || data.raw || ("Twilio HTTP " + response.status));
+  return data;
 }
-async function deleteSubscription(req, res) {
-  const record = await authenticatedSubscription(req);
-  if (!record) return json(res, 401, { error: 'unauthorized' });
-  await dbRequest(`subscriptions?id=eq.${record.id}`, { method: 'DELETE', prefer: 'return=minimal' });
-  return json(res, 200, { ok: true });
+function closeSocket(ws) {
+  try { if (ws && ws.readyState < 2) ws.close(); } catch {}
 }
-async function testSms(req, res) {
-  const record = await authenticatedSubscription(req);
-  if (!record) return json(res, 401, { error: 'unauthorized' });
-  if (!record.active) return json(res, 402, { error: 'payment_required' });
-  const phone = unpackSmsNumber(record.phone);
-  if (!phone) return json(res, 400, { error: 'sms_number_missing' });
-  try {
-    const result = await sendSms(phone, 'Detector de Citas activado. Te avisaremos por SMS cuando detectemos disponibilidad.');
-    const now = new Date().toISOString();
-    const key = `test:${now}|${result.provider || ''}|${result.messageId || ''}|${result.status || 'queued'}`;
-    await dbRequest(`subscriptions?id=eq.${record.id}`, { method: 'PATCH', prefer: 'return=minimal', body: { verified_at: now, last_alert_at: now, last_alert_key: key, updated_at: now } });
-    return json(res, 200, { ok: true, phone: maskPhone(phone), delivery: result.status || 'queued' });
-  } catch (error) {
-    console.error('[Detector de Citas] Test SMS failed:', error.message);
-    return json(res, 502, { error: 'sms_send_failed' });
-  }
+function cleanup(id, finalStatus = "ended") {
+  const s = sessions.get(id);
+  if (!s) return;
+  safeSend(s.client, { type: "status", status: finalStatus });
+  closeSocket(s.roDa);
+  closeSocket(s.daRo);
+  closeSocket(s.twilio);
+  closeSocket(s.client);
+  sessions.delete(id);
 }
-async function testPush(req, res) {
-  const record = await authenticatedSubscription(req);
-  if (!record) return json(res, 401, { error: 'unauthorized' });
-  const subscription = unpackPushSubscription(record.phone);
-  if (!subscription) return json(res, 400, { error: 'push_subscription_missing' });
-  try {
-    await sendPush(subscription, { title: 'Detector de Citas activado', body: 'Alertas listas.', tag: 'detector-test', url: '/' });
-    return json(res, 200, { ok: true });
-  } catch { return json(res, 502, { error: 'push_send_failed' }); }
-}
+function openRealtime({ instructions, inputFormat, outputFormat, turnDetection, onAudio, onText, onReady, onError }) {
+  const ws = new WebSocket(
+    "wss://api.openai.com/v1/realtime?model=" + encodeURIComponent(OPENAI_REALTIME_MODEL),
+    { headers: { Authorization: "Bearer " + OPENAI_API_KEY, "OpenAI-Beta": "realtime=v1" } }
+  );
 
-async function handleResume(url, res) {
-  const raw = url.pathname.slice(3);
-  const [id, exp, sig] = raw.split('.');
-  if (!validResume(id, exp, sig)) {
-    res.writeHead(302, { location: '/?resume=expired', 'cache-control': 'no-store' });
-    return res.end();
-  }
-  const rows = await dbRequest(`subscriptions?id=eq.${encodeURIComponent(id)}&select=*`);
-  const record = rows?.[0];
-  if (!record || !record.active || new Date(record.subscription_expires_at).getTime() <= Date.now()) {
-    res.writeHead(302, { location: '/?resume=inactive', 'cache-control': 'no-store' });
-    return res.end();
-  }
-  const token = crypto.randomBytes(32).toString('base64url');
-  await dbRequest(`subscriptions?id=eq.${record.id}`, { method: 'PATCH', prefer: 'return=minimal', body: { access_token_hash: digest(token), updated_at: new Date().toISOString() } });
-  res.writeHead(302, { location: `/#access=${encodeURIComponent(token)}&alert=availability`, 'cache-control': 'no-store' });
-  res.end();
-}
-
-async function handlePaymentActivation(req, res) {
-  if (!paymentWebhookSecret) return json(res, 503, { error: 'payment_not_configured' });
-  if (String(req.headers['x-payment-secret'] || '') !== paymentWebhookSecret) return json(res, 401, { error: 'unauthorized' });
-  const body = await readJson(req);
-  if (body.paid !== true || !body.reference) return json(res, 400, { error: 'invalid_payment_event' });
-  const rows = await dbRequest(`subscriptions?id=eq.${encodeURIComponent(body.reference)}&select=*`);
-  const record = rows?.[0];
-  if (!record) return json(res, 404, { error: 'subscription_not_found' });
-  const now = new Date();
-  await dbRequest(`subscriptions?id=eq.${record.id}`, { method: 'PATCH', prefer: 'return=minimal', body: { active: true, subscription_expires_at: new Date(now.getTime() + 30 * 86400000).toISOString(), updated_at: now.toISOString() } });
-  const phone = unpackSmsNumber(record.phone);
-  if (phone && smsConfigured()) await sendSms(phone, `Detector de Citas: servicio activado 30 dias. Entra aqui: ${resumeLink({ ...record, active: true })}`).catch(() => {});
-  return json(res, 200, { ok: true });
-}
-
-function adminAuthorized(req) { return Boolean(adminDashboardKey) && String(req.headers['x-admin-key'] || '') === adminDashboardKey; }
-async function adminSummary(req, res) {
-  if (!adminAuthorized(req)) return json(res, 401, { error: 'unauthorized' });
-  const rows = await dbRequest('subscriptions?select=id,service_key,active,verified_at,subscription_expires_at,check_count,last_alert_at,last_alert_key,updated_at');
-  const now = Date.now();
-  const byService = {};
-  let active = 0, expired = 0, smsAlerts = 0;
-  for (const r of rows || []) {
-    const isExpired = new Date(r.subscription_expires_at).getTime() <= now;
-    if (r.active && !isExpired) active++;
-    if (isExpired) expired++;
-    byService[r.service_key] = (byService[r.service_key] || 0) + (r.active && !isExpired ? 1 : 0);
-    if (r.last_alert_at) smsAlerts++;
-  }
-  return json(res, 200, { total: rows?.length || 0, active, expired, smsAlerts, byService, monitorIntervalMinutes, ...monitorState() });
-}
-
-function publicConfig() {
-  return {
-    subscriptionsReady: smsConfigured() || pushConfigured(),
-    smsReady: smsConfigured(),
-    pushReady: pushConfigured(),
-    smsProvider: clicksendConfigured() ? 'clicksend' : (smsConfigured() ? 'twilio' : null),
-    monitorableServices: [...monitorableServices],
-    monitorIntervalMinutes,
-    monitorHours,
-    monitorMode: 'scheduled',
-    dataRetentionDays: cleanupRetentionDays,
-    paymentRequired,
-    paymentReady: !paymentRequired || Boolean(checkoutUrl && paymentWebhookSecret),
-    timeZone: madridTimeZone,
-    appUrl: publicAppUrl
-  };
-}
-
-const staticFiles = new Map([
-  ['/manifest.webmanifest', { file: 'manifest.webmanifest', type: 'application/manifest+json; charset=utf-8' }],
-  ['/sw.js', { file: 'sw.js', type: 'application/javascript; charset=utf-8' }],
-  ['/icon.svg', { file: 'icon.svg', type: 'image/svg+xml; charset=utf-8' }],
-  ['/enhancements-ui.js', { file: 'enhancements-ui.js', type: 'application/javascript; charset=utf-8' }],
-  ['/admin.html', { file: 'admin.html', type: 'text/html; charset=utf-8' }]
-]);
-async function serveStatic(urlPath, res) {
-  const item = staticFiles.get(urlPath);
-  if (!item) return false;
-  const content = await fs.readFile(path.join(__dirname, item.file));
-  res.writeHead(200, {
-    'content-type': item.type,
-    'cache-control': urlPath.endsWith('.html') || urlPath.endsWith('.js') ? 'no-store' : 'public, max-age=3600',
-    'x-content-type-options': 'nosniff',
-    ...(urlPath === '/sw.js' ? { 'service-worker-allowed': '/' } : {})
+  ws.on("open", () => {
+    ws.send(JSON.stringify({
+      type: "session.update",
+      session: {
+        modalities: ["text", "audio"],
+        instructions,
+        voice: "alloy",
+        input_audio_format: inputFormat,
+        output_audio_format: outputFormat,
+        turn_detection: turnDetection
+      }
+    }));
+    onReady?.();
   });
-  res.end(content);
-  return true;
+
+  ws.on("message", raw => {
+    let event;
+    try { event = JSON.parse(raw.toString()); } catch { return; }
+
+    if ((event.type === "response.audio.delta" || event.type === "response.output_audio.delta") && event.delta) {
+      onAudio?.(event.delta);
+    }
+    if ((event.type === "response.audio_transcript.delta" || event.type === "response.output_audio_transcript.delta") && event.delta) {
+      onText?.(event.delta);
+    }
+    if (event.type === "error") onError?.(event.error?.message || "OpenAI Realtime error");
+  });
+
+  ws.on("error", e => onError?.(e.message));
+  return ws;
+}
+function ensureRealtime(s) {
+  if (!s.twilio || !s.streamSid) return;
+
+  if (!s.roDa || s.roDa.readyState > WebSocket.OPEN) {
+    s.roDa = openRealtime({
+      instructions: "Act only as a live interpreter. Translate Romanian speech into natural Danish. Preserve names, numbers, meaning and tone. Never answer the speaker, never add information, never explain. Output only the Danish translation.",
+      inputFormat: "pcm16",
+      outputFormat: "g711_ulaw",
+      turnDetection: null,
+      onAudio: audio => {
+        if (s.twilio?.readyState === WebSocket.OPEN && s.streamSid) {
+          s.twilio.send(JSON.stringify({ event: "media", streamSid: s.streamSid, media: { payload: audio } }));
+        }
+      },
+      onText: delta => safeSend(s.client, { type: "text", lane: "you-da", delta }),
+      onReady: () => safeSend(s.client, { type: "ready", lane: "ro-da" }),
+      onError: message => safeSend(s.client, { type: "error", message })
+    });
+  }
+
+  if (!s.daRo || s.daRo.readyState > WebSocket.OPEN) {
+    s.daRo = openRealtime({
+      instructions: "Act only as a live interpreter. Translate Danish speech into natural Romanian. Preserve names, numbers, meaning and tone. Never answer the speaker, never add information, never explain. Output only the Romanian translation.",
+      inputFormat: "g711_ulaw",
+      outputFormat: "pcm16",
+      turnDetection: { type: "server_vad", threshold: 0.5, prefix_padding_ms: 250, silence_duration_ms: 500, create_response: true },
+      onAudio: audio => safeSend(s.client, { type: "audio", audio, sampleRate: 24000 }),
+      onText: delta => safeSend(s.client, { type: "text", lane: "them-ro", delta }),
+      onReady: () => safeSend(s.client, { type: "ready", lane: "da-ro" }),
+      onError: message => safeSend(s.client, { type: "error", message })
+    });
+  }
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+app.get("/", (_req, res) => res.sendFile(path.resolve("index.html")));
+app.get("/health", (_req, res) => {
+  const missing = missingConfig();
+  res.status(missing.length ? 503 : 200).json({ ok: missing.length === 0, service: "live-ro-da-translator", missing });
+});
+
+app.post("/api/call", async (req, res) => {
   try {
-    if (url.pathname.startsWith('/r/') && req.method === 'GET') return await handleResume(url, res);
-    if (url.pathname === '/health') return json(res, 200, { ok: true, ...monitorState(), ...publicConfig() });
-    if (url.pathname === '/api/config') return json(res, 200, publicConfig());
-    if (url.pathname === '/api/status') return json(res, 200, { ...monitorState(), ...publicConfig() });
-    if (url.pathname === '/api/sms/subscribe' && req.method === 'POST') return await beginSmsSubscription(req, res);
-    if (url.pathname === '/api/sms/test' && req.method === 'POST') return await testSms(req, res);
-    if (url.pathname === '/api/push/subscribe' && req.method === 'POST') return await beginPushSubscription(req, res);
-    if (url.pathname === '/api/push/test' && req.method === 'POST') return await testPush(req, res);
-    if (url.pathname === '/api/subscription' && req.method === 'GET') return await getSubscription(req, res);
-    if (url.pathname === '/api/subscription' && req.method === 'DELETE') return await deleteSubscription(req, res);
-    if (url.pathname === '/api/payment/activate' && req.method === 'POST') return await handlePaymentActivation(req, res);
-    if (url.pathname === '/api/admin/summary' && req.method === 'GET') return await adminSummary(req, res);
-    if (url.pathname === '/api/check/tie' && req.method === 'POST') {
-      const expected = process.env.MONITOR_TEST_SECRET;
-      if (expected && req.headers['x-monitor-secret'] !== expected) return json(res, 401, { error: 'unauthorized' });
-      const body = await readJson(req).catch(() => ({}));
-      const outcome = await runMonitor('manual', body.serviceKey || null);
-      return json(res, outcome.status, outcome.payload);
-    }
-    if (url.pathname === '/admin' && req.method === 'GET') {
-      const content = await fs.readFile(path.join(__dirname, 'admin.html'));
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-      return res.end(content);
-    }
-    if (req.method === 'GET' && await serveStatic(url.pathname, res)) return;
-    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-      let html = await fs.readFile(path.join(__dirname, 'index.html'), 'utf8');
-      if (!html.includes('/enhancements-ui.js')) html = html.replace('</body>', '<script src="/enhancements-ui.js" defer></script>\n</body>');
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
-      return res.end(html);
-    }
-    return json(res, 404, { error: 'not_found' });
-  } catch (error) {
-    const known = new Set(['invalid_json', 'payload_too_large', 'consent_required', 'too_many_requests', 'invalid_phone', 'procedure_needs_clarification']);
-    const status = known.has(error.message) ? 400 : 500;
-    console.error('[Detector de Citas] Request error:', error.message);
-    return json(res, status, { error: status === 500 ? 'internal_error' : error.message });
+    const missing = missingConfig();
+    if (missing.length) return res.status(503).json({ error: "Missing config: " + missing.join(", ") });
+    if (String(req.body.pin || "") !== APP_PIN) return res.status(401).json({ error: "PIN greșit" });
+
+    const to = normalizePhone(req.body.to);
+    if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
+
+    const id = crypto.randomUUID();
+    const token = crypto.randomBytes(24).toString("hex");
+    const s = { id, token, to, created: Date.now(), client: null, twilio: null, streamSid: null, callSid: null, roDa: null, daRo: null };
+    sessions.set(id, s);
+
+    const call = await twilioPost("/Calls.json", {
+      To: to,
+      From: TWILIO_FROM_NUMBER,
+      Url: PUBLIC_BASE_URL + "/twiml?sid=" + encodeURIComponent(id),
+      Method: "POST",
+      StatusCallback: PUBLIC_BASE_URL + "/twilio-status?sid=" + encodeURIComponent(id),
+      StatusCallbackMethod: "POST",
+      "StatusCallbackEvent[0]": "initiated",
+      "StatusCallbackEvent[1]": "ringing",
+      "StatusCallbackEvent[2]": "answered",
+      "StatusCallbackEvent[3]": "completed"
+    });
+
+    s.callSid = call.sid;
+    res.json({ sessionId: id, token, callSid: call.sid, status: call.status });
+  } catch (e) {
+    res.status(500).json({ error: e.message || "Nu am putut porni apelul" });
   }
 });
 
-setInterval(() => schedulerTick().catch((e) => console.error('[Detector de Citas] Scheduler error:', e.message)), 15_000);
-server.listen(port, '0.0.0.0', () => {
-  console.log(`Detector de Citas Madrid listening on :${port}`);
-  console.log(`[Detector de Citas] SMS: ${smsConfigured() ? (clicksendConfigured() ? 'ClickSend ready' : 'Twilio ready') : 'not configured'}`);
-  console.log(`[Detector de Citas] Monitor schedule: Monday-Friday · ${monitorHours.map((hour) => `${String(hour).padStart(2, '0')}:00`).join(', ')} (${monitorScheduleTimeZone}); cleanup grace: ${cleanupRetentionDays} days.`);
+app.post("/api/hangup", async (req, res) => {
+  const s = sessions.get(String(req.body.sessionId || ""));
+  if (!s || req.body.token !== s.token) return res.status(401).json({ error: "Sesiune invalidă" });
+  try {
+    if (s.callSid) await twilioPost("/Calls/" + encodeURIComponent(s.callSid) + ".json", { Status: "completed" });
+  } catch {}
+  cleanup(s.id, "completed");
+  res.json({ ok: true });
 });
+
+app.post("/twilio-status", (req, res) => {
+  const s = sessions.get(String(req.query.sid || ""));
+  if (s) {
+    const status = String(req.body.CallStatus || "unknown");
+    safeSend(s.client, { type: "status", status });
+    if (["completed","busy","failed","no-answer","canceled"].includes(status)) {
+      setTimeout(() => cleanup(s.id, status), 1200);
+    }
+  }
+  res.sendStatus(204);
+});
+
+app.post("/twiml", (req, res) => {
+  const id = String(req.query.sid || "");
+  if (!sessions.has(id)) return res.type("text/xml").send('<?xml version="1.0"?><Response><Hangup/></Response>');
+
+  const disclosure = "Denne samtale bruger automatisk oversættelse mellem rumænsk og dansk.";
+  const body = '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<Response>' +
+      '<Say language="da-DK">' + xml(disclosure) + '</Say>' +
+      '<Connect><Stream url="' + xml(wsBase() + "/twilio-media") + '">' +
+        '<Parameter name="sessionId" value="' + xml(id) + '"/>' +
+      '</Stream></Connect>' +
+    '</Response>';
+  res.type("text/xml").send(body);
+});
+
+const server = http.createServer(app);
+const clientWss = new WebSocketServer({ noServer: true });
+const twilioWss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (req, socket, head) => {
+  const u = new URL(req.url, "http://localhost");
+  if (u.pathname === "/client") return clientWss.handleUpgrade(req, socket, head, ws => clientWss.emit("connection", ws, req));
+  if (u.pathname === "/twilio-media") return twilioWss.handleUpgrade(req, socket, head, ws => twilioWss.emit("connection", ws, req));
+  socket.destroy();
+});
+
+clientWss.on("connection", (ws, req) => {
+  const u = new URL(req.url, "http://localhost");
+  const id = u.searchParams.get("sid") || "";
+  const token = u.searchParams.get("token") || "";
+  const s = sessions.get(id);
+
+  if (!s || token !== s.token) return ws.close(1008, "Invalid session");
+  s.client = ws;
+  safeSend(ws, { type: "status", status: "app-connected" });
+  ensureRealtime(s);
+
+  ws.on("message", raw => {
+    let m;
+    try { m = JSON.parse(raw.toString()); } catch { return; }
+
+    if (m.type === "mic" && typeof m.audio === "string" && s.roDa?.readyState === WebSocket.OPEN) {
+      s.roDa.send(JSON.stringify({ type: "input_audio_buffer.append", audio: m.audio }));
+    }
+    if (m.type === "ptt-end" && s.roDa?.readyState === WebSocket.OPEN) {
+      s.roDa.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+      s.roDa.send(JSON.stringify({ type: "response.create", response: { modalities: ["audio","text"] } }));
+    }
+  });
+
+  ws.on("close", () => { if (s.client === ws) s.client = null; });
+});
+
+twilioWss.on("connection", ws => {
+  let s = null;
+
+  ws.on("message", raw => {
+    let m;
+    try { m = JSON.parse(raw.toString()); } catch { return; }
+
+    if (m.event === "start") {
+      const id = m.start?.customParameters?.sessionId || "";
+      s = sessions.get(id);
+      if (!s) return ws.close(1008, "Unknown session");
+      s.twilio = ws;
+      s.streamSid = m.streamSid || m.start?.streamSid || "";
+      safeSend(s.client, { type: "status", status: "call-audio-live" });
+      ensureRealtime(s);
+      return;
+    }
+
+    if (m.event === "media" && s && m.media?.payload && s.daRo?.readyState === WebSocket.OPEN) {
+      s.daRo.send(JSON.stringify({ type: "input_audio_buffer.append", audio: m.media.payload }));
+    }
+  });
+
+  ws.on("close", () => {
+    if (s?.twilio === ws) {
+      s.twilio = null;
+      s.streamSid = null;
+    }
+  });
+});
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [id,s] of sessions) {
+    if (now - s.created > 2 * 60 * 60 * 1000) cleanup(id, "expired");
+  }
+}, 60000).unref();
+
+server.listen(PORT, () => console.log("Live RO↔DA translator listening on :" + PORT));
