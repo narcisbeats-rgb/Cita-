@@ -10,8 +10,8 @@
 body{margin:0;background:#0b0d12;color:#f5f7fb;min-height:100vh}.wrap{max-width:760px;margin:auto;padding:22px 16px 40px}
 h1{font-size:34px;margin:4px 0 6px}.sub{color:#aeb7c8;line-height:1.45;margin:0 0 18px}
 .card{background:#141821;border:1px solid #252b38;border-radius:20px;padding:16px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.18)}
-label{font-size:13px;color:#aeb7c8;display:block;margin:0 0 7px}input{width:100%;background:#0f131a;color:white;border:1px solid #313a4b;border-radius:14px;padding:14px;font-size:17px;outline:none}
-input:focus{border-color:#6e8cff}.row{display:grid;grid-template-columns:1fr 110px;gap:10px}
+label{font-size:13px;color:#aeb7c8;display:block;margin:0 0 7px}input,select{width:100%;background:#0f131a;color:white;border:1px solid #313a4b;border-radius:14px;padding:14px;font-size:17px;outline:none}
+input:focus,select:focus{border-color:#6e8cff}.row{display:grid;grid-template-columns:1fr 110px;gap:10px}.mode{margin-bottom:12px}
 button{width:100%;border:0;border-radius:16px;min-height:54px;font-size:17px;font-weight:750;cursor:pointer}
 button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0b0d12;margin-top:12px}
 .hang{background:#361c22;color:#ffd8df;border:1px solid #63303b;margin-top:10px}.ptt{min-height:126px;background:#355fe8;color:white;font-size:20px;touch-action:none;user-select:none;-webkit-user-select:none;margin-top:12px}
@@ -25,10 +25,17 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 </head>
 <body>
 <main class="wrap">
-<h1>Apel RO ↔ DA</h1>
-<p class="sub">Tu vorbești română. Cealaltă persoană aude daneză. Când răspunde în daneză, tu auzi română.</p>
+<h1 id="title">Apel RO ↔ DA</h1>
+<p id="subtitle" class="sub">Tu vorbești română. Cealaltă persoană aude daneză. Când răspunde în daneză, tu auzi română.</p>
 
 <section class="card">
+  <div class="mode">
+    <label for="language">Limba ta</label>
+    <select id="language">
+      <option value="ro">Română ↔ Daneză</option>
+      <option value="es">Spaniolă ↔ Daneză</option>
+    </select>
+  </div>
   <div class="row">
     <div><label for="phone">Număr telefon</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="+45 12 34 56 78"></div>
     <div><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>
@@ -46,8 +53,8 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 
 <section class="card">
   <div class="grid">
-    <div class="pane"><h3>Tu → daneză</h3><p id="youDa"></p></div>
-    <div class="pane"><h3>Ei → română</h3><p id="themRo"></p></div>
+    <div class="pane"><h3 id="youHeading">Tu → daneză</h3><p id="youDa"></p></div>
+    <div class="pane"><h3 id="themHeading">Ei → română</h3><p id="themLocal"></p></div>
   </div>
 </section>
 </main>
@@ -55,12 +62,26 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const phone=$("phone"),pin=$("pin"),call=$("call"),hang=$("hang"),ptt=$("ptt"),statusEl=$("status"),dot=$("dot"),err=$("err");
-  const panes={"you-da":$("youDa"),"them-ro":$("themRo")};
+  const phone=$("phone"),pin=$("pin"),language=$("language"),call=$("call"),hang=$("hang"),ptt=$("ptt"),statusEl=$("status"),dot=$("dot"),err=$("err");
+  const title=$("title"),subtitle=$("subtitle"),youHeading=$("youHeading"),themHeading=$("themHeading");
+  const panes={"you-da":$("youDa"),"them-local":$("themLocal")};
   let sid=null,token=null,ws=null,ctx=null,mic=null,src=null,proc=null,gain=null,talking=false,live=false,playAt=0;
 
   function setStatus(text,on=false){statusEl.textContent=text;dot.classList.toggle("live",on)}
   function setError(text=""){err.textContent=text}
+  function languageInfo(){
+    return language.value==="es"
+      ? {short:"ES",name:"spaniolă",upper:"SPANIOLĂ"}
+      : {short:"RO",name:"română",upper:"ROMÂNĂ"};
+  }
+  function updateLanguageUi(){
+    const l=languageInfo();
+    title.textContent="Apel "+l.short+" ↔ DA";
+    subtitle.textContent="Tu vorbești "+l.name+". Cealaltă persoană aude daneză. Când răspunde în daneză, tu auzi "+l.name+".";
+    youHeading.textContent="Tu → daneză";
+    themHeading.textContent="Ei → "+l.name;
+    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN "+l.upper;
+  }
   function bytesToB64(bytes){let out="";for(let i=0;i<bytes.length;i+=32768)out+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(out)}
   function b64ToBytes(text){const s=atob(text),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a}
 
@@ -167,7 +188,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       const response=await fetch("/api/call",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({to:phone.value,pin:pin.value})
+        body:JSON.stringify({to:phone.value,pin:pin.value,language:language.value})
       });
       const data=await response.json();
       if(!response.ok)throw new Error(data.error||"Nu am putut porni apelul");
@@ -202,7 +223,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     live=false;talking=false;
     ptt.disabled=true;
     ptt.classList.remove("on");
-    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN ROMÂNĂ";
+    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN "+languageInfo().upper;
     hang.disabled=true;
     call.disabled=false;
   }
@@ -220,10 +241,12 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     if(!talking)return;
     talking=false;
     ptt.classList.remove("on");
-    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN ROMÂNĂ";
+    ptt.textContent="ȚINE APĂSAT ȘI VORBEȘTE ÎN "+languageInfo().upper;
     if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:"ptt-end"}));
   }
 
+  language.addEventListener("change",updateLanguageUi);
+  updateLanguageUi();
   call.addEventListener("click",startCall);
   hang.addEventListener("click",hangup);
   ptt.addEventListener("pointerdown",press);
