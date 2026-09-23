@@ -333,6 +333,9 @@ function agentPersonalityInstructions(code) {
   };
   return styles[code] || styles.normal;
 }
+function summaryLanguageName(code) {
+  return ({ ro: "Romanian", en: "English", da: "Danish", es: "Spanish" })[code] || "Romanian";
+}
 function agentLanguageConfig(code) {
   const table = {
     auto: { code: null, name: "Automatic", initial: "Danish" },
@@ -372,7 +375,7 @@ function parseStructuredAgentSummary(text) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
     const list = key => Array.isArray(value[key]) ? value[key].filter(Boolean).slice(0, 20) : [];
     return {
-      status: String(value.status || "Parțial").slice(0, 40),
+      status: String(value.status || "partial").slice(0, 40),
       result: String(value.result || "").slice(0, 1200),
       answers: list("answers").map(x => ({
         question: String(x?.question || "").slice(0, 500),
@@ -415,8 +418,9 @@ async function summarizeAgentCall(s) {
           "Objective of the call: " + s.objective + "\n" +
           "User context: " + (s.context || "none") + "\n\n" +
           "Transcript:\n" + transcript + "\n\n" +
-          "Return ONLY valid JSON in Romanian, with no markdown and no code fences. Use exactly this shape: " +
-          '{"status":"Obținut|Parțial|Fără răspuns","result":"one clear overall result","answers":[{"question":"what needed to be learned","answer":"direct answer"}],"facts":[{"label":"short label","value":"exact useful fact"}],"prices":["price or money fact"],"dates":["date/time/deadline"],"conditions":["condition, requirement, limitation or offer"],"unanswered":["important point not answered"],"next_steps":["what Narcis should do next, if anything"]}. ' +
+          "Write all user-facing text in " + summaryLanguageName(s.summaryLanguage) + ". " +
+          "Return ONLY valid JSON, with no markdown and no code fences. Use exactly this shape: " +
+          '{"status":"obtained|partial|no_answer","result":"one clear overall result","answers":[{"question":"what needed to be learned","answer":"direct answer"}],"facts":[{"label":"short label","value":"exact useful fact"}],"prices":["price or money fact"],"dates":["date/time/deadline"],"conditions":["condition, requirement, limitation or offer"],"unanswered":["important point not answered"],"next_steps":["what Narcis should do next, if anything"]}. ' +
           "Put only information explicitly supported by the call. Preserve exact numbers, currencies, dates, names and addresses when stated. Do not invent or infer missing facts. Avoid duplicating the same fact across several sections unless necessary."
       })
     });
@@ -434,9 +438,66 @@ async function summarizeAgentCall(s) {
   }
   agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
 }
+async function startAgentRecording(s, toolCallId) {
+  if (!s?.recordRequested || !s?.callControlId || s.recordingActive) return false;
+  try {
+    await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/record_start", {
+      method: "POST",
+      body: {
+        channels: "dual",
+        format: "mp3",
+        recording_track: "both",
+        play_beep: true,
+        command_id: crypto.randomUUID()
+      }
+    });
+    s.recordingActive = true;
+    agentSend(s, { type: "recording-status", status: "recording" });
+    if (s.openaiWs?.readyState === WebSocket.OPEN && toolCallId) {
+      s.openaiWs.send(JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "function_call_output",
+          call_id: toolCallId,
+          output: JSON.stringify({ ok: true, recording_started: true })
+        }
+      }));
+      s.openaiWs.send(JSON.stringify({ type: "response.create" }));
+    }
+    return true;
+  } catch (e) {
+    console.error("Agent recording start error:", e.message);
+    agentSend(s, { type: "recording-status", status: "error", message: e.message });
+    if (s.openaiWs?.readyState === WebSocket.OPEN && toolCallId) {
+      s.openaiWs.send(JSON.stringify({
+        type: "conversation.item.create",
+        item: {
+          type: "function_call_output",
+          call_id: toolCallId,
+          output: JSON.stringify({ ok: false, error: "Recording could not be started. Continue the call without recording." })
+        }
+      }));
+      s.openaiWs.send(JSON.stringify({ type: "response.create" }));
+    }
+    return false;
+  }
+}
+async function stopAgentRecording(s) {
+  if (!s?.recordingActive || s.recordStopRequested || !s.callControlId) return;
+  s.recordStopRequested = true;
+  try {
+    await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/record_stop", {
+      method: "POST",
+      body: { command_id: crypto.randomUUID() }
+    });
+  } catch (e) {
+    console.error("Agent recording stop error:", e.message);
+  }
+}
 async function endAgentTelnyxCall(s) {
   if (!s?.callControlId || s.hangupRequested) return;
   s.hangupRequested = true;
+  await stopAgentRecording(s);
   try {
     await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/hangup", {
       method: "POST",
@@ -492,6 +553,9 @@ function openAgentRealtime(s) {
     "You are a phone-call assistant. " + languageInstruction + " " +
     "Conversation style: " + personality + " " +
     identityInstruction + " " +
+    (s.recordRequested
+      ? "The user requested an audio recording. Near the beginning of the conversation, clearly ask the other person for permission to record so Narcis can listen to the conversation later. Do NOT start recording until the other person explicitly agrees. If they agree, call the start_call_recording tool immediately. If they refuse or do not clearly agree, continue without recording and do not ask again. "
+      : "") +
     "Primary objective: " + s.objective + ". " +
     (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
     "Ask concise, natural follow-up questions when information is missing. Confirm important numbers, dates, prices and names when useful. " +
@@ -513,6 +577,18 @@ function openAgentRealtime(s) {
         type: "realtime",
         instructions,
         tools: [
+          ...(s.recordRequested ? [{
+            type: "function",
+            name: "start_call_recording",
+            description: "Start recording only after the other person has explicitly agreed to the recording during this call. Never call this tool before explicit consent.",
+            parameters: {
+              type: "object",
+              properties: {
+                consent_confirmed: { type: "boolean", description: "Must be true only when the other person explicitly agreed to recording." }
+              },
+              required: ["consent_confirmed"]
+            }
+          }] : []),
           {
             type: "function",
             name: "request_user_confirmation",
@@ -618,6 +694,25 @@ function openAgentRealtime(s) {
       s.realtimeUsd = (s.realtimeUsd || 0) + estimateRealtimeResponseCost(ev.response?.usage || null);
       agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd });
       const outputs = Array.isArray(ev.response?.output) ? ev.response.output : [];
+      const recordingTool = outputs.find(x => x?.type === "function_call" && x?.name === "start_call_recording");
+      if (recordingTool) {
+        let args = {};
+        try { args = JSON.parse(recordingTool.arguments || "{}"); } catch {}
+        if (args.consent_confirmed === true && s.recordRequested) {
+          startAgentRecording(s, recordingTool.call_id);
+        } else if (s.openaiWs?.readyState === WebSocket.OPEN) {
+          s.openaiWs.send(JSON.stringify({
+            type: "conversation.item.create",
+            item: {
+              type: "function_call_output",
+              call_id: recordingTool.call_id,
+              output: JSON.stringify({ ok: false, error: "Explicit recording consent was not confirmed. Continue without recording." })
+            }
+          }));
+          s.openaiWs.send(JSON.stringify({ type: "response.create" }));
+        }
+        return;
+      }
       const confirmationTool = outputs.find(x => x?.type === "function_call" && x?.name === "request_user_confirmation");
       if (confirmationTool) {
         let args = {};
@@ -739,6 +834,8 @@ app.post("/api/agent-call", async (req, res) => {
 
     const context = String(req.body.context || "").trim().slice(0, 3000);
     const testMode = req.body.testMode === true;
+    const recordRequested = req.body.recordRequested === true;
+    const summaryLanguage = ["ro","en","da","es"].includes(req.body.summaryLanguage) ? req.body.summaryLanguage : "ro";
     const language = ["auto","da","en","es","ro"].includes(req.body.language) ? req.body.language : "auto";
     const personality = ["formal","normal","friendly","negotiator"].includes(req.body.personality) ? req.body.personality : "normal";
     const voice = normalizeVoice(req.body.voice);
@@ -747,12 +844,13 @@ app.post("/api/agent-call", async (req, res) => {
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, objective, context, language, personality, voice, testMode,
+      id, token, to, objective, context, language, personality, voice, testMode, recordRequested, summaryLanguage,
       created: Date.now(), answered: false, amdHuman: false, amdResult: null, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
       agentText: "", remoteText: "", summary: "", summaryData: null, summaryStarted: false,
       pendingConfirmation: null,
+      recordingActive: false, recordStopRequested: false, recordingUrl: null,
       realtimeUsd: 0
     };
     agentSessions.set(id, s);
@@ -866,6 +964,17 @@ app.post("/agent-webhook", async (req, res) => {
       agentSend(s, { type: "state", state: "voicemail-detected" });
       setTimeout(() => endAgentTelnyxCall(s), 100).unref?.();
     }
+  } else if (eventType === "call.recording.saved") {
+    const url = payload.recording_urls?.mp3 || payload.public_recording_urls?.mp3 ||
+      payload.recording_urls?.wav || payload.public_recording_urls?.wav || null;
+    if (url) {
+      s.recordingUrl = url;
+      s.recordingActive = false;
+      agentSend(s, { type: "recording-ready", url, temporary: !payload.public_recording_urls?.mp3 && !payload.public_recording_urls?.wav });
+    }
+  } else if (eventType === "call.recording.error") {
+    s.recordingActive = false;
+    agentSend(s, { type: "recording-status", status: "error", message: "Telnyx recording error" });
   } else if (eventType === "call.hangup") {
     finalizeAgentSession(s, "completed");
   }
@@ -1071,6 +1180,8 @@ agentClientWss.on("connection", (ws, req) => {
   if (s.agentText) agentSend(s, { type: "transcript-full", who: "agent", text: s.agentText });
   if (s.remoteText) agentSend(s, { type: "transcript-full", who: "remote", text: s.remoteText });
   if (s.summary) agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
+  if (s.recordingUrl) agentSend(s, { type: "recording-ready", url: s.recordingUrl, temporary: true });
+  else if (s.recordingActive) agentSend(s, { type: "recording-status", status: "recording" });
   if (s.pendingConfirmation) {
     agentSend(s, {
       type: "confirmation-request",
