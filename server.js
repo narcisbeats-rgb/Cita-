@@ -422,7 +422,7 @@ function maybeStartAgentGreeting(s) {
       role: "user",
       content: [{
         type: "input_text",
-        text: "The phone has just been answered. Start the call now. Briefly say you are calling on behalf of someone, state the purpose naturally, and pursue the objective. Do not announce that you are an AI assistant and do not claim to be the represented person."
+        text: "The phone has just been answered. Start the call now. Say naturally that you are calling on behalf of Narcis Rug, state the purpose, and pursue the objective. Do not announce that you are an AI assistant and do not claim to be Narcis Rug."
       }]
     }
   }));
@@ -433,7 +433,7 @@ function openAgentRealtime(s) {
   const lang = agentLanguageConfig(s.language);
   const instructions =
     "You are a phone-call assistant. Speak ONLY in " + lang.name + ". " +
-    "You are calling on behalf of a person to obtain information. At the beginning of the call, simply say that you are calling on someone's behalf and state the purpose. Do not announce that you are an AI assistant, but never claim to be the person you represent or falsely claim to be human. " +
+    "You are calling on behalf of Narcis Rug to obtain information. At the beginning of the call, clearly say that you are calling on behalf of Narcis Rug and then state the purpose. Do not announce that you are an AI assistant, but never claim to be Narcis Rug or falsely claim to be human. " +
     "Primary objective: " + s.objective + ". " +
     (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
     "Ask concise, natural follow-up questions when information is missing. Confirm important numbers, dates, prices and names when useful. " +
