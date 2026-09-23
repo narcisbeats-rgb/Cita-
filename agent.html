@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>Agent AI Telefon</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:#0b0d12;color:#f5f7fb;min-height:100vh}
+.wrap{max-width:820px;margin:auto;padding:18px 14px 42px}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:center}.back{color:#c9d6ff;text-decoration:none;font-size:14px}
+h1{font-size:31px;margin:10px 0 5px}.sub{color:#aeb7c8;line-height:1.45;margin:0 0 15px}
+.card{background:#141821;border:1px solid #252b38;border-radius:20px;padding:15px;margin:11px 0}
+label{font-size:13px;color:#aeb7c8;display:block;margin:0 0 7px}
+input,select,textarea{width:100%;background:#0f131a;color:#fff;border:1px solid #313a4b;border-radius:13px;padding:13px;font-size:16px;outline:none}
+textarea{min-height:118px;resize:vertical;line-height:1.45}
+input:focus,select:focus,textarea:focus{border-color:#6e8cff}
+.row{display:grid;grid-template-columns:1fr 105px;gap:9px}.two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+button{width:100%;border:0;border-radius:14px;min-height:52px;font-size:16px;font-weight:750;cursor:pointer}
+button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0b0d12}.hang{background:#361c22;color:#ffd8df;border:1px solid #63303b}
+.statusline{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.status{display:inline-flex;gap:8px;align-items:center;background:#0f131a;border-radius:99px;padding:8px 11px;color:#c7d0df;font-size:13px}
+.dot{width:9px;height:9px;background:#697386;border-radius:50%}.dot.live{background:#55d187;box-shadow:0 0 0 4px rgba(85,209,135,.12)}
+.phase{font-size:13px;font-weight:750;padding:8px 11px;border-radius:99px;background:#1d2941;color:#dce7ff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.pane{background:#0f131a;border:1px solid #252b38;border-radius:14px;padding:11px;min-height:180px}
+.pane h3{font-size:11px;text-transform:uppercase;letter-spacing:.055em;color:#9ba6b8;margin:0 0 7px}.pane p{white-space:pre-wrap;line-height:1.43;margin:0;font-size:14px}
+.summary{background:#0f131a;border:1px solid #32405a;border-radius:14px;padding:13px;white-space:pre-wrap;line-height:1.5;min-height:80px}
+.note{font-size:12px;color:#8792a5;line-height:1.45}.err{color:#ffb6c2;min-height:20px;margin-top:8px;font-size:13px}
+.metric{display:flex;justify-content:space-between;margin-top:10px;background:#0f131a;border-radius:13px;padding:11px 13px;color:#b8c3d4}.metric b{color:#fff}
+@media(max-width:620px){.grid,.two{grid-template-columns:1fr}.row{grid-template-columns:1fr 92px}h1{font-size:28px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<div class="top"><a class="back" href="/">← Traducere Live</a></div>
+<h1>Agent AI care sună</h1>
+<p class="sub">Îi spui ce trebuie să afle. Agentul sună, se prezintă ca asistent AI, pune întrebări și îți lasă transcrierea și rezumatul.</p>
+
+<section class="card">
+  <div class="two">
+    <div><label for="language">Limba apelului</label><select id="language">
+      <option value="da" selected>Daneză</option><option value="en">Engleză</option><option value="es">Spaniolă</option><option value="ro">Română</option>
+    </select></div>
+    <div><label for="voice">Voce</label><select id="voice">
+      <option value="cedar" selected>Cedar</option><option value="marin">Marin</option><option value="alloy">Alloy</option><option value="ash">Ash</option><option value="coral">Coral</option><option value="echo">Echo</option><option value="sage">Sage</option><option value="shimmer">Shimmer</option><option value="verse">Verse</option>
+    </select></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <div><label for="phone">Numărul pe care să-l sune</label><input id="phone" inputmode="tel" autocomplete="tel" placeholder="+45 12 34 56 78"></div>
+    <div><label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"></div>
+  </div>
+  <div style="margin-top:10px"><label for="objective">Ce trebuie să afle?</label><textarea id="objective" placeholder="Ex.: Sună și întreabă dacă apartamentul mai este disponibil, cât este depozitul, chiria totală cu cheltuieli și când se poate face mutarea."></textarea></div>
+  <div style="margin-top:10px"><label for="context">Context opțional</label><textarea id="context" style="min-height:82px" placeholder="Ex.: Am văzut anunțul pe BoligPortal. Nu vreau să facă rezervare, doar să afle informațiile."></textarea></div>
+  <button id="call" class="call" style="margin-top:11px">Sună cu agentul AI</button>
+  <div id="err" class="err"></div>
+  <div class="note">Agentul este limitat la obținerea de informații. Nu poate confirma rezervări, plăți, contracte sau alte angajamente în numele tău.</div>
+</section>
+
+<section class="card">
+  <div class="statusline">
+    <div class="status"><span id="dot" class="dot"></span><span id="status">Pregătit</span></div>
+    <div id="phase" class="phase">În așteptare</div>
+  </div>
+  <div class="metric"><span>Durată apel</span><b id="duration">00:00</b></div>
+  <button id="hang" class="hang" disabled style="margin-top:10px">Oprește apelul</button>
+</section>
+
+<section class="card">
+  <div class="grid">
+    <div class="pane"><h3>Agentul AI</h3><p id="agentText"></p></div>
+    <div class="pane"><h3>Interlocutorul</h3><p id="remoteText"></p></div>
+  </div>
+</section>
+
+<section class="card">
+  <label>Rezumat după apel</label>
+  <div id="summary" class="summary">Va apărea aici după încheierea apelului.</div>
+</section>
+</main>
+
+<script>
+(() => {
+  const $=id=>document.getElementById(id);
+  const phone=$("phone"),pin=$("pin"),language=$("language"),voice=$("voice"),objective=$("objective"),context=$("context");
+  const call=$("call"),hang=$("hang"),statusEl=$("status"),dot=$("dot"),phase=$("phase"),err=$("err"),duration=$("duration");
+  const agentText=$("agentText"),remoteText=$("remoteText"),summary=$("summary");
+  let sid=null,token=null,ws=null,callStartAt=0,timer=null,live=false;
+
+  function setError(t=""){err.textContent=t}
+  function setStatus(t,on=false){statusEl.textContent=t;dot.classList.toggle("live",on)}
+  function setPhase(s){
+    const names={connected:"Audio conectat",ready:"Agent pregătit",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește",ending:"Încheie apelul",ended:"Apel încheiat"};
+    phase.textContent=names[s]||s||"";
+  }
+  function fmt(sec){sec=Math.max(0,Math.floor(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0")}
+  function startTimer(){clearInterval(timer);timer=setInterval(()=>{duration.textContent=fmt((Date.now()-callStartAt)/1000)},1000)}
+  function connect(){
+    const scheme=location.protocol==="https:"?"wss":"ws";
+    ws=new WebSocket(scheme+"://"+location.host+"/agent-client?sid="+encodeURIComponent(sid)+"&token="+encodeURIComponent(token));
+    ws.onmessage=e=>{
+      let m;try{m=JSON.parse(e.data)}catch{return}
+      if(m.type==="status"){
+        const names={"app-connected":"Aplicația conectată",initiated:"Se inițiază…",ringing:"Sună…",answered:"A răspuns",completed:"Apel încheiat",expired:"Sesiune expirată"};
+        if(m.status==="answered")live=true;
+        if(["completed","expired"].includes(m.status)){live=false;finish()}
+        setStatus(names[m.status]||m.status,live);
+      }else if(m.type==="state"){setPhase(m.state)}
+      else if(m.type==="call-start"){callStartAt=Number(m.at)||Date.now();startTimer()}
+      else if(m.type==="transcript"){const el=m.who==="agent"?agentText:remoteText;if(m.delta)el.textContent+=m.delta;if(m.final&&!el.textContent.endsWith("\n"))el.textContent+="\n"}
+      else if(m.type==="transcript-full"){(m.who==="agent"?agentText:remoteText).textContent=m.text||""}
+      else if(m.type==="summary"){summary.textContent=m.text||"Fără rezumat."}
+      else if(m.type==="error"){setError(m.message||"Eroare")}
+    };
+  }
+  async function startCall(){
+    setError("");summary.textContent="Apel în desfășurare…";agentText.textContent="";remoteText.textContent="";
+    call.disabled=true;hang.disabled=false;language.disabled=true;voice.disabled=true;
+    try{
+      const r=await fetch("/api/agent-call",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        to:phone.value,pin:pin.value,language:language.value,voice:voice.value,objective:objective.value,context:context.value
+      })});
+      const d=await r.json();if(!r.ok)throw new Error(d.error||"Nu am putut porni apelul");
+      sid=d.sessionId;token=d.token;connect();setStatus("Se inițiază…");setPhase("În așteptare");
+    }catch(e){setError(e.message||String(e));call.disabled=false;hang.disabled=true;language.disabled=false;voice.disabled=false}
+  }
+  async function stopCall(){
+    if(!sid)return;hang.disabled=true;
+    try{await fetch("/api/agent-hangup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:sid,token})})}catch{}
+  }
+  function finish(){
+    clearInterval(timer);hang.disabled=true;call.disabled=false;language.disabled=false;voice.disabled=false;setPhase("ended");
+  }
+  call.addEventListener("click",startCall);hang.addEventListener("click",stopCall);
+})();
+</script>
+</body>
+</html>
