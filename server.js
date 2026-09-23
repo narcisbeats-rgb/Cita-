@@ -238,11 +238,14 @@ function maybeStartRealtime(s) {
 
   s.realtimeStarted = true;
   const lang = languageConfig(s.language);
+  const localIsDanish = s.direction === "local-da";
+  const localLanguage = localIsDanish ? "Danish" : lang.english;
+  const remoteLanguage = localIsDanish ? lang.english : "Danish";
   const baseRule = "Act only as a live interpreter. Never answer the speaker. Never add commentary, greetings, explanations or information. Preserve names, numbers, dates, tone and intent. Output only the translation.";
 
   s.localToDa = openRealtime({
-    side: "local-to-da",
-    instructions: baseRule + " Translate " + lang.english + " speech into natural spoken Danish.",
+    side: "local-to-remote",
+    instructions: baseRule + " Translate " + localLanguage + " speech into natural spoken " + remoteLanguage + ".",
     inputFormat: { type: "audio/pcm", rate: 24000 },
     outputFormat: { type: "audio/pcmu" },
     voice: s.voice,
@@ -258,11 +261,11 @@ function maybeStartRealtime(s) {
     },
     onSpeechStop: () => {
       s.localSpeaking = false;
-      safeSend(s.client, { type: "state", state: "translating-to-danish" });
+      safeSend(s.client, { type: "state", state: "translating-to-remote" });
     },
     onResponseStart: () => {
       s.localToDaActive = true;
-      safeSend(s.client, { type: "state", state: "translating-to-danish" });
+      safeSend(s.client, { type: "state", state: "translating-to-remote" });
     },
     onAudio: audio => {
       if (!s.remoteSpeaking && s.telnyxWs?.readyState === WebSocket.OPEN) {
@@ -283,8 +286,8 @@ function maybeStartRealtime(s) {
   });
 
   s.daToLocal = openRealtime({
-    side: "da-to-local",
-    instructions: baseRule + " Translate Danish speech into natural spoken " + lang.english + ".",
+    side: "remote-to-local",
+    instructions: baseRule + " Translate " + remoteLanguage + " speech into natural spoken " + localLanguage + ".",
     inputFormat: { type: "audio/pcmu" },
     outputFormat: { type: "audio/pcm", rate: 24000 },
     voice: s.voice,
@@ -301,11 +304,11 @@ function maybeStartRealtime(s) {
     },
     onSpeechStop: () => {
       s.remoteSpeaking = false;
-      safeSend(s.client, { type: "state", state: "translating-to-local" });
+      safeSend(s.client, { type: "state", state: "translating-to-you" });
     },
     onResponseStart: () => {
       s.daToLocalActive = true;
-      safeSend(s.client, { type: "state", state: "translating-to-local" });
+      safeSend(s.client, { type: "state", state: "translating-to-you" });
     },
     onAudio: audio => {
       if (!s.localSpeaking) {
@@ -325,7 +328,6 @@ function maybeStartRealtime(s) {
     onError: message => safeSend(s.client, { type: "error", message })
   });
 }
-
 
 function agentPersonalityInstructions(code) {
   const styles = {
@@ -993,13 +995,14 @@ app.post("/api/call", async (req, res) => {
     if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
 
     const language = ["ro","en","es"].includes(req.body.language) ? req.body.language : "ro";
+    const direction = req.body.direction === "local-da" ? "local-da" : "local-other";
     const voice = normalizeVoice(req.body.voice);
     const connectionId = await resolveConnectionId();
     const id = crypto.randomUUID();
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, language, voice, created: Date.now(),
+      id, token, to, language, direction, voice, created: Date.now(),
       answered: false,
       answeredAt: null,
       callControlId: null,
@@ -1037,7 +1040,7 @@ app.post("/api/call", async (req, res) => {
     });
 
     s.callControlId = result.data?.call_control_id || null;
-    res.json({ sessionId: id, token, status: "initiated", language, voice });
+    res.json({ sessionId: id, token, status: "initiated", language, direction, voice });
   } catch (e) {
     res.status(500).json({ error: e.message || "Nu am putut porni apelul" });
   }
