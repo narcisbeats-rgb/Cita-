@@ -29,6 +29,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 .report-section{border-top:1px solid #252b38;padding-top:11px;margin-top:11px}.report-title{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8e9aaf;margin-bottom:7px;font-weight:800}.report-list{display:grid;gap:7px}.report-item{background:#141a24;border-radius:10px;padding:9px 10px;font-size:13px;line-height:1.45}.report-item b{display:block;color:#eef3ff;margin-bottom:2px}.report-muted{color:#8792a5;font-size:13px}
 .note{font-size:12px;color:#8792a5;line-height:1.45}.err{color:#ffb6c2;min-height:20px;margin-top:8px;font-size:13px}
 .metric{display:flex;justify-content:space-between;margin-top:10px;background:#0f131a;border-radius:13px;padding:11px 13px;color:#b8c3d4}.metric b{color:#fff}
+.confirm-box{display:none;margin-top:12px;background:#171d29;border:1px solid #4a5f87;border-radius:15px;padding:13px}.confirm-title{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#9db7ee;font-weight:800}.confirm-question{font-size:17px;font-weight:800;line-height:1.4;margin-top:7px}.confirm-details{font-size:13px;color:#aab4c7;line-height:1.45;margin-top:7px}.confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.approve{background:#eaf6ee;color:#102517}.decline{background:#361c22;color:#ffd8df;border:1px solid #63303b}
 .agenda-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.agenda-head h2{font-size:19px;margin:0 0 4px}.agenda-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
 .contacts{display:grid;gap:8px;margin-top:10px}.contact{background:#0f131a;border:1px solid #252b38;border-radius:14px;padding:11px}.contact-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.contact-name{font-weight:800;font-size:15px}.contact-phone{font-size:13px;color:#9ba6b8;margin-top:3px}.contact-context{font-size:12px;color:#8792a5;margin-top:7px;line-height:1.4}.contact-actions{display:flex;gap:7px;margin-top:10px}.mini{width:auto;min-height:38px;padding:0 12px;border-radius:11px;background:#20283a;color:#e9efff;border:1px solid #34405a;font-size:13px}.mini.primary{background:#eef2fa;color:#0b0d12;border:0}.mini.danger{background:#2a171b;color:#ffc8d1;border:1px solid #5a2d36}.empty{font-size:13px;color:#7f899a;padding:10px 2px}
 @media(max-width:620px){.grid,.two{grid-template-columns:1fr}.row{grid-template-columns:1fr 92px}h1{font-size:28px}}
@@ -95,7 +96,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   <div style="margin-top:10px"><label for="context">Context opțional</label><textarea id="context" style="min-height:82px" placeholder="Ex.: Am văzut anunțul pe BoligPortal. Nu vreau să facă rezervare, doar să afle informațiile."></textarea></div>
   <button id="call" class="call" style="margin-top:11px">Sună cu agentul AI</button>
   <div id="err" class="err"></div>
-  <div class="note">Agentul este limitat la obținerea de informații. Nu poate confirma rezervări, plăți, contracte sau alte angajamente în numele tău.</div>
+  <div class="note">Pentru acțiuni simple, fără plată sau obligație juridică, agentul îți cere confirmarea în timp real. Plățile, contractele, identificarea și datele sensibile rămân întotdeauna la tine.</div>
 </section>
 
 <section class="card">
@@ -104,6 +105,15 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     <div id="phase" class="phase">În așteptare</div>
   </div>
   <div class="metric"><span>Durată apel</span><b id="duration">00:00</b></div>
+  <div id="confirmBox" class="confirm-box">
+    <div class="confirm-title">Agentul așteaptă confirmarea ta</div>
+    <div id="confirmQuestion" class="confirm-question"></div>
+    <div id="confirmDetails" class="confirm-details"></div>
+    <div class="confirm-actions">
+      <button id="confirmYes" class="approve">Accept</button>
+      <button id="confirmNo" class="decline">Refuz</button>
+    </div>
+  </div>
   <button id="hang" class="hang" disabled style="margin-top:10px">Oprește apelul</button>
 </section>
 
@@ -126,8 +136,10 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   const phone=$("phone"),pin=$("pin"),language=$("language"),voice=$("voice"),personality=$("personality"),personalityHint=$("personalityHint"),objective=$("objective"),context=$("context");
   const contactSearch=$("contactSearch"),contactsList=$("contactsList"),contactsEmpty=$("contactsEmpty"),newContact=$("newContact"),contactEditor=$("contactEditor"),contactName=$("contactName"),contactPhone=$("contactPhone"),contactDefaultObjective=$("contactDefaultObjective"),contactDefaultContext=$("contactDefaultContext"),saveContact=$("saveContact"),cancelContact=$("cancelContact"),contactErr=$("contactErr");
   const call=$("call"),hang=$("hang"),statusEl=$("status"),dot=$("dot"),phase=$("phase"),err=$("err"),duration=$("duration");
+  const confirmBox=$("confirmBox"),confirmQuestion=$("confirmQuestion"),confirmDetails=$("confirmDetails"),confirmYes=$("confirmYes"),confirmNo=$("confirmNo");
   const agentText=$("agentText"),remoteText=$("remoteText"),summary=$("summary");
   let sid=null,token=null,ws=null,callStartAt=0,timer=null,live=false;
+  let activeConfirmationId=null,confirmationBusy=false;
   let editingContactId=null;
   const CONTACTS_KEY="aiPhoneAgentContactsV1";
 
@@ -215,7 +227,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   }
   function setStatus(t,on=false){statusEl.textContent=t;dot.classList.toggle("live",on)}
   function setPhase(s){
-    const names={connected:"Audio conectat",ready:"Agent pregătit",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește",ending:"Încheie apelul",ended:"Apel încheiat"};
+    const names={connected:"Audio conectat",ready:"Agent pregătit",listening:"Ascultă interlocutorul",thinking:"Pregătește răspunsul",speaking:"Agentul vorbește","awaiting-confirmation":"Așteaptă confirmarea ta",ending:"Încheie apelul",ended:"Apel încheiat"};
     phase.textContent=names[s]||s||"";
   }
   function fmt(sec){sec=Math.max(0,Math.floor(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0")}
@@ -235,11 +247,25 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       else if(m.type==="transcript"){const el=m.who==="agent"?agentText:remoteText;if(m.delta)el.textContent+=m.delta;if(m.final&&!el.textContent.endsWith("\n"))el.textContent+="\n"}
       else if(m.type==="transcript-full"){(m.who==="agent"?agentText:remoteText).textContent=m.text||""}
       else if(m.type==="summary"){renderSummary(m.data,m.text)}
+      else if(m.type==="confirmation-request"){
+        activeConfirmationId=m.id;
+        confirmationBusy=false;
+        confirmQuestion.textContent=m.question||"Confirmi această acțiune?";
+        confirmDetails.textContent=m.details||"";
+        confirmDetails.style.display=m.details?"block":"none";
+        confirmYes.disabled=false;confirmNo.disabled=false;
+        confirmBox.style.display="block";
+        confirmBox.scrollIntoView({behavior:"smooth",block:"center"});
+      }
+      else if(m.type==="confirmation-result"){
+        activeConfirmationId=null;confirmationBusy=false;confirmBox.style.display="none";
+      }
       else if(m.type==="error"){setError(m.message||"Eroare")}
     };
   }
   async function startCall(){
     setError("");summary.textContent="Apel în desfășurare…";agentText.textContent="";remoteText.textContent="";
+    activeConfirmationId=null;confirmationBusy=false;confirmBox.style.display="none";
     call.disabled=true;hang.disabled=false;language.disabled=true;voice.disabled=true;personality.disabled=true;
     try{
       const r=await fetch("/api/agent-call",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
@@ -249,12 +275,27 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       sid=d.sessionId;token=d.token;connect();setStatus("Se inițiază…");setPhase("În așteptare");
     }catch(e){setError(e.message||String(e));call.disabled=false;hang.disabled=true;language.disabled=false;voice.disabled=false;personality.disabled=false}
   }
+  async function answerConfirmation(approved){
+    if(!sid||!activeConfirmationId||confirmationBusy)return;
+    confirmationBusy=true;confirmYes.disabled=true;confirmNo.disabled=true;
+    try{
+      const r=await fetch("/api/agent-confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        sessionId:sid,token,confirmationId:activeConfirmationId,approved
+      })});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||"Nu am putut trimite confirmarea");
+      activeConfirmationId=null;confirmBox.style.display="none";
+    }catch(e){
+      confirmationBusy=false;confirmYes.disabled=false;confirmNo.disabled=false;setError(e.message||String(e));
+    }
+  }
   async function stopCall(){
     if(!sid)return;hang.disabled=true;
     try{await fetch("/api/agent-hangup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:sid,token})})}catch{}
   }
   function finish(){
-    clearInterval(timer);hang.disabled=true;call.disabled=false;language.disabled=false;voice.disabled=false;personality.disabled=false;setPhase("ended");
+    clearInterval(timer);hang.disabled=true;call.disabled=false;language.disabled=false;voice.disabled=false;personality.disabled=false;
+    activeConfirmationId=null;confirmationBusy=false;confirmBox.style.display="none";setPhase("ended");
   }
   function updatePersonalityHint(){
     const hints={
@@ -285,6 +326,8 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   });
   updatePersonalityHint();
   renderContacts();
+  confirmYes.addEventListener("click",()=>answerConfirmation(true));
+  confirmNo.addEventListener("click",()=>answerConfirmation(false));
   call.addEventListener("click",startCall);hang.addEventListener("click",stopCall);
 })();
 </script>
