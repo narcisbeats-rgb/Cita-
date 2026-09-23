@@ -160,6 +160,13 @@ function ensureRealtime(s) {
 }
 
 app.get("/", (_req, res) => res.sendFile(path.resolve("index.html")));
+app.post("/telnyx-webhook", (req, res) => {
+  const eventType = req.body?.data?.event_type || "unknown";
+  const payload = req.body?.data?.payload || {};
+  console.log("Telnyx webhook:", eventType, payload.call_control_id || payload.call_leg_id || "");
+  res.sendStatus(204);
+});
+
 app.get("/health", (_req, res) => {
   const missing = missingConfig();
   res.status(missing.length ? 503 : 200).json({ ok: missing.length === 0, service: "live-ro-da-translator-plivo", missing });
