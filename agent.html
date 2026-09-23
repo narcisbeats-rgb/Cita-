@@ -44,6 +44,20 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 <section class="card">
   <div class="agenda-head">
     <div>
+      <h2>Apel de test către mine</h2>
+      <div class="note">Agentul te sună pentru o conversație scurtă ca să verifici vocea, microfonul, întreruperile, limba și personalitatea selectată.</div>
+    </div>
+  </div>
+  <div class="agenda-tools">
+    <input id="testPhone" inputmode="tel" autocomplete="tel" placeholder="Numărul meu, ex. +45 12 34 56 78">
+    <button id="testCall" class="mini primary">Sună-mă pentru test</button>
+  </div>
+  <div class="note" style="margin-top:7px">Numărul se salvează doar în browserul tău. Pentru test ai nevoie și de PIN-ul completat mai jos.</div>
+</section>
+
+<section class="card">
+  <div class="agenda-head">
+    <div>
       <h2>Agenda mea</h2>
       <div class="note">Salvează persoane și firme împreună cu numărul, contextul și setările apelului.</div>
     </div>
@@ -134,6 +148,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 (() => {
   const $=id=>document.getElementById(id);
   const phone=$("phone"),pin=$("pin"),language=$("language"),voice=$("voice"),personality=$("personality"),personalityHint=$("personalityHint"),objective=$("objective"),context=$("context");
+  const testPhone=$("testPhone"),testCall=$("testCall");
   const contactSearch=$("contactSearch"),contactsList=$("contactsList"),contactsEmpty=$("contactsEmpty"),newContact=$("newContact"),contactEditor=$("contactEditor"),contactName=$("contactName"),contactPhone=$("contactPhone"),contactDefaultObjective=$("contactDefaultObjective"),contactDefaultContext=$("contactDefaultContext"),saveContact=$("saveContact"),cancelContact=$("cancelContact"),contactErr=$("contactErr");
   const call=$("call"),hang=$("hang"),statusEl=$("status"),dot=$("dot"),phase=$("phase"),err=$("err"),duration=$("duration");
   const confirmBox=$("confirmBox"),confirmQuestion=$("confirmQuestion"),confirmDetails=$("confirmDetails"),confirmYes=$("confirmYes"),confirmNo=$("confirmNo");
@@ -142,6 +157,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   let activeConfirmationId=null,confirmationBusy=false;
   let editingContactId=null;
   const CONTACTS_KEY="aiPhoneAgentContactsV1";
+  const TEST_PHONE_KEY="aiPhoneAgentTestPhoneV1";
 
   function setError(t=""){err.textContent=t}
   function renderSummary(data,text){
@@ -263,17 +279,33 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       else if(m.type==="error"){setError(m.message||"Eroare")}
     };
   }
-  async function startCall(){
+  async function launchAgentCall(payload){
     setError("");summary.textContent="Apel în desfășurare…";agentText.textContent="";remoteText.textContent="";
     activeConfirmationId=null;confirmationBusy=false;confirmBox.style.display="none";
-    call.disabled=true;hang.disabled=false;language.disabled=true;voice.disabled=true;personality.disabled=true;
+    call.disabled=true;testCall.disabled=true;hang.disabled=false;language.disabled=true;voice.disabled=true;personality.disabled=true;
     try{
-      const r=await fetch("/api/agent-call",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        to:phone.value,pin:pin.value,language:language.value,voice:voice.value,personality:personality.value,objective:objective.value,context:context.value
-      })});
+      const r=await fetch("/api/agent-call",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const d=await r.json();if(!r.ok)throw new Error(d.error||"Nu am putut porni apelul");
       sid=d.sessionId;token=d.token;connect();setStatus("Se inițiază…");setPhase("În așteptare");
-    }catch(e){setError(e.message||String(e));call.disabled=false;hang.disabled=true;language.disabled=false;voice.disabled=false;personality.disabled=false}
+    }catch(e){
+      setError(e.message||String(e));call.disabled=false;testCall.disabled=false;hang.disabled=true;language.disabled=false;voice.disabled=false;personality.disabled=false;
+    }
+  }
+  async function startCall(){
+    await launchAgentCall({
+      to:phone.value,pin:pin.value,language:language.value,voice:voice.value,personality:personality.value,
+      objective:objective.value,context:context.value,testMode:false
+    });
+  }
+  async function startTestCall(){
+    const to=testPhone.value.trim();
+    if(!to){setError("Scrie numărul tău pentru apelul de test.");testPhone.focus();return}
+    localStorage.setItem(TEST_PHONE_KEY,to);
+    await launchAgentCall({
+      to,pin:pin.value,language:language.value,voice:voice.value,personality:personality.value,testMode:true,
+      objective:"Fă un apel de test scurt către Narcis. Verifică dacă mă aude clar și dacă tu îl auzi clar. Vorbește natural 2-3 schimburi scurte, permite întreruperile normale, apoi mulțumește și încheie apelul. Nu face nicio acțiune reală și nu cere date sensibile.",
+      context:"Acesta este doar un test tehnic al agentului telefonic. Nu există nicio solicitare reală, rezervare, achiziție sau angajament."
+    });
   }
   async function answerConfirmation(approved){
     if(!sid||!activeConfirmationId||confirmationBusy)return;
@@ -294,7 +326,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
     try{await fetch("/api/agent-hangup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:sid,token})})}catch{}
   }
   function finish(){
-    clearInterval(timer);hang.disabled=true;call.disabled=false;language.disabled=false;voice.disabled=false;personality.disabled=false;
+    clearInterval(timer);hang.disabled=true;call.disabled=false;testCall.disabled=false;language.disabled=false;voice.disabled=false;personality.disabled=false;
     activeConfirmationId=null;confirmationBusy=false;confirmBox.style.display="none";setPhase("ended");
   }
   function updatePersonalityHint(){
@@ -324,6 +356,9 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       }
     }
   });
+  testPhone.value=localStorage.getItem(TEST_PHONE_KEY)||"";
+  testPhone.addEventListener("change",()=>localStorage.setItem(TEST_PHONE_KEY,testPhone.value.trim()));
+  testCall.addEventListener("click",startTestCall);
   updatePersonalityHint();
   renderContacts();
   confirmYes.addEventListener("click",()=>answerConfirmation(true));
