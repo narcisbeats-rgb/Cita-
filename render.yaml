@@ -12,12 +12,12 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_REALTIME_MODEL
-        value: gpt-realtime
-      - key: TWILIO_ACCOUNT_SID
+        value: gpt-realtime-translate
+      - key: PLIVO_AUTH_ID
         sync: false
-      - key: TWILIO_AUTH_TOKEN
+      - key: PLIVO_AUTH_TOKEN
         sync: false
-      - key: TWILIO_FROM_NUMBER
+      - key: PLIVO_FROM_NUMBER
         sync: false
       - key: APP_PIN
         sync: false
