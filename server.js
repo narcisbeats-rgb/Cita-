@@ -410,9 +410,51 @@ setInterval(() => {
   }
 }, 60000).unref();
 
+
+async function probeTranslationCapabilities() {
+  if (!OPENAI_API_KEY) return;
+  await new Promise(resolve => {
+    const ws = new WebSocket(
+      "wss://api.openai.com/v1/realtime/translations?model=gpt-realtime-translate",
+      { headers: { Authorization: "Bearer " + OPENAI_API_KEY, "OpenAI-Safety-Identifier": "live-translator-probe" } }
+    );
+    let done = false;
+    const finish = (label) => {
+      if (done) return;
+      done = true;
+      console.log("OpenAI translation probe:", label);
+      try { ws.close(); } catch {}
+      resolve();
+    };
+    const timer = setTimeout(() => finish("timeout"), 6000);
+    ws.on("open", () => {
+      ws.send(JSON.stringify({
+        type: "session.update",
+        session: { audio: { output: { language: "da", voice: "cedar" } } }
+      }));
+    });
+    ws.on("message", raw => {
+      let ev;
+      try { ev = JSON.parse(raw.toString()); } catch { return; }
+      if (ev.type === "session.updated") {
+        clearTimeout(timer);
+        finish("Danish + Cedar accepted");
+      } else if (ev.type === "error") {
+        clearTimeout(timer);
+        finish("error: " + (ev.error?.message || JSON.stringify(ev.error || ev)));
+      }
+    });
+    ws.on("error", err => {
+      clearTimeout(timer);
+      finish("socket error: " + err.message);
+    });
+  });
+}
+
 server.listen(PORT, async () => {
   console.log("Live RO↔DA translator (Telnyx) listening on :" + PORT);
   console.log("Missing runtime config:", missingConfig().join(", ") || "none");
+  await probeTranslationCapabilities();
   if (TELNYX_API_KEY) {
     try {
       const id = await resolveConnectionId();
