@@ -145,7 +145,14 @@ function ensureRealtime(s) {
       instructions: "You are a strict live interpreter. Translate ONLY " + lang.english + " speech into natural spoken Danish. Preserve names, numbers, meaning and tone. Never answer the speaker, never explain, never add information. Output only the Danish translation.",
       inputFormat: { type: "audio/pcm", rate: 24000 },
       outputFormat: { type: "audio/pcmu" },
-      turnDetection: null,
+      turnDetection: {
+        type: "server_vad",
+        threshold: 0.5,
+        prefix_padding_ms: 250,
+        silence_duration_ms: 420,
+        create_response: true,
+        interrupt_response: true
+      },
       onAudio: audio => {
         if (s.telnyxWs?.readyState === WebSocket.OPEN) {
           s.telnyxWs.send(JSON.stringify({ event: "media", media: { payload: audio } }));
@@ -357,10 +364,6 @@ clientWss.on("connection", (ws, req) => {
       s.roDa.send(JSON.stringify({ type: "input_audio_buffer.append", audio: m.audio }));
     }
 
-    if (m.type === "ptt-end" && s.roDa?.readyState === WebSocket.OPEN) {
-      s.roDa.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
-      s.roDa.send(JSON.stringify({ type: "response.create" }));
-    }
   });
 
   ws.on("close", () => {
