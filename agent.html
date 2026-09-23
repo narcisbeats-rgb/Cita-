@@ -24,7 +24,9 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
 .phase{font-size:13px;font-weight:750;padding:8px 11px;border-radius:99px;background:#1d2941;color:#dce7ff}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.pane{background:#0f131a;border:1px solid #252b38;border-radius:14px;padding:11px;min-height:180px}
 .pane h3{font-size:11px;text-transform:uppercase;letter-spacing:.055em;color:#9ba6b8;margin:0 0 7px}.pane p{white-space:pre-wrap;line-height:1.43;margin:0;font-size:14px}
-.summary{background:#0f131a;border:1px solid #32405a;border-radius:14px;padding:13px;white-space:pre-wrap;line-height:1.5;min-height:80px}
+.summary{background:#0f131a;border:1px solid #32405a;border-radius:14px;padding:13px;line-height:1.5;min-height:80px}
+.report-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}.report-result{font-size:16px;font-weight:800;line-height:1.45}.report-status{flex:none;padding:6px 10px;border-radius:999px;background:#1b2940;color:#dce8ff;font-size:12px;font-weight:800}.report-status.ok{background:#153323;color:#bff4d1}.report-status.partial{background:#372d18;color:#ffe6a8}.report-status.none{background:#3a1d23;color:#ffc7d0}
+.report-section{border-top:1px solid #252b38;padding-top:11px;margin-top:11px}.report-title{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8e9aaf;margin-bottom:7px;font-weight:800}.report-list{display:grid;gap:7px}.report-item{background:#141a24;border-radius:10px;padding:9px 10px;font-size:13px;line-height:1.45}.report-item b{display:block;color:#eef3ff;margin-bottom:2px}.report-muted{color:#8792a5;font-size:13px}
 .note{font-size:12px;color:#8792a5;line-height:1.45}.err{color:#ffb6c2;min-height:20px;margin-top:8px;font-size:13px}
 .metric{display:flex;justify-content:space-between;margin-top:10px;background:#0f131a;border-radius:13px;padding:11px 13px;color:#b8c3d4}.metric b{color:#fff}
 .agenda-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.agenda-head h2{font-size:19px;margin:0 0 4px}.agenda-tools{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
@@ -130,6 +132,27 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
   const CONTACTS_KEY="aiPhoneAgentContactsV1";
 
   function setError(t=""){err.textContent=t}
+  function renderSummary(data,text){
+    if(!data){
+      summary.textContent=text||"Fără rezumat.";
+      return;
+    }
+    const status=String(data.status||"Parțial");
+    const statusClass=/^obținut$/i.test(status)?"ok":(/^fără/i.test(status)?"none":"partial");
+    const section=(title,items,renderer)=>{
+      if(!Array.isArray(items)||!items.length)return "";
+      return '<div class="report-section"><div class="report-title">'+esc(title)+'</div><div class="report-list">'+items.map(renderer).join("")+'</div></div>';
+    };
+    let html='<div class="report-head"><div class="report-result">'+esc(data.result||text||"Apel încheiat.")+'</div><div class="report-status '+statusClass+'">'+esc(status)+'</div></div>';
+    html+=section("Răspunsuri directe",data.answers,x=>'<div class="report-item"><b>'+esc(x.question||"Întrebare")+'</b>'+esc(x.answer||"—")+'</div>');
+    html+=section("Informații importante",data.facts,x=>'<div class="report-item"><b>'+esc(x.label||"Detaliu")+'</b>'+esc(x.value||"—")+'</div>');
+    html+=section("Prețuri / sume",data.prices,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section("Date / termene",data.dates,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section("Condiții / cerințe",data.conditions,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section("Ce a rămas neclar",data.unanswered,x=>'<div class="report-item">'+esc(x)+'</div>');
+    html+=section("Ce faci mai departe",data.next_steps,x=>'<div class="report-item">'+esc(x)+'</div>');
+    summary.innerHTML=html||'<div class="report-muted">Fără informații suficiente pentru raport.</div>';
+  }
   function getContacts(){
     try{
       const value=JSON.parse(localStorage.getItem(CONTACTS_KEY)||"[]");
@@ -211,7 +234,7 @@ button:disabled{opacity:.42;cursor:not-allowed}.call{background:#eef2fa;color:#0
       else if(m.type==="call-start"){callStartAt=Number(m.at)||Date.now();startTimer()}
       else if(m.type==="transcript"){const el=m.who==="agent"?agentText:remoteText;if(m.delta)el.textContent+=m.delta;if(m.final&&!el.textContent.endsWith("\n"))el.textContent+="\n"}
       else if(m.type==="transcript-full"){(m.who==="agent"?agentText:remoteText).textContent=m.text||""}
-      else if(m.type==="summary"){summary.textContent=m.text||"Fără rezumat."}
+      else if(m.type==="summary"){renderSummary(m.data,m.text)}
       else if(m.type==="error"){setError(m.message||"Eroare")}
     };
   }
