@@ -413,7 +413,7 @@ function finalizeAgentSession(s, status = "completed") {
   }, 30 * 60 * 1000).unref?.();
 }
 function maybeStartAgentGreeting(s) {
-  if (!s || !s.answered || !s.openaiReady || s.greetingStarted || s.openaiWs?.readyState !== WebSocket.OPEN) return;
+  if (!s || !s.answered || !s.openaiReady || s.greetingStarted || s.openaiWs?.readyState !== WebSocket.OPEN || s.telnyxWs?.readyState !== WebSocket.OPEN) return;
   s.greetingStarted = true;
   s.openaiWs.send(JSON.stringify({
     type: "conversation.item.create",
