@@ -406,48 +406,68 @@ function parseStructuredAgentSummary(text) {
     return null;
   }
 }
-async function summarizeAgentCall(s) {
-  if (!s || s.summaryStarted) return;
-  s.summaryStarted = true;
-  const transcript = ("AGENT:\n" + s.agentText + "\nINTERLOCUTOR:\n" + s.remoteText).trim();
-  if (!OPENAI_API_KEY || transcript.length < 20) {
-    s.summary = transcript.length < 20 ? "Nu există suficientă conversație pentru un rezumat." : "Rezumat indisponibil.";
-    s.summaryData = null;
-    agentSend(s, { type: "summary", text: s.summary, data: null });
-    return;
-  }
-  try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + OPENAI_API_KEY,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-5.4-nano",
-        input:
-          "Objective of the call: " + s.objective + "\n" +
-          "User context: " + (s.context || "none") + "\n\n" +
-          "Transcript:\n" + transcript + "\n\n" +
-          "Write all user-facing text in " + summaryLanguageName(s.summaryLanguage) + ". " +
-          "Return ONLY valid JSON, with no markdown and no code fences. Use exactly this shape: " +
-          '{"status":"obtained|partial|no_answer","result":"one clear overall result","answers":[{"question":"what needed to be learned","answer":"direct answer"}],"facts":[{"label":"short label","value":"exact useful fact"}],"prices":["price or money fact"],"dates":["date/time/deadline"],"conditions":["condition, requirement, limitation or offer"],"unanswered":["important point not answered"],"next_steps":["what Narcis should do next, if anything"]}. ' +
-          "Put only information explicitly supported by the call. Preserve exact numbers, currencies, dates, names and addresses when stated. Do not invent or infer missing facts. Avoid duplicating the same fact across several sections unless necessary."
-      })
-    });
-    const raw = await response.text();
-    let data = {};
-    try { data = raw ? JSON.parse(raw) : {}; } catch {}
-    if (!response.ok) throw new Error(data?.error?.message || raw || "OpenAI summary error");
-    const summaryText = extractResponseText(data);
-    s.summaryData = parseStructuredAgentSummary(summaryText);
-    s.summary = s.summaryData?.result || summaryText || "Apel încheiat. Rezumatul automat nu a returnat text.";
-  } catch (e) {
-    console.error("Agent summary error:", e.message);
-    s.summaryData = null;
-    s.summary = "Apel încheiat. Rezumatul automat nu a putut fi generat: " + e.message;
+function publishAgentSummary(s, summaryText, fallbackMessage = "Apel încheiat. Rezumatul automat nu a putut fi generat.") {
+  if (!s) return;
+  const text = String(summaryText || "").trim();
+  s.summaryData = parseStructuredAgentSummary(text);
+  s.summary = s.summaryData?.result || text || fallbackMessage;
+  s.summaryPending = false;
+  if (s.summaryTimer) {
+    clearTimeout(s.summaryTimer);
+    s.summaryTimer = null;
   }
   agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
+}
+function requestAgentSummaryFromRealtime(s) {
+  if (!s || s.summaryStarted) return;
+  s.summaryStarted = true;
+
+  if (!s.openaiWs || s.openaiWs.readyState !== WebSocket.OPEN || !s.openaiReady) {
+    publishAgentSummary(s, "", "Apel încheiat. Nu există suficient context pentru un rezumat.");
+    closeSocket(s.openaiWs);
+    return;
+  }
+
+  s.summaryPending = true;
+  const summaryInstructions =
+    "INTERNAL POST-CALL TASK. The phone call has ended. Do not speak audio and do not call any tools. " +
+    "Using only the conversation you heard in this Realtime session, create a concise structured summary for Narcis. " +
+    "Objective of the call: " + s.objective + ". " +
+    (s.context ? "User context: " + s.context + ". " : "") +
+    "Write all user-facing text in " + summaryLanguageName(s.summaryLanguage) + ". " +
+    "Return ONLY valid JSON, with no markdown and no code fences. Use exactly this shape: " +
+    '{"status":"obtained|partial|no_answer","result":"one clear overall result","answers":[{"question":"what needed to be learned","answer":"direct answer"}],"facts":[{"label":"short label","value":"exact useful fact"}],"prices":["price or money fact"],"dates":["date/time/deadline"],"conditions":["condition, requirement, limitation or offer"],"unanswered":["important point not answered"],"next_steps":["what Narcis should do next, if anything"]}. ' +
+    "Include only information actually supported by the call. Preserve exact numbers, currencies, dates and names when you are confident. Do not invent missing details.";
+
+  const sendSummaryRequest = () => {
+    if (!s.openaiWs || s.openaiWs.readyState !== WebSocket.OPEN || !s.summaryPending) {
+      publishAgentSummary(s, "", "Apel încheiat. Rezumatul automat nu a putut fi generat.");
+      closeSocket(s.openaiWs);
+      return;
+    }
+    s.openaiWs.send(JSON.stringify({
+      type: "response.create",
+      response: {
+        metadata: { purpose: "post_call_summary" },
+        output_modalities: ["text"],
+        tool_choice: "none",
+        instructions: summaryInstructions
+      }
+    }));
+    s.summaryTimer = setTimeout(() => {
+      if (!s.summaryPending) return;
+      publishAgentSummary(s, "", "Apel încheiat. Rezumatul a expirat înainte să fie generat.");
+      closeSocket(s.openaiWs);
+    }, 12000);
+    s.summaryTimer.unref?.();
+  };
+
+  if (s.responseActive) {
+    try { s.openaiWs.send(JSON.stringify({ type: "response.cancel" })); } catch {}
+    setTimeout(sendSummaryRequest, 180).unref?.();
+  } else {
+    sendSummaryRequest();
+  }
 }
 async function startAgentRecording(s, toolCallId) {
   if (!s?.recordRequested || !s?.callControlId || s.recordingActive) return false;
@@ -522,10 +542,10 @@ function finalizeAgentSession(s, status = "completed") {
   if (!s || s.ended) return;
   s.ended = true;
   agentSend(s, { type: "status", status });
-  closeSocket(s.openaiWs);
   closeSocket(s.telnyxWs);
-  summarizeAgentCall(s);
+  requestAgentSummaryFromRealtime(s);
   setTimeout(() => {
+    closeSocket(s.openaiWs);
     closeSocket(s.client);
     agentSessions.delete(s.id);
   }, 30 * 60 * 1000).unref?.();
@@ -645,11 +665,6 @@ function openAgentRealtime(s) {
         audio: {
           input: {
             format: { type: "audio/pcmu" },
-            transcription: {
-              model: "gpt-live-transcribe",
-              delay: "low",
-              ...(lang.code ? { languages: [lang.code] } : {})
-            },
             turn_detection: {
               type: "server_vad",
               threshold: 0.5,
@@ -671,6 +686,10 @@ function openAgentRealtime(s) {
   ws.on("message", raw => {
     const ev = safeJson(raw);
     if (!ev) return;
+    if (ev.type === "response.created") {
+      s.responseActive = true;
+      return;
+    }
     if (ev.type === "session.updated") {
       s.openaiReady = true;
       agentSend(s, { type: "state", state: "ready" });
@@ -685,14 +704,6 @@ function openAgentRealtime(s) {
       agentSend(s, { type: "state", state: "thinking" });
       return;
     }
-    if (ev.type === "conversation.item.input_audio_transcription.delta" && ev.delta) {
-      agentTranscript(s, "remote", ev.delta, false);
-      return;
-    }
-    if (ev.type === "conversation.item.input_audio_transcription.completed") {
-      agentTranscript(s, "remote", "", true);
-      return;
-    }
     if ((ev.type === "response.output_audio.delta" || ev.type === "response.audio.delta") && ev.delta) {
       if (s.telnyxWs?.readyState === WebSocket.OPEN) {
         s.telnyxWs.send(JSON.stringify({ event: "media", media: { payload: ev.delta } }));
@@ -700,17 +711,18 @@ function openAgentRealtime(s) {
       agentSend(s, { type: "state", state: "speaking" });
       return;
     }
-    if ((ev.type === "response.output_audio_transcript.delta" || ev.type === "response.audio_transcript.delta") && ev.delta) {
-      agentTranscript(s, "agent", ev.delta, false);
-      return;
-    }
-    if (ev.type === "response.output_audio_transcript.done" || ev.type === "response.audio_transcript.done") {
-      agentTranscript(s, "agent", "", true);
-      return;
-    }
     if (ev.type === "response.done") {
+      s.responseActive = false;
       s.realtimeUsd = (s.realtimeUsd || 0) + estimateRealtimeResponseCost(ev.response?.usage || null, s.model);
       agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd });
+
+      if (ev.response?.metadata?.purpose === "post_call_summary") {
+        const summaryText = extractResponseText(ev.response);
+        publishAgentSummary(s, summaryText, "Apel încheiat. Rezumatul automat nu a returnat text.");
+        closeSocket(s.openaiWs);
+        return;
+      }
+
       const outputs = Array.isArray(ev.response?.output) ? ev.response.output : [];
       const recordingTool = outputs.find(x => x?.type === "function_call" && x?.name === "start_call_recording");
       if (recordingTool) {
@@ -867,8 +879,8 @@ app.post("/api/agent-call", async (req, res) => {
       id, token, to, objective, context, language, personality, voice, model, mode, testMode, recordRequested, summaryLanguage,
       created: Date.now(), answered: false, amdHuman: false, amdResult: null, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
-      openaiReady: false, greetingStarted: false, hangupRequested: false,
-      agentText: "", remoteText: "", summary: "", summaryData: null, summaryStarted: false,
+      openaiReady: false, greetingStarted: false, hangupRequested: false, responseActive: false,
+      summary: "", summaryData: null, summaryStarted: false, summaryPending: false, summaryTimer: null,
       pendingConfirmation: null,
       recordingActive: false, recordStopRequested: false, recordingUrl: null,
       realtimeUsd: 0
@@ -1198,8 +1210,6 @@ agentClientWss.on("connection", (ws, req) => {
   s.client = ws;
   agentSend(s, { type: "status", status: s.ended ? "completed" : (s.answered ? "answered" : "app-connected") });
   if (s.answeredAt) agentSend(s, { type: "call-start", at: s.answeredAt });
-  if (s.agentText) agentSend(s, { type: "transcript-full", who: "agent", text: s.agentText });
-  if (s.remoteText) agentSend(s, { type: "transcript-full", who: "remote", text: s.remoteText });
   if (s.summary) agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
   if (s.recordingUrl) agentSend(s, { type: "recording-ready", url: s.recordingUrl, temporary: true });
   else if (s.recordingActive) agentSend(s, { type: "recording-status", status: "recording" });
