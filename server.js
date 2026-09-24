@@ -596,7 +596,7 @@ function openAgentRealtime(s) {
     identityInstruction + " " +
     modeInstruction + " " +
     (s.recordRequested
-      ? "The user requested an audio recording. Near the beginning of the conversation, clearly ask the other person for permission to record so Narcis can listen to the conversation later. Do NOT start recording until the other person explicitly agrees. If they agree, call the start_call_recording tool immediately. If they refuse or do not clearly agree, continue without recording and do not ask again. "
+      ? "The user requested an audio recording. Immediately after the brief greeting and before the substantive conversation, clearly ask the other person for permission to record so Narcis can listen to the conversation later. Ask this as one short standalone question, then wait. Do NOT start recording until the other person explicitly agrees. The moment they clearly agree, call the start_call_recording tool immediately before continuing with the conversation. After the tool confirms recording_started=true, continue naturally. If they refuse or do not clearly agree, continue without recording and do not ask again. "
       : "") +
     "Primary objective: " + s.objective + ". " +
     (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
