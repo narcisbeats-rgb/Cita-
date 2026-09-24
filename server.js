@@ -541,8 +541,10 @@ function maybeStartAgentGreeting(s) {
       content: [{
         type: "input_text",
         text: s.testMode
-          ? "The phone has just been answered. This is a test call to Narcis Rug. Start naturally, clearly say this is a short test call, and follow the test objective. Do not say you are calling on behalf of Narcis Rug."
-          : "The phone has just been answered. Start the call now. Say naturally that you are calling on behalf of Narcis Rug, state the purpose, and pursue the objective. Do not announce that you are an AI assistant and do not claim to be Narcis Rug."
+          ? "The phone has just been answered. This is a test call to Narcis Rug. Start naturally and briefly, then follow the test objective. Ask only one opening question and wait for the answer. Do not say you are calling on behalf of Narcis Rug."
+          : (s.mode === "natural"
+              ? "The phone has just been answered. Start the call naturally and briefly. Say that Narcis Rug asked you to call, then use the objective to choose ONE short opening question. Do not explain the whole objective, do not ask multiple questions at once, and wait for the other person to answer."
+              : "The phone has just been answered. Start the call now. Say naturally that you are calling on behalf of Narcis Rug, state the purpose briefly, and pursue the objective. Do not announce that you are an AI assistant and do not claim to be Narcis Rug.")
       }]
     }
   }));
@@ -559,21 +561,26 @@ function openAgentRealtime(s) {
     : "Speak ONLY in " + lang.name + ".";
   const identityInstruction = s.testMode
     ? "This is a test call directly to Narcis Rug. At the beginning, say naturally that this is a short test call to check the agent audio and behavior. Do not say you are calling on behalf of Narcis Rug."
-    : "You are calling on behalf of Narcis Rug to obtain information. At the beginning of the call, clearly say that you are calling on behalf of Narcis Rug and then state the purpose. Do not announce that you are an AI assistant, but never claim to be Narcis Rug or falsely claim to be human.";
+    : "You are calling on behalf of Narcis Rug. At the beginning of the call, say that naturally and briefly. Do not announce that you are an AI assistant, but never claim to be Narcis Rug or falsely claim to be human.";
+  const modeInstruction = s.mode === "natural"
+    ? "NATURAL CONVERSATION MODE: Treat the objective as a conversation goal or topic, not as a checklist. Speak in short turns: normally one sentence, maximum two short sentences, then STOP and wait. Ask only ONE question at a time. Never stack several questions. React to what the other person actually says before moving on. Do not volunteer long explanations, lists, summaries or all instructions at once. Leave comfortable space for the other person to speak. Do not turn the call into an interview. Do not recap the conversation unless the other person asks or a recap is genuinely needed. If the objective asks you to change language later, wait until the stated moment or permission before switching."
+    : "INFORMATION MODE: Pursue the objective efficiently. Ask concise follow-up questions when information is missing. Confirm important numbers, dates, prices and names when useful. Keep each turn concise and avoid asking too many questions at once.";
   const instructions =
     "You are a phone-call assistant. " + languageInstruction + " " +
     "Conversation style: " + personality + " " +
     identityInstruction + " " +
+    modeInstruction + " " +
     (s.recordRequested
       ? "The user requested an audio recording. Near the beginning of the conversation, clearly ask the other person for permission to record so Narcis can listen to the conversation later. Do NOT start recording until the other person explicitly agrees. If they agree, call the start_call_recording tool immediately. If they refuse or do not clearly agree, continue without recording and do not ask again. "
       : "") +
     "Primary objective: " + s.objective + ". " +
     (s.context ? "Helpful context supplied by the user: " + s.context + ". " : "") +
-    "Ask concise, natural follow-up questions when information is missing. Confirm important numbers, dates, prices and names when useful. " +
     "You may freely obtain information. For a LOW-RISK, NON-BINDING action such as making a simple appointment, holding a reservation with no payment or penalty, confirming a callback/follow-up, or communicating a tentative non-binding preference, you MUST first call the request_user_confirmation tool and wait for Narcis to approve or refuse. Before calling that tool, briefly tell the other person you need a moment to confirm. Never assume approval. " +
     "Never perform or confirm purchases, payments, contracts, legally binding acceptance, subscriptions, cancellations with financial/legal effect, account changes, identity verification, or anything requiring CPR, MitID, bank/card data, passwords or other sensitive credentials. Those must be handled personally by Narcis even if he approves in the app. " +
     "If the other person asks for a prohibited commitment or sensitive information, say that Narcis must handle that personally. " +
-    "When the objective is answered, briefly recap the key information to the other person if appropriate, thank them, say goodbye, then call the end_call tool. If they refuse or cannot help, politely end the call.";
+    (s.mode === "natural"
+      ? "When the conversation has naturally finished or the objective is complete, do not force a recap. Say a brief natural goodbye, then call the end_call tool. If they want to keep chatting and it remains relevant, continue naturally."
+      : "When the objective is answered, briefly recap the key information to the other person if appropriate, thank them, say goodbye, then call the end_call tool. If they refuse or cannot help, politely end the call.");
 
   const ws = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=" + encodeURIComponent(s.model || OPENAI_REALTIME_MODEL),
@@ -647,7 +654,7 @@ function openAgentRealtime(s) {
               type: "server_vad",
               threshold: 0.5,
               prefix_padding_ms: 250,
-              silence_duration_ms: 500,
+              silence_duration_ms: 800,
               create_response: true,
               interrupt_response: true
             }
@@ -849,6 +856,7 @@ app.post("/api/agent-call", async (req, res) => {
     const summaryLanguage = ["ro","en","da","es"].includes(req.body.summaryLanguage) ? req.body.summaryLanguage : "ro";
     const language = ["auto","da","en","es","ro"].includes(req.body.language) ? req.body.language : "auto";
     const personality = ["formal","normal","friendly","negotiator"].includes(req.body.personality) ? req.body.personality : "normal";
+    const mode = ["information","natural"].includes(req.body.mode) ? req.body.mode : "information";
     const voice = normalizeVoice(req.body.voice);
     const model = normalizeAgentRealtimeModel(req.body.model);
     const connectionId = await resolveConnectionId();
@@ -856,7 +864,7 @@ app.post("/api/agent-call", async (req, res) => {
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, objective, context, language, personality, voice, model, testMode, recordRequested, summaryLanguage,
+      id, token, to, objective, context, language, personality, voice, model, mode, testMode, recordRequested, summaryLanguage,
       created: Date.now(), answered: false, amdHuman: false, amdResult: null, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
