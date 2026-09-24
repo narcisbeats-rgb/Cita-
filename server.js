@@ -1334,17 +1334,11 @@ server.listen(PORT, async () => {
       const id = await resolveConnectionId();
       console.log("Telnyx ready, connection_id:", id);
       try {
-        const purchaseNumber = "+4535154826";
-        const ownedResult = await telnyx("/phone_numbers?page[size]=100");
-        const alreadyOwned = Array.isArray(ownedResult.data) && ownedResult.data.some(x => x.phone_number === purchaseNumber);
-        if (!alreadyOwned) {
-          const order = await telnyx("/number_orders", { method: "POST", body: { phone_numbers: [{ phone_number: purchaseNumber }] } });
-          console.log("TELNYX_PURCHASE_OK:", purchaseNumber, order.data?.id || "order-created", order.data?.status || "");
-        } else {
-          console.log("TELNYX_PURCHASE_ALREADY_OWNED:", purchaseNumber);
-        }
-      } catch (purchaseError) {
-        console.error("TELNYX_PURCHASE_ERROR:", purchaseError.message);
+        const groups = await telnyx("/requirement_groups?page[size]=100");
+        const summary = Array.isArray(groups.data) ? groups.data.map(g => ({ id:g.id, country_code:g.country_code, phone_number_type:g.phone_number_type, action:g.action, status:g.status, customer_reference:g.customer_reference })) : [];
+        console.log("TELNYX_REQUIREMENT_GROUPS:", JSON.stringify(summary));
+      } catch (groupError) {
+        console.error("TELNYX_REQUIREMENT_GROUPS_ERROR:", groupError.message);
       }
     } catch (e) {
       console.error("Telnyx setup error:", e.message);
