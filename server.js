@@ -417,6 +417,7 @@ function publishAgentSummary(s, summaryText, fallbackMessage = "Apel încheiat. 
     s.summaryTimer = null;
   }
   agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
+  agentSend(s, { type: "summary-status", status: "ready" });
 }
 function requestAgentSummaryFromRealtime(s) {
   if (!s || s.summaryStarted) return;
@@ -541,7 +542,11 @@ async function endAgentTelnyxCall(s) {
 function finalizeAgentSession(s, status = "completed") {
   if (!s || s.ended) return;
   s.ended = true;
+  s.status = status;
+  s.state = "ended";
   agentSend(s, { type: "status", status });
+  agentSend(s, { type: "state", state: "ended" });
+  agentSend(s, { type: "summary-status", status: "generating" });
   closeSocket(s.telnyxWs);
   requestAgentSummaryFromRealtime(s);
   setTimeout(() => {
@@ -878,6 +883,7 @@ app.post("/api/agent-call", async (req, res) => {
     const s = {
       id, token, to, objective, context, language, personality, voice, model, mode, testMode, recordRequested, summaryLanguage,
       created: Date.now(), answered: false, amdHuman: false, amdResult: null, ended: false,
+      status: "initiated", state: "waiting",
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false, responseActive: false,
       summary: "", summaryData: null, summaryStarted: false, summaryPending: false, summaryTimer: null,
@@ -945,6 +951,27 @@ app.post("/api/agent-confirm", async (req, res) => {
   res.json({ ok: true, approved });
 });
 
+app.get("/api/agent-status", (req, res) => {
+  const s = agentSessions.get(String(req.query.sid || ""));
+  if (!s || String(req.query.token || "") !== s.token) {
+    return res.status(404).json({ error: "Sesiune invalidă sau expirată" });
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    status: s.status || (s.ended ? "completed" : (s.answered ? "answered" : "initiated")),
+    state: s.state || "waiting",
+    answered: Boolean(s.answered),
+    answeredAt: s.answeredAt || null,
+    ended: Boolean(s.ended),
+    summaryPending: Boolean(s.summaryPending),
+    summary: s.summary || "",
+    summaryData: s.summaryData || null,
+    recordingUrl: s.recordingUrl || null,
+    recordingActive: Boolean(s.recordingActive)
+  });
+});
+
 app.post("/api/agent-hangup", async (req, res) => {
   const s = agentSessions.get(String(req.body.sessionId || ""));
   if (!s || req.body.token !== s.token) return res.status(401).json({ error: "Sesiune invalidă" });
@@ -963,12 +990,16 @@ app.post("/agent-webhook", async (req, res) => {
   if (payload.call_control_id) s.callControlId = payload.call_control_id;
 
   if (eventType === "call.initiated") {
+    s.status = "initiated";
     agentSend(s, { type: "status", status: "initiated" });
   } else if (eventType === "call.ringing") {
+    s.status = "ringing";
     agentSend(s, { type: "status", status: "ringing" });
   } else if (eventType === "call.answered") {
     s.answered = true;
     s.answeredAt = Date.now();
+    s.status = "answered";
+    s.state = "checking-human";
     agentSend(s, { type: "status", status: "answered" });
     agentSend(s, { type: "state", state: "checking-human" });
     agentSend(s, { type: "call-start", at: s.answeredAt });
@@ -978,12 +1009,16 @@ app.post("/agent-webhook", async (req, res) => {
     const human = result === "human_residence" || result === "human_business";
     const machine = result === "machine" || result === "silence" || result === "fax_detected";
     if (machine) {
+      s.status = "voicemail";
+      s.state = "voicemail-detected";
       agentSend(s, { type: "status", status: "voicemail" });
       agentSend(s, { type: "state", state: "voicemail-detected" });
       setTimeout(() => endAgentTelnyxCall(s), 150).unref?.();
     } else {
       s.amdHuman = true;
-      agentSend(s, { type: "status", status: human ? "human-detected" : "amd-uncertain" });
+      s.status = human ? "human-detected" : "amd-uncertain";
+      s.state = "human-detected";
+      agentSend(s, { type: "status", status: s.status });
       agentSend(s, { type: "state", state: "human-detected" });
       openAgentRealtime(s);
       maybeStartAgentGreeting(s);
@@ -1008,6 +1043,10 @@ app.post("/agent-webhook", async (req, res) => {
     s.recordingActive = false;
     agentSend(s, { type: "recording-status", status: "error", message: "Telnyx recording error" });
   } else if (eventType === "call.hangup") {
+    if (s.mediaStopFinalizeTimer) {
+      clearTimeout(s.mediaStopFinalizeTimer);
+      s.mediaStopFinalizeTimer = null;
+    }
     finalizeAgentSession(s, "completed");
   }
 });
@@ -1208,7 +1247,8 @@ agentClientWss.on("connection", (ws, req) => {
   if (!s || token !== s.token) return ws.close(1008, "Invalid agent session");
 
   s.client = ws;
-  agentSend(s, { type: "status", status: s.ended ? "completed" : (s.answered ? "answered" : "app-connected") });
+  agentSend(s, { type: "status", status: s.status || (s.ended ? "completed" : (s.answered ? "answered" : "app-connected")) });
+  agentSend(s, { type: "state", state: s.state || "waiting" });
   if (s.answeredAt) agentSend(s, { type: "call-start", at: s.answeredAt });
   if (s.summary) agentSend(s, { type: "summary", text: s.summary, data: s.summaryData || null });
   if (s.recordingUrl) agentSend(s, { type: "recording-ready", url: s.recordingUrl, temporary: true });
@@ -1244,6 +1284,7 @@ agentMediaWss.on("connection", (ws, req) => {
     const m = safeJson(raw);
     if (!m) return;
     if (m.event === "start") {
+      s.state = "connected";
       agentSend(s, { type: "state", state: "connected" });
       openAgentRealtime(s);
       maybeStartAgentGreeting(s);
@@ -1253,7 +1294,17 @@ agentMediaWss.on("connection", (ws, req) => {
       s.openaiWs.send(JSON.stringify({ type: "input_audio_buffer.append", audio: m.media.payload }));
       return;
     }
-    if (m.event === "stop") agentSend(s, { type: "state", state: "ended" });
+    if (m.event === "stop") {
+      s.state = "ended";
+      agentSend(s, { type: "state", state: "ended" });
+      if (s.answered && !s.ended) {
+        clearTimeout(s.mediaStopFinalizeTimer);
+        s.mediaStopFinalizeTimer = setTimeout(() => {
+          if (!s.ended) finalizeAgentSession(s, "completed");
+        }, 1200);
+        s.mediaStopFinalizeTimer.unref?.();
+      }
+    }
   });
 
   ws.on("close", () => {
