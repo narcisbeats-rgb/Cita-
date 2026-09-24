@@ -1334,11 +1334,11 @@ server.listen(PORT, async () => {
       const id = await resolveConnectionId();
       console.log("Telnyx ready, connection_id:", id);
       try {
-        const groups = await telnyx("/requirement_groups?page[size]=100");
-        const summary = Array.isArray(groups.data) ? groups.data.map(g => ({ id:g.id, country_code:g.country_code, phone_number_type:g.phone_number_type, action:g.action, status:g.status, customer_reference:g.customer_reference })) : [];
-        console.log("TELNYX_REQUIREMENT_GROUPS:", JSON.stringify(summary));
-      } catch (groupError) {
-        console.error("TELNYX_REQUIREMENT_GROUPS_ERROR:", groupError.message);
+        const available = await telnyx("/available_phone_numbers?filter[country_code]=DK&filter[phone_number_type]=mobile&filter[limit]=5");
+        const candidates = Array.isArray(available.data) ? available.data.map(x => ({ phone_number:x.phone_number, cost_information:x.cost_information || null, features:x.features || [] })) : [];
+        console.log("TELNYX_DK_MOBILE_CANDIDATES:", JSON.stringify(candidates));
+      } catch (mobileError) {
+        console.error("TELNYX_DK_MOBILE_ERROR:", mobileError.message);
       }
     } catch (e) {
       console.error("Telnyx setup error:", e.message);
