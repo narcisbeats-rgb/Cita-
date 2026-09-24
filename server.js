@@ -1333,13 +1333,6 @@ server.listen(PORT, async () => {
     try {
       const id = await resolveConnectionId();
       console.log("Telnyx ready, connection_id:", id);
-      try {
-        const available = await telnyx("/available_phone_numbers?filter[country_code]=DK&filter[phone_number_type]=mobile&filter[limit]=5");
-        const candidates = Array.isArray(available.data) ? available.data.map(x => ({ phone_number:x.phone_number, cost_information:x.cost_information || null, features:x.features || [] })) : [];
-        console.log("TELNYX_DK_MOBILE_CANDIDATES:", JSON.stringify(candidates));
-      } catch (mobileError) {
-        console.error("TELNYX_DK_MOBILE_ERROR:", mobileError.message);
-      }
     } catch (e) {
       console.error("Telnyx setup error:", e.message);
     }
