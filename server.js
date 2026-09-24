@@ -53,6 +53,12 @@ function languageConfig(code) {
 function normalizeVoice(value) {
   return VOICES.has(String(value || "").toLowerCase()) ? String(value).toLowerCase() : "cedar";
 }
+function normalizeAgentRealtimeModel(value) {
+  const model = String(value || "").trim();
+  return ["gpt-realtime-2.1-mini", "gpt-realtime-2.1"].includes(model)
+    ? model
+    : "gpt-realtime-2.1-mini";
+}
 function cancelResponse(ws) {
   if (ws?.readyState === WebSocket.OPEN) {
     try { ws.send(JSON.stringify({ type: "response.cancel" })); } catch {}
@@ -91,7 +97,7 @@ async function resolveConnectionId() {
   return discoveredConnectionId;
 }
 
-function estimateRealtimeResponseCost(usage) {
+function estimateRealtimeResponseCost(usage, model = OPENAI_REALTIME_MODEL) {
   if (!usage) return 0;
   const i = usage.input_token_details || {};
   const o = usage.output_token_details || {};
@@ -105,7 +111,7 @@ function estimateRealtimeResponseCost(usage) {
   const normalAudio = Math.max(0, inAudio - cachedAudio);
   const normalText = Math.max(0, inText - cachedText);
 
-  if (OPENAI_REALTIME_MODEL.includes("mini")) {
+  if (String(model).includes("mini")) {
     return normalAudio * 10 / 1e6 + cachedAudio * 0.30 / 1e6 +
       normalText * 0.60 / 1e6 + cachedText * 0.06 / 1e6 +
       outAudio * 20 / 1e6 + outText * 2.40 / 1e6;
@@ -570,7 +576,7 @@ function openAgentRealtime(s) {
     "When the objective is answered, briefly recap the key information to the other person if appropriate, thank them, say goodbye, then call the end_call tool. If they refuse or cannot help, politely end the call.";
 
   const ws = new WebSocket(
-    "wss://api.openai.com/v1/realtime?model=" + encodeURIComponent(OPENAI_REALTIME_MODEL),
+    "wss://api.openai.com/v1/realtime?model=" + encodeURIComponent(s.model || OPENAI_REALTIME_MODEL),
     { headers: { Authorization: "Bearer " + OPENAI_API_KEY } }
   );
   s.openaiWs = ws;
@@ -696,7 +702,7 @@ function openAgentRealtime(s) {
       return;
     }
     if (ev.type === "response.done") {
-      s.realtimeUsd = (s.realtimeUsd || 0) + estimateRealtimeResponseCost(ev.response?.usage || null);
+      s.realtimeUsd = (s.realtimeUsd || 0) + estimateRealtimeResponseCost(ev.response?.usage || null, s.model);
       agentSend(s, { type: "usage", realtimeUsd: s.realtimeUsd });
       const outputs = Array.isArray(ev.response?.output) ? ev.response.output : [];
       const recordingTool = outputs.find(x => x?.type === "function_call" && x?.name === "start_call_recording");
@@ -844,12 +850,13 @@ app.post("/api/agent-call", async (req, res) => {
     const language = ["auto","da","en","es","ro"].includes(req.body.language) ? req.body.language : "auto";
     const personality = ["formal","normal","friendly","negotiator"].includes(req.body.personality) ? req.body.personality : "normal";
     const voice = normalizeVoice(req.body.voice);
+    const model = normalizeAgentRealtimeModel(req.body.model);
     const connectionId = await resolveConnectionId();
     const id = crypto.randomUUID();
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, objective, context, language, personality, voice, testMode, recordRequested, summaryLanguage,
+      id, token, to, objective, context, language, personality, voice, model, testMode, recordRequested, summaryLanguage,
       created: Date.now(), answered: false, amdHuman: false, amdResult: null, ended: false,
       callControlId: null, client: null, telnyxWs: null, openaiWs: null,
       openaiReady: false, greetingStarted: false, hangupRequested: false,
