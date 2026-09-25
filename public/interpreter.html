@@ -5,32 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0e1425">
   <title>Traducere Live — Interpret</title>
-  <style>
-    :root {color-scheme:dark;font:16px/1.4 system-ui,-apple-system,Roboto,sans-serif;background:#0e1425;color:#eff6ff}
-    *{box-sizing:border-box}body{margin:0 auto;max-width:720px;padding:18px 16px 36px}
-    h1{font-size:1.75rem;margin:4px 0 2px}p{color:#aebcd2;margin:0 0 16px}
+<style>
+    :root{color-scheme:dark;font:15px/1.5 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0b1220;color:#f2f6fc;--muted:#a7b6cb;--line:#293950;--panel:#121e30;--surface:#0d1727;--teal:#63dfc0;--blue:#73bdf4}
+    *{box-sizing:border-box}
+    body{margin:0 auto;max-width:720px;padding:calc(16px + env(safe-area-inset-top)) 16px calc(30px + env(safe-area-inset-bottom));background:radial-gradient(ellipse at 50% -20%,#1b3650 0,transparent 48%),#0b1220}
+    h1{font-size:clamp(1.55rem,6vw,2rem);line-height:1.15;letter-spacing:-.035em;margin:12px 0 5px;font-weight:750}
+    p{color:var(--muted);margin:0 0 16px}
     .top,.actions,.pair{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .top{justify-content:space-between;margin-bottom:14px}.badge{background:#1a3556;color:#aad6ff;border-radius:30px;padding:6px 12px;font-size:.77rem}
-    .panel{background:#182338;border:1px solid #30425c;border-radius:20px;padding:16px;margin-top:14px}
-    label{display:block;color:#c8d7eb;font-size:.84rem;margin:6px 0}
-    input,select,button{font:inherit;border-radius:12px;min-height:48px}
-    input,select{color:#fff;background:#0e1728;border:1px solid #405670;padding:10px 12px;width:100%}
+    .top{justify-content:space-between;gap:12px;margin:0 0 12px}
+    .badge{background:#173451;color:#a9dcff;border:1px solid #294d6b;border-radius:30px;padding:7px 12px;font-size:.68rem;font-weight:750;letter-spacing:.07em;white-space:nowrap}
+    .top label{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted);font-size:.75rem}
+    .top select{width:auto;min-width:112px;min-height:40px;padding:7px 10px}
+    .panel{background:linear-gradient(155deg,rgba(23,38,58,.97),rgba(17,29,46,.98));border:1px solid var(--line);border-radius:22px;padding:16px;margin-top:14px;box-shadow:0 12px 30px rgba(0,0,0,.16)}
+    label{display:block;color:#c6d4e5;font-size:.8rem;font-weight:600;margin:8px 0}
+    input,select,button{font:inherit;border-radius:13px;min-height:48px}
+    input,select{color:#f3f7fc;background:var(--surface);border:1px solid #344962;padding:10px 12px;width:100%;outline:none}
+    input:focus,select:focus{border-color:#62cdb5;box-shadow:0 0 0 3px rgba(99,223,192,.13)}
+    .pair{gap:12px}
     .pair>*{flex:1;min-width:130px}
-    button{cursor:pointer;border:0;background:#274565;color:#fff;padding:10px 14px;font-weight:650}
-    button:disabled{opacity:.4;cursor:not-allowed}
-    #startSession{background:#21b38e;color:#08251f;flex:1}
-    #endSession{background:#633047;flex:1}
-    .talk{width:100%;min-height:92px;font-size:1.18rem;text-align:left;padding:18px;display:flex;justify-content:space-between;align-items:center}
-    .talk.local{background:#207eaf}.talk.other{background:#704eb2}.talk.speaking{outline:3px solid #f5e394;background:#ba6427}
-    .talk .small{display:block;font-weight:400;font-size:.8rem;opacity:.88;margin-top:5px}
-    .talk-row{margin-top:13px}
-    #status{background:#101d30;padding:12px;border-radius:12px;margin-top:14px;color:#a7e9d9}
-    #error{color:#ffb9bf;min-height:1.4rem;white-space:pre-wrap;margin-top:10px}
-    .transcript{min-height:55px;background:#111c2c;border:1px solid #293e56;padding:12px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
-    .original{color:#bac9dc}.translated{color:#fff;font-weight:600}
-    .labelrow{display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px}
-    .note{font-size:.78rem;margin-top:14px;color:#aebcd2}
+    button{cursor:pointer;border:1px solid transparent;background:#223955;color:#f5f9ff;padding:11px 14px;font-weight:700;transition:transform .15s ease,filter .15s ease,background .15s ease}
+    button:active:not(:disabled){transform:scale(.985)}
+    button:disabled{opacity:.42;cursor:not-allowed}
+    #startSession{background:linear-gradient(135deg,#6be1bf,#4dc7b1);color:#06251f;box-shadow:0 6px 18px rgba(77,199,177,.16);flex:1}
+    #endSession{background:#462a3b;border-color:#654056;color:#ffd7e4;flex:1}
+    .talk{width:100%;min-height:88px;text-align:left;padding:15px 16px;display:flex;justify-content:space-between;align-items:center;gap:14px;border-radius:18px}
+    .talk.local{background:linear-gradient(120deg,#1a6285,#214a71);border-color:#32759a}
+    .talk.other{background:linear-gradient(120deg,#59468e,#3f3a72);border-color:#6d5ca4}
+    .talk.speaking{outline:3px solid rgba(255,213,122,.75);background:linear-gradient(120deg,#a85d22,#87502b)}
+    .talk .small{display:block;font-weight:450;font-size:.76rem;line-height:1.4;color:#e0eaf5;margin-top:4px}
+    .talk-row{margin-top:10px}
+    #status{background:#10263a;border:1px solid #244561;padding:11px 13px;border-radius:13px;margin-top:0;color:#a8efdd;font-size:.86rem;font-weight:650}
+    #error{color:#ffc0c8;min-height:1.2rem;white-space:pre-wrap;margin-top:7px;font-size:.86rem}
+    .transcript{min-height:52px;background:rgba(9,18,31,.68);border:1px solid #263951;padding:12px 13px;border-radius:13px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.9rem}
+    .original{color:#bbc9da}.translated{color:#f6f9fc;font-weight:650;border-left:3px solid #55cdb5}
+    .labelrow{display:flex;justify-content:space-between;align-items:center;margin:13px 0 6px;font-size:.8rem;color:#cad8e8}
+    .note{font-size:.73rem;line-height:1.55;margin:14px 2px 0;color:#94a5bc}
     a{color:#9ccfff}
+    @media(max-width:380px){body{padding-left:12px;padding-right:12px}.panel{padding:13px;border-radius:19px}.badge{font-size:.62rem;padding:6px 9px}.top{gap:8px}.top label{gap:5px}.top select{min-width:98px}.talk{min-height:82px;padding:13px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
   </style>
 </head>
 <body>
