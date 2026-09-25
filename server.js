@@ -3,6 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
+import { createInterpreter } from "./interpreter.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -1153,6 +1154,7 @@ app.post("/telnyx-webhook", async (req, res) => {
 });
 
 const server = http.createServer(app);
+const interpreter = createInterpreter(app, { apiKey: OPENAI_API_KEY, model: OPENAI_REALTIME_MODEL, pin: APP_PIN });
 const clientWss = new WebSocketServer({ noServer: true });
 const telnyxWss = new WebSocketServer({ noServer: true });
 const agentClientWss = new WebSocketServer({ noServer: true });
@@ -1160,6 +1162,9 @@ const agentMediaWss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
   const u = new URL(req.url, "http://localhost");
+  if (u.pathname === "/interpreter-socket") {
+    return interpreter.handleUpgrade(req, socket, head);
+  }
   if (u.pathname === "/client") {
     return clientWss.handleUpgrade(req, socket, head, ws => clientWss.emit("connection", ws, req));
   }
