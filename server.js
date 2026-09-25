@@ -19,6 +19,7 @@ const TELNYX_CONNECTION_ID = process.env.TELNYX_CONNECTION_ID || "";
 const TELNYX_FROM_NUMBER = process.env.TELNYX_FROM_NUMBER || "+4581948173";
 const TELNYX_APP_NAME = process.env.TELNYX_APP_NAME || "Traducere Live";
 const APP_PIN = process.env.APP_PIN || "";
+const AGENT_PRIVATE_PIN = process.env.AGENT_PRIVATE_PIN || "";
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 
 const VOICES = new Set(["alloy","ash","ballad","coral","echo","sage","shimmer","verse","marin","cedar"]);
@@ -796,7 +797,10 @@ function openAgentRealtime(s) {
 }
 
 app.get("/", (_req, res) => res.sendFile(path.resolve("index.html")));
-app.get("/agent", (_req, res) => res.sendFile(path.resolve("agent.html")));
+app.get("/agent", (_req, res) => {
+  if (!AGENT_PRIVATE_PIN) return res.status(404).send("Not found");
+  res.sendFile(path.resolve("agent.html"));
+});
 
 app.get("/health", async (_req, res) => {
   const missing = missingConfig();
@@ -859,9 +863,10 @@ app.post("/api/voice-preview", async (req, res) => {
 
 app.post("/api/agent-call", async (req, res) => {
   try {
+    if (!AGENT_PRIVATE_PIN) return res.status(404).json({ error: "Agentul privat nu este activat." });
     const missing = missingConfig();
     if (missing.length) return res.status(503).json({ error: "Missing config: " + missing.join(", ") });
-    if (String(req.body.pin || "") !== APP_PIN) return res.status(401).json({ error: "PIN greșit" });
+    if (String(req.body.pin || "") !== AGENT_PRIVATE_PIN) return res.status(401).json({ error: "PIN privat greșit" });
     const to = normalizePhone(req.body.to);
     if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
     const objective = String(req.body.objective || "").trim();
