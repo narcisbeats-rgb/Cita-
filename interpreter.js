@@ -30,11 +30,22 @@ function close(ws) {
 
 export function createInterpreter(app, { apiKey, model, pin }) {
   const sessions = new Map();
+  const rejectedPinAttempts = new Map();
   const wss = new WebSocketServer({ noServer: true });
 
   app.post("/api/interpreter-session", (req, res) => {
     if (!pin || !apiKey) return res.status(503).json({ error: "Interpreterul nu este configurat pe server." });
-    if (!verifyPin(req.body?.pin, pin)) return res.status(401).json({ error: "PIN greșit." });
+    const ip = req.ip || "unknown";
+    const now = Date.now();
+    const prior = rejectedPinAttempts.get(ip);
+    const attempts = prior && prior.expires > now ? prior : { count: 0, expires: now + 15 * 60 * 1000 };
+    if (attempts.count >= 10) return res.status(429).json({ error: "Prea multe încercări PIN. Reîncearcă mai târziu." });
+    if (!verifyPin(req.body?.pin, pin)) {
+      attempts.count++;
+      rejectedPinAttempts.set(ip, attempts);
+      return res.status(401).json({ error: "PIN greșit." });
+    }
+    rejectedPinAttempts.delete(ip);
     if (sessions.size >= MAX_ACTIVE_SESSIONS) return res.status(429).json({ error: "Prea multe sesiuni simultane." });
     const from = String(req.body?.from || "ro");
     const to = String(req.body?.to || "da");
@@ -156,6 +167,7 @@ export function createInterpreter(app, { apiKey, model, pin }) {
   });
 
   const janitor = setInterval(() => {
+    for (const [ip, value] of rejectedPinAttempts) if (value.expires <= Date.now()) rejectedPinAttempts.delete(ip);
     for (const session of sessions.values()) {
       if (Date.now() - session.created >= MAX_SESSION_MS) {
         send(session.client, { type: "error", message: "Sesiune expirată. Pornește una nouă." });
