@@ -18,9 +18,9 @@ APP_PIN must be configured. The interface uses 24-kHz PCM input/output and
 two explicit speaker buttons; it does NOT dial a phone number. Internet
 access is required. Live interpretation may incur OpenAI API charges.
 
-The telephone tab still depends on the Telnyx setup and its route/caller-ID
-configuration. Android packaging does not repair the pre-existing Telnyx
-outbound "No Routes Found" issue.
+The public Android app has a **Sună cu SIM** tab that opens Android's native dialer. Calls use the selected SIM/carrier caller ID; the user confirms the call in the dialer. This direct carrier call does not include the app's AI call translation. Face-to-face interpreting remains available in the app.
+
+The AI calling agent is omitted from public Android navigation. To enable it privately, set a unique, high-entropy `AGENT_PRIVATE_PIN` environment variable on the server and open `/agent` directly. When that variable is unset, `/agent` and `/api/agent-call` are disabled. Do not put this private PIN in the APK. The existing `APP_PIN` continues to protect the public face-to-face interpreter and Telnyx translation API.
 
 ## Privacy and Android permissions
 RECORD_AUDIO is requested only when the trusted HTTPS origin requests audio.
