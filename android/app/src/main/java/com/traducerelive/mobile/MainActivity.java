@@ -52,8 +52,7 @@ public final class MainActivity extends Activity {
         navBar.setPadding(dp(10), dp(8), dp(10), dp(8));
         navBar.setBackgroundColor(Color.rgb(17, 28, 47));
         addNav(navBar, "Interpret", "◉", "/interpreter.html", true);
-        addNav(navBar, "Apel", "☎", "/", false);
-        addNav(navBar, "Agent AI", "✦", "/agent", false);
+        addNav(navBar, "Sună cu SIM", "☎", "sim:", false);
         layout.addView(navBar, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(72)));
         setContentView(layout);
@@ -126,7 +125,15 @@ public final class MainActivity extends Activity {
         item.setBackground(rounded(selected ? 0xff203c57 : 0x00000000, 16));
         glyph.setTextColor(selected ? 0xff68dfc1 : 0xff9aabc2);
         title.setTextColor(selected ? 0xffe8f5f4 : 0xff9aabc2);
-        item.setOnClickListener(v -> webView.loadUrl(ORIGIN + path));
+        item.setOnClickListener(v -> {
+            if ("sim:".equals(path)) {
+                try {
+                    startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:")));
+                } catch (Exception ignored) { }
+            } else {
+                webView.loadUrl(ORIGIN + path);
+            }
+        });
         nav.addView(item, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
     }
 
