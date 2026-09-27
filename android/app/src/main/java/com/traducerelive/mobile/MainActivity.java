@@ -52,6 +52,7 @@ public final class MainActivity extends Activity {
         navBar.setPadding(dp(10), dp(8), dp(10), dp(8));
         navBar.setBackgroundColor(Color.rgb(17, 28, 47));
         addNav(navBar, "Interpret", "◉", "/interpreter.html", true);
+        addNav(navBar, "Apel tradus", "⇄", "/", false);
         addNav(navBar, "Sună cu SIM", "☎", "sim:", false);
         layout.addView(navBar, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(72)));
@@ -117,7 +118,7 @@ public final class MainActivity extends Activity {
         glyph.setGravity(Gravity.CENTER);
         TextView title = new TextView(this);
         title.setText(label);
-        title.setTextSize(11);
+        title.setTextSize(10);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         item.addView(glyph);

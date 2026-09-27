@@ -6,6 +6,7 @@ on:
       - '.github/workflows/android-apk.yml'
       - 'interpreter.js'
       - 'public/interpreter.html'
+      - 'index.html'
       - 'scripts/**'
       - 'server.js'
   workflow_dispatch:
@@ -24,6 +25,7 @@ jobs:
           node --check server.js
           node --check interpreter.js
           node scripts/check-interpreter-ui.mjs
+          node scripts/check-phone-beta.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

@@ -20,6 +20,11 @@ const TELNYX_FROM_NUMBER = process.env.TELNYX_FROM_NUMBER || "+4581948173";
 const TELNYX_APP_NAME = process.env.TELNYX_APP_NAME || "Traducere Live";
 const APP_PIN = process.env.APP_PIN || "";
 const AGENT_PRIVATE_PIN = process.env.AGENT_PRIVATE_PIN || "";
+// Public translated calling is opt-in because PSTN calls incur provider and AI charges.
+const PHONE_TRANSLATION_ENABLED = process.env.PHONE_TRANSLATION_ENABLED === "true";
+const PHONE_BETA_MAX_MS = 10 * 60 * 1000;
+const PHONE_BETA_MAX_SESSIONS = 1;
+const phonePinFailures = new Map();
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 
 const VOICES = new Set(["alloy","ash","ballad","coral","echo","sage","shimmer","verse","marin","cedar"]);
@@ -126,6 +131,7 @@ function estimateRealtimeResponseCost(usage, model = OPENAI_REALTIME_MODEL) {
 function cleanup(id, finalStatus = "ended") {
   const s = sessions.get(id);
   if (!s) return;
+  if (s.callTimeout) clearTimeout(s.callTimeout);
   safeSend(s.client, { type: "status", status: finalStatus });
   closeSocket(s.localToDa);
   closeSocket(s.daToLocal);
@@ -1057,11 +1063,34 @@ app.post("/agent-webhook", async (req, res) => {
   }
 });
 
+app.get("/api/phone-translation-availability", (_req, res) => {
+  res.set("Cache-Control", "no-store").json({
+    enabled: PHONE_TRANSLATION_ENABLED,
+    callerId: "provider-configured",
+    maxMinutes: PHONE_BETA_MAX_MS / 60000,
+    note: "This is a provider-routed internet call, not a translated SIM call."
+  });
+});
+
 app.post("/api/call", async (req, res) => {
+  let pendingSessionId = null;
   try {
+    if (!PHONE_TRANSLATION_ENABLED) return res.status(503).json({ error: "Apelurile traduse sunt dezactivate până la verificarea operatorului telefonic." });
+    if (sessions.size >= PHONE_BETA_MAX_SESSIONS) return res.status(429).json({ error: "Un apel de test este deja activ." });
+    if (req.body?.providerConsent !== true) return res.status(400).json({ error: "Confirmă că apelul este procesat de furnizorul telefonic și poate genera costuri." });
+    const now = Date.now();
+    const ip = req.ip || "unknown";
+    const previous = phonePinFailures.get(ip);
+    const failure = previous && previous.expires > now ? previous : { count: 0, expires: now + 15 * 60 * 1000 };
+    if (failure.count >= 10) return res.status(429).json({ error: "Prea multe încercări PIN. Încearcă mai târziu." });
     const missing = missingConfig();
     if (missing.length) return res.status(503).json({ error: "Missing config: " + missing.join(", ") });
-    if (String(req.body.pin || "") !== APP_PIN) return res.status(401).json({ error: "PIN greșit" });
+    if (!APP_PIN || !crypto.timingSafeEqual(Buffer.from(crypto.createHash("sha256").update(String(req.body.pin || "")).digest()), Buffer.from(crypto.createHash("sha256").update(APP_PIN).digest()))) {
+      failure.count++;
+      phonePinFailures.set(ip, failure);
+      return res.status(401).json({ error: "PIN greșit" });
+    }
+    phonePinFailures.delete(ip);
 
     const to = normalizePhone(req.body.to);
     if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
@@ -1075,6 +1104,7 @@ app.post("/api/call", async (req, res) => {
 
     const s = {
       id, token, to, language, direction, voice, created: Date.now(),
+      callTimeout: null,
       answered: false,
       answeredAt: null,
       callControlId: null,
@@ -1092,6 +1122,7 @@ app.post("/api/call", async (req, res) => {
       realtimeUsd: 0
     };
     sessions.set(id, s);
+    pendingSessionId = id;
 
     const result = await telnyx("/calls", {
       method: "POST",
@@ -1112,8 +1143,19 @@ app.post("/api/call", async (req, res) => {
     });
 
     s.callControlId = result.data?.call_control_id || null;
+    s.callTimeout = setTimeout(async () => {
+      if (sessions.get(id) !== s) return;
+      try {
+        if (s.callControlId) await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/hangup", {
+          method: "POST", body: { command_id: crypto.randomUUID() }
+        });
+      } catch (e) { console.error("Phone beta timeout hangup failed:", e.message); }
+      finally { cleanup(id, "completed"); }
+    }, PHONE_BETA_MAX_MS);
+    s.callTimeout.unref?.();
     res.json({ sessionId: id, token, status: "initiated", language, direction, voice });
   } catch (e) {
+    if (pendingSessionId) cleanup(pendingSessionId, "ended");
     res.status(500).json({ error: e.message || "Nu am putut porni apelul" });
   }
 });
