@@ -102,6 +102,9 @@ export function createInterpreter(app, { apiKey, model, pin }) {
         send(session.client, { type: "translation", lane: laneName, text: event.delta });
       } else if (event.type === "response.done") {
         session.busy = false;
+        if (event.response?.status === "failed") {
+          send(session.client, { type: "error", message: event.response?.status_details?.error?.message || "Traducerea a eșuat. Încearcă din nou." });
+        }
         send(session.client, { type: "done", lane: laneName, usage: event.response?.usage || null });
         send(session.client, { type: "ready" });
       } else if (event.type === "error") {
@@ -110,11 +113,16 @@ export function createInterpreter(app, { apiKey, model, pin }) {
         send(session.client, { type: "ready" });
       }
     });
-    ws.on("error", () => send(session.client, { type: "error", message: "Conexiunea audio nu a putut fi stabilită." }));
+    ws.on("error", () => {
+      send(session.client, { type: "error", message: "Conexiunea audio nu a putut fi stabilită." });
+      close(session.client);
+    });
     ws.on("close", () => {
       lane.ready = false;
-      if (session.client?.readyState === WebSocket.OPEN)
+      if (session.client?.readyState === WebSocket.OPEN) {
         send(session.client, { type: "error", message: "Conexiunea cu serviciul de traducere s-a întrerupt. Repornește sesiunea." });
+        close(session.client);
+      }
     });
   }
 
@@ -160,6 +168,7 @@ export function createInterpreter(app, { apiKey, model, pin }) {
       }
     });
 
+    client.on("error", () => close(client));
     client.on("close", () => {
       for (const lane of Object.values(session.lanes)) close(lane.ws);
       sessions.delete(session.id);
