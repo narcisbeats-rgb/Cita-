@@ -6,6 +6,7 @@ on:
       - '.github/workflows/android-apk.yml'
       - 'interpreter.js'
       - 'public/interpreter.html'
+      - 'public/phone-beta.html'
       - 'index.html'
       - 'scripts/**'
       - 'server.js'
