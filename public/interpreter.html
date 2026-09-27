@@ -149,9 +149,9 @@
     ctx=stream=processor=source=silent=null;
   }
   function finish(){generation++;if(socket){socket.onclose=null;socket.close();socket=null;}cleanupAudio();
-    start.disabled=false;end.disabled=true;from.disabled=to.disabled=$("voice").disabled=false;status("idle");}
+    start.disabled=false;end.disabled=true;from.disabled=to.disabled=$("voice").disabled=false;status("idle");available();}
   async function begin(){error("");start.disabled=true;const attempt=++generation;available();
-    if(from.value===to.value){error("Choose two different languages / Alege două limbi diferite.");start.disabled=false;return;}
+    if(from.value===to.value){error("Choose two different languages / Alege două limbi diferite.");start.disabled=false;available();return;}
     try{
       await mic();if(attempt!==generation)return;
       const r=await fetch("/api/interpreter-session",{method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store",body:JSON.stringify({pin:$("pin").value,from:from.value,to:to.value,voice:$("voice").value})});
