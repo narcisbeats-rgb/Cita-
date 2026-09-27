@@ -41,6 +41,13 @@
     .labelrow{display:flex;justify-content:space-between;align-items:center;margin:13px 0 6px;font-size:.8rem;color:#cad8e8}
     .note{font-size:.73rem;line-height:1.55;margin:14px 2px 0;color:#94a5bc}
     a{color:#9ccfff}
+    .hero-meta{display:flex;gap:9px;align-items:center;margin:12px 0 4px;flex-wrap:wrap}
+    .session-pill,.session-time{border:1px solid #2c4864;border-radius:999px;padding:6px 11px;font-size:.75rem;font-weight:700}
+    .session-pill{background:#143448;color:#89edcf}.session-pill:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#65ddb8;margin-right:7px}
+    .session-time{background:#142136;color:#b5c8dd;font-variant-numeric:tabular-nums}
+    .swap{flex:0 0 48px;min-width:48px;align-self:flex-end;padding:0;font-size:1.65rem;background:#213e58;border:1px solid #3e627e}
+    .extra{margin-top:12px}.extra button{flex:1;background:#223952;border:1px solid #35546c}
+    .transcript{user-select:text}
     @media(max-width:380px){body{padding-left:12px;padding-right:12px}.panel{padding:13px;border-radius:19px}.badge{font-size:.62rem;padding:6px 9px}.top{gap:8px}.top label{gap:5px}.top select{min-width:98px}.talk{min-height:82px;padding:13px}}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;scroll-behavior:auto!important}}
   </style>
@@ -50,12 +57,14 @@
     <select id="uiLanguage"><option value="ro">Română</option><option value="en">English</option><option value="da">Dansk</option><option value="es">Español</option></select></label></div>
   <h1 data-i18n="title">Interpret vocal AI</h1>
   <p data-i18n="subtitle">Două persoane, un telefon. Fără apel telefonic și fără Telnyx.</p>
+  <div class="hero-meta"><span id="sessionState" class="session-pill" aria-live="polite">Pregătit</span><span id="sessionClock" class="session-time" aria-label="Durată sesiune">00:00</span></div>
   <section class="panel" id="settings">
     <label for="pin">PIN</label><input id="pin" type="password" autocomplete="off" inputmode="numeric" placeholder="PIN" aria-label="PIN">
     <div class="pair">
       <label><span data-i18n="yourLanguage">Limba ta</span>
         <select id="from"><option value="ro">Română</option><option value="da">Dansk</option><option value="en">English</option><option value="es">Español</option></select>
       </label>
+      <button id="swapLanguages" class="swap" type="button" aria-label="Inversează limbile" title="Inversează limbile">⇄</button>
       <label><span data-i18n="otherLanguage">Cealaltă limbă</span>
         <select id="to"><option value="da">Dansk</option><option value="ro">Română</option><option value="en">English</option><option value="es">Español</option></select>
       </label>
@@ -71,6 +80,7 @@
     <div class="labelrow"><strong data-i18n="localTranslation">Traducere pentru interlocutor</strong></div><div class="transcript translated" id="localTranslation">—</div>
     <div class="labelrow"><strong data-i18n="otherOriginal">Ce a spus interlocutorul</strong></div><div class="transcript original" id="otherOriginal">—</div>
     <div class="labelrow"><strong data-i18n="otherTranslation">Traducere pentru tine</strong></div><div class="transcript translated" id="otherTranslation">—</div>
+    <div class="actions extra"><button id="replayTranslation" type="button" data-i18n="replay" disabled>Repetă ultima traducere</button></div>
     <p class="note" data-i18n="privacy">Microfonul este folosit doar în sesiunea activă. Audio nu este înregistrat în aplicație. Ai nevoie de internet și de permisiunea pentru microfon.</p>
   </section>
 <script>
@@ -78,33 +88,49 @@
   "use strict";
   const $=id=>document.getElementById(id);
   const T={
-    ro:{badge:"ANDROID • FAȚĂ ÎN FAȚĂ",ui:"Interfață",title:"Interpret vocal AI",subtitle:"Două persoane, un telefon. Fără apel telefonic și fără Telnyx.",yourLanguage:"Limba ta",otherLanguage:"Cealaltă limbă",voice:"Voce",start:"Pornește interpretul",end:"Încheie",talkInstruction:"Apasă pentru a vorbi; apasă din nou când ai terminat.",localOriginal:"Ce ai spus",localTranslation:"Traducere pentru interlocutor",otherOriginal:"Ce a spus interlocutorul",otherTranslation:"Traducere pentru tine",privacy:"Microfonul este folosit doar în sesiunea activă. Audio nu este înregistrat în aplicație. Ai nevoie de internet și de permisiunea pentru microfon.",ready:"Pregătit — alege cine vorbește",connecting:"Se conectează…",recording:"Ascultă… Apasă din nou când ai terminat.",translating:"Traduce și redă…",idle:"Pregătit",me:"EU",them:"PARTENER",error:"A apărut o eroare.",mic:"Permite accesul la microfon pentru a vorbi."},
-    en:{badge:"ANDROID • FACE TO FACE",ui:"Interface",title:"AI voice interpreter",subtitle:"Two people, one phone. No phone call and no Telnyx.",yourLanguage:"Your language",otherLanguage:"Other language",voice:"Voice",start:"Start interpreter",end:"End",talkInstruction:"Tap to speak; tap again when done.",localOriginal:"What you said",localTranslation:"Translation for the other person",otherOriginal:"What they said",otherTranslation:"Translation for you",privacy:"The microphone is used only during the active session. Audio is not recorded by the app. Internet and microphone access are required.",ready:"Ready — choose who's speaking",connecting:"Connecting…",recording:"Listening… Tap again when done.",translating:"Translating and speaking…",idle:"Ready",me:"ME",them:"OTHER",error:"An error occurred.",mic:"Allow microphone access to speak."},
-    da:{badge:"ANDROID • ANSIGT TIL ANSIGT",ui:"Sprog",title:"AI-stemmetolk",subtitle:"To personer, én telefon. Intet telefonopkald og ingen Telnyx.",yourLanguage:"Dit sprog",otherLanguage:"Andet sprog",voice:"Stemme",start:"Start tolken",end:"Afslut",talkInstruction:"Tryk for at tale; tryk igen, når du er færdig.",localOriginal:"Det du sagde",localTranslation:"Oversættelse til den anden",otherOriginal:"Det den anden sagde",otherTranslation:"Oversættelse til dig",privacy:"Mikrofonen bruges kun i den aktive session. Appen gemmer ikke lyd. Internet og mikrofontilladelse er påkrævet.",ready:"Klar — vælg hvem der taler",connecting:"Forbinder…",recording:"Lytter… Tryk igen, når du er færdig.",translating:"Oversætter og afspiller…",idle:"Klar",me:"MIG",them:"DEN ANDEN",error:"Der opstod en fejl.",mic:"Tillad mikrofonadgang for at tale."},
-    es:{badge:"ANDROID • CARA A CARA",ui:"Interfaz",title:"Intérprete de voz IA",subtitle:"Dos personas, un teléfono. Sin llamada telefónica ni Telnyx.",yourLanguage:"Tu idioma",otherLanguage:"Otro idioma",voice:"Voz",start:"Iniciar intérprete",end:"Terminar",talkInstruction:"Pulsa para hablar; vuelve a pulsar al terminar.",localOriginal:"Lo que dijiste",localTranslation:"Traducción para la otra persona",otherOriginal:"Lo que dijo la otra persona",otherTranslation:"Traducción para ti",privacy:"El micrófono solo se usa durante la sesión activa. La app no graba audio. Necesitas internet y permiso de micrófono.",ready:"Listo — elige quién habla",connecting:"Conectando…",recording:"Escuchando… Pulsa de nuevo al terminar.",translating:"Traduciendo y reproduciendo…",idle:"Listo",me:"YO",them:"OTRA PERSONA",error:"Se produjo un error.",mic:"Permite el acceso al micrófono para hablar."}
+    ro:{badge:"ANDROID • FAȚĂ ÎN FAȚĂ",ui:"Interfață",title:"Interpret vocal AI",subtitle:"Două persoane, un telefon. Fără apel telefonic și fără Telnyx.",yourLanguage:"Limba ta",otherLanguage:"Cealaltă limbă",voice:"Voce",start:"Pornește interpretul",end:"Încheie",talkInstruction:"Apasă pentru a vorbi; apasă din nou când ai terminat.",localOriginal:"Ce ai spus",localTranslation:"Traducere pentru interlocutor",otherOriginal:"Ce a spus interlocutorul",otherTranslation:"Traducere pentru tine",privacy:"Microfonul este folosit doar în sesiunea activă. Audio nu este înregistrat în aplicație. Ai nevoie de internet și de permisiunea pentru microfon.",ready:"Pregătit — alege cine vorbește",connecting:"Se conectează…",recording:"Ascultă… Apasă din nou când ai terminat.",translating:"Traduce și redă…",idle:"Pregătit",me:"EU",them:"PARTENER",error:"A apărut o eroare.",mic:"Permite accesul la microfon pentru a vorbi.",swap:"Inversează limbile",replay:"Repetă ultima traducere",replaying:"Redă din nou traducerea…",recordLimit:"Replica s-a încheiat automat după 25 de secunde."},
+    en:{badge:"ANDROID • FACE TO FACE",ui:"Interface",title:"AI voice interpreter",subtitle:"Two people, one phone. No phone call and no Telnyx.",yourLanguage:"Your language",otherLanguage:"Other language",voice:"Voice",start:"Start interpreter",end:"End",talkInstruction:"Tap to speak; tap again when done.",localOriginal:"What you said",localTranslation:"Translation for the other person",otherOriginal:"What they said",otherTranslation:"Translation for you",privacy:"The microphone is used only during the active session. Audio is not recorded by the app. Internet and microphone access are required.",ready:"Ready — choose who's speaking",connecting:"Connecting…",recording:"Listening… Tap again when done.",translating:"Translating and speaking…",idle:"Ready",me:"ME",them:"OTHER",error:"An error occurred.",mic:"Allow microphone access to speak.",swap:"Swap languages",replay:"Replay last translation",replaying:"Replaying translation…",recordLimit:"The turn ended automatically after 25 seconds."},
+    da:{badge:"ANDROID • ANSIGT TIL ANSIGT",ui:"Sprog",title:"AI-stemmetolk",subtitle:"To personer, én telefon. Intet telefonopkald og ingen Telnyx.",yourLanguage:"Dit sprog",otherLanguage:"Andet sprog",voice:"Stemme",start:"Start tolken",end:"Afslut",talkInstruction:"Tryk for at tale; tryk igen, når du er færdig.",localOriginal:"Det du sagde",localTranslation:"Oversættelse til den anden",otherOriginal:"Det den anden sagde",otherTranslation:"Oversættelse til dig",privacy:"Mikrofonen bruges kun i den aktive session. Appen gemmer ikke lyd. Internet og mikrofontilladelse er påkrævet.",ready:"Klar — vælg hvem der taler",connecting:"Forbinder…",recording:"Lytter… Tryk igen, når du er færdig.",translating:"Oversætter og afspiller…",idle:"Klar",me:"MIG",them:"DEN ANDEN",error:"Der opstod en fejl.",mic:"Tillad mikrofonadgang for at tale.",swap:"Byt sprog",replay:"Afspil seneste oversættelse igen",replaying:"Afspiller oversættelsen igen…",recordLimit:"Taletiden sluttede automatisk efter 25 sekunder."},
+    es:{badge:"ANDROID • CARA A CARA",ui:"Interfaz",title:"Intérprete de voz IA",subtitle:"Dos personas, un teléfono. Sin llamada telefónica ni Telnyx.",yourLanguage:"Tu idioma",otherLanguage:"Otro idioma",voice:"Voz",start:"Iniciar intérprete",end:"Terminar",talkInstruction:"Pulsa para hablar; vuelve a pulsar al terminar.",localOriginal:"Lo que dijiste",localTranslation:"Traducción para la otra persona",otherOriginal:"Lo que dijo la otra persona",otherTranslation:"Traducción para ti",privacy:"El micrófono solo se usa durante la sesión activa. La app no graba audio. Necesitas internet y permiso de micrófono.",ready:"Listo — elige quién habla",connecting:"Conectando…",recording:"Escuchando… Pulsa de nuevo al terminar.",translating:"Traduciendo y reproduciendo…",idle:"Listo",me:"YO",them:"OTRA PERSONA",error:"Se produjo un error.",mic:"Permite el acceso al micrófono para hablar.",swap:"Intercambiar idiomas",replay:"Repetir última traducción",replaying:"Repitiendo traducción…",recordLimit:"El turno terminó automáticamente a los 25 segundos."}
   };
   const names={ro:"Română",da:"Dansk",en:"English",es:"Español"};
   const ui=$("uiLanguage"),from=$("from"),to=$("to"),local=$("local"),other=$("other"),start=$("startSession"),end=$("endSession");
   let socket=null,ctx=null,stream=null,source=null,processor=null,silent=null,active=null,ready=false,busy=false,playAt=0;
+  let serverReady=false,sessionStarted=0,sessionTimer=null,recordTimer=null,generation=0,replaying=false;
+  let currentReply=[],lastReply=[];
   const playing=new Set();
   function t(key){return (T[ui.value]||T.ro)[key]||key;}
   function labels(){document.documentElement.lang=ui.value;document.querySelectorAll("[data-i18n]").forEach(x=>x.textContent=t(x.dataset.i18n));
     $("localTitle").textContent=t("me")+" — "+names[from.value];
     $("otherTitle").textContent=t("them")+" — "+names[to.value];
+    $("swapLanguages").setAttribute("aria-label",t("swap"));
+    $("swapLanguages").title=t("swap");
   }
-  function status(code){$("status").textContent=t(code);}
+  function status(code){$("status").textContent=t(code);$("sessionState").textContent=t(code);}
   function error(value){$("error").textContent=value||"";}
-  function available(){local.disabled=other.disabled=!ready||busy; if(active){local.disabled=other.disabled=true;$(active).disabled=false;}}
+  function available(){
+    local.disabled=other.disabled=!ready||busy;
+    if(active){local.disabled=other.disabled=true;$(active).disabled=false;}
+    $("replayTranslation").disabled=!ready||busy||!!active||!lastReply.length;
+    $("swapLanguages").disabled=!!socket||start.disabled;
+  }
   function send(value){if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify(value));}
   function bytesToB64(bytes){let s="";for(let i=0;i<bytes.length;i+=16384)s+=String.fromCharCode(...bytes.subarray(i,i+16384));return btoa(s);}
   function b64ToBytes(data){const s=atob(data),b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b;}
   function pcm16(samples,sourceRate){const ratio=sourceRate/24000,count=Math.max(1,Math.floor(samples.length/ratio)),b=new Int16Array(count);
     for(let i=0;i<count;i++){const x=i*ratio,j=Math.floor(x),p=x-j,v=(samples[j]||0)*(1-p)+(samples[Math.min(j+1,samples.length-1)]||0)*p;b[i]=Math.round(Math.max(-1,Math.min(1,v))*32767);}
     return bytesToB64(new Uint8Array(b.buffer));}
-  function play(data){if(!ctx)return;const bytes=b64ToBytes(data),dv=new DataView(bytes.buffer),samples=new Float32Array(bytes.length/2);
+  function playbackEnded(){
+    if(playing.size)return;
+    if(replaying){replaying=false;busy=false;status("ready");available();return;}
+    if(serverReady){busy=false;ready=true;status("ready");available();}
+  }
+  function play(data,remember=true){if(!ctx)return;
+    if(remember&&currentReply.length<240)currentReply.push(data);
+    const bytes=b64ToBytes(data),dv=new DataView(bytes.buffer),samples=new Float32Array(bytes.length/2);
     for(let i=0;i<samples.length;i++)samples[i]=dv.getInt16(i*2,true)/32768;
     const b=ctx.createBuffer(1,samples.length,24000);b.copyToChannel(samples,0);
-    const n=ctx.createBufferSource();n.buffer=b;n.connect(ctx.destination);n.onended=()=>playing.delete(n);playing.add(n);
+    const n=ctx.createBufferSource();n.buffer=b;n.connect(ctx.destination);n.onended=()=>{playing.delete(n);playbackEnded();};playing.add(n);
     playAt=Math.max(playAt,ctx.currentTime+.025);n.start(playAt);playAt+=b.duration;}
   async function mic(){if(ctx&&stream)return;ctx=new (window.AudioContext||window.webkitAudioContext)();await ctx.resume();
     stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
@@ -112,44 +138,63 @@
     source.connect(processor);processor.connect(silent);silent.connect(ctx.destination);
     processor.onaudioprocess=e=>{if(!active||!ready||busy||socket?.readyState!==WebSocket.OPEN)return;send({type:"audio",lane:active,data:pcm16(e.inputBuffer.getChannelData(0),ctx.sampleRate)});};
   }
-  function cleanupAudio(){active=null;ready=false;busy=false;available();local.classList.remove("speaking");other.classList.remove("speaking");
+  function cleanupAudio(){
+    clearTimeout(recordTimer);recordTimer=null;
+    clearInterval(sessionTimer);sessionTimer=null;sessionStarted=0;$("sessionClock").textContent="00:00";
+    serverReady=false;replaying=false;currentReply=[];lastReply=[];
+    active=null;ready=false;busy=false;available();local.classList.remove("speaking");other.classList.remove("speaking");
     for(const n of playing){try{n.stop();}catch{}}playing.clear();playAt=0;
     try{processor?.disconnect();source?.disconnect();silent?.disconnect();}catch{}
     stream?.getTracks().forEach(x=>x.stop());ctx?.close().catch(()=>{});
     ctx=stream=processor=source=silent=null;
   }
-  function finish(){if(socket){socket.onclose=null;socket.close();socket=null;}cleanupAudio();
-    start.disabled=false;end.disabled=true;from.disabled=to.disabled=$("voice").disabled=false;status("idle");}
-  async function begin(){error("");start.disabled=true;
-    if(from.value===to.value){error("Choose two different languages / Alege două limbi diferite.");start.disabled=false;return;}
+  function finish(){generation++;if(socket){socket.onclose=null;socket.close();socket=null;}cleanupAudio();
+    start.disabled=false;end.disabled=true;from.disabled=to.disabled=$("voice").disabled=false;status("idle");available();}
+  async function begin(){error("");start.disabled=true;const attempt=++generation;available();
+    if(from.value===to.value){error("Choose two different languages / Alege două limbi diferite.");start.disabled=false;available();return;}
     try{
-      await mic();
+      await mic();if(attempt!==generation)return;
       const r=await fetch("/api/interpreter-session",{method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store",body:JSON.stringify({pin:$("pin").value,from:from.value,to:to.value,voice:$("voice").value})});
-      const info=await r.json();if(!r.ok)throw new Error(info.error||t("error"));
+      const info=await r.json();if(attempt!==generation)return;if(!r.ok)throw new Error(info.error||t("error"));
       status("connecting");from.disabled=to.disabled=$("voice").disabled=true;end.disabled=false;
       const protocol=location.protocol==="https:"?"wss":"ws";
       socket=new WebSocket(protocol+"://"+location.host+"/interpreter-socket?id="+encodeURIComponent(info.id)+"&token="+encodeURIComponent(info.token));
       socket.onmessage=evt=>{let m;try{m=JSON.parse(evt.data);}catch{return;}
-        if(m.type==="ready"){ready=true;busy=false;status("ready");available();}
+        if(m.type==="ready"){
+          serverReady=true;ready=true;busy=playing.size>0||replaying;
+          if(!sessionStarted){sessionStarted=Date.now();sessionTimer=setInterval(()=>{
+            const seconds=Math.floor((Date.now()-sessionStarted)/1000);
+            $("sessionClock").textContent=String(Math.floor(seconds/60)).padStart(2,"0")+":"+String(seconds%60).padStart(2,"0");
+          },1000);}
+          if(!busy)status("ready");available();
+        }
         else if(m.type==="connecting"){status("connecting");}
         else if(m.type==="recording"){status("recording");}
-        else if(m.type==="translating"){busy=true;ready=false;status("translating");available();}
+        else if(m.type==="translating"){busy=true;ready=false;serverReady=false;status("translating");available();}
         else if(m.type==="transcript"){$(m.lane+"Original").textContent=m.text||"—";}
         else if(m.type==="translation"){const target=$(m.lane+"Translation");if(target.textContent==="—")target.textContent="";target.textContent+=m.text;}
-        else if(m.type==="audio"&&m.data){play(m.data);}
+        else if(m.type==="audio"&&m.data){serverReady=false;busy=true;play(m.data);available();}
+        else if(m.type==="done"){lastReply=currentReply.slice();available();}
         else if(m.type==="error"){error(m.message||t("error"));}
       };
-      socket.onclose=()=>{error(t("error")+" — connection closed.");finish();};
-    }catch(e){error(e.message||t("mic"));finish();}
+      socket.onclose=()=>{if(!$("error").textContent)error(t("error")+" — connection closed.");finish();};
+    }catch(e){if(attempt!==generation)return;error(e.message||t("mic"));finish();}
   }
   function talk(lane){if(!ready&&!active)return;error("");
-    if(active===lane){send({type:"stop",lane});active=null;$(lane).classList.remove("speaking");busy=true;ready=false;available();status("translating");return;}
+    if(active===lane){clearTimeout(recordTimer);recordTimer=null;send({type:"stop",lane});active=null;$(lane).classList.remove("speaking");busy=true;ready=false;available();status("translating");return;}
     if(active||busy)return;
-    active=lane;$(lane+"Original").textContent="—";$(lane+"Translation").textContent="—";$(lane).classList.add("speaking");
+    active=lane;serverReady=false;currentReply=[];$(lane+"Original").textContent="—";$(lane+"Translation").textContent="—";$(lane).classList.add("speaking");
+    recordTimer=setTimeout(()=>{if(active===lane){talk(lane);error(t("recordLimit"));}},25000);
     send({type:"start",lane});status("recording");available();}
   ui.value=localStorage.getItem("interpreter-ui")||"ro";if(!T[ui.value])ui.value="ro";
   ui.addEventListener("change",()=>{localStorage.setItem("interpreter-ui",ui.value);labels();});
   from.addEventListener("change",labels);to.addEventListener("change",labels);
+  $("swapLanguages").addEventListener("click",()=>{const old=from.value;from.value=to.value;to.value=old;labels();});
+  $("replayTranslation").addEventListener("click",()=>{
+    if(!ready||busy||active||!lastReply.length)return;
+    replaying=true;busy=true;status("replaying");available();
+    for(const data of lastReply)play(data,false);
+  });
   local.addEventListener("click",()=>talk("local"));other.addEventListener("click",()=>talk("other"));
   start.addEventListener("click",begin);end.addEventListener("click",finish);
   window.addEventListener("pagehide",finish);

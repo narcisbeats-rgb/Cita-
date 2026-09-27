@@ -6,6 +6,7 @@ on:
       - '.github/workflows/android-apk.yml'
       - 'interpreter.js'
       - 'public/interpreter.html'
+      - 'scripts/**'
       - 'server.js'
   workflow_dispatch:
 permissions:
@@ -22,6 +23,7 @@ jobs:
         run: |
           node --check server.js
           node --check interpreter.js
+          node scripts/check-interpreter-ui.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
