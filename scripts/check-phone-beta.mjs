@@ -4,11 +4,16 @@ import { Script } from "node:vm";
 
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const html = read("index.html");
+const beta = read("public/phone-beta.html");
 const server = read("server.js");
 const activity = read("android/app/src/main/java/com/traducerelive/mobile/MainActivity.java");
 const script = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(script, "Call page script exists");
 new Script(script[1], { filename: "index.html" });
+const betaScript=beta.match(/<script>([\\s\\S]*?)<\\/script>/);
+assert.ok(betaScript,"Beta entry script exists");
+new Script(betaScript[1],{filename:"public/phone-beta.html"});
+assert.match(beta,/data\.enabled===true&&data\.callerId==="provider-configured"/,"Entry is fail closed");
 for (const id of ["call", "providerConsent", "callAvailability", "phone", "pin", "hang"]) {
   assert.match(html, new RegExp('id="' + id + '"'), "Missing call control: " + id);
 }
@@ -20,7 +25,7 @@ assert.match(server, /req\.body\?\.providerConsent !== true/, "Server requires e
 assert.match(server, /const PHONE_BETA_MAX_SESSIONS = 1/, "Single call beta guard");
 assert.match(server, /const PHONE_BETA_MAX_MS = 10 \* 60 \* 1000/, "Paid call timeout guard");
 assert.match(server, /from: TELNYX_FROM_NUMBER/, "Provider number is configured by server");
-assert.match(activity, /"Apel tradus", "⇄", "\/", false/, "Translated calls have an independent Android tab");
+assert.match(activity, /"Apel tradus", "⇄", "\/phone-beta\.html", false/, "Translated calls have an independent Android tab");
 assert.match(activity, /"Sună cu SIM", "☎", "sim:", false/, "Native SIM tab remains distinct");
 assert.doesNotMatch(activity, /addNav\([^\n]*"\/agent"/, "Private agent absent in Android public navigation");
 console.log("Translated-call beta UI and safety smoke checks passed.");
