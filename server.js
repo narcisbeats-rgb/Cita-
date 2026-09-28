@@ -24,6 +24,7 @@ const AGENT_PRIVATE_PIN = process.env.AGENT_PRIVATE_PIN || "";
 const PHONE_TRANSLATION_ENABLED = process.env.PHONE_TRANSLATION_ENABLED === "true";
 const PHONE_BETA_MAX_MS = 10 * 60 * 1000;
 const PHONE_BETA_MAX_SESSIONS = 1;
+const PHONE_CLIENT_GRACE_MS = 15000;
 const phonePinFailures = new Map();
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 
@@ -132,12 +133,27 @@ function cleanup(id, finalStatus = "ended") {
   const s = sessions.get(id);
   if (!s) return;
   if (s.callTimeout) clearTimeout(s.callTimeout);
+  if (s.clientDisconnectTimer) clearTimeout(s.clientDisconnectTimer);
   safeSend(s.client, { type: "status", status: finalStatus });
   closeSocket(s.localToDa);
   closeSocket(s.daToLocal);
   closeSocket(s.telnyxWs);
   closeSocket(s.client);
   sessions.delete(id);
+}
+
+async function hangupPhoneSession(s, status = "completed") {
+  if (sessions.get(s.id) !== s || s.ending) return;
+  s.ending = true;
+  try {
+    if (s.callControlId) await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/hangup", {
+      method: "POST", body: { command_id: crypto.randomUUID() }
+    });
+  } catch (e) {
+    console.error("Phone hangup failed:", e.message);
+  } finally {
+    cleanup(s.id, status);
+  }
 }
 
 function openRealtime({
@@ -1065,7 +1081,7 @@ app.post("/agent-webhook", async (req, res) => {
 
 app.get("/api/phone-translation-availability", (_req, res) => {
   res.set("Cache-Control", "no-store").json({
-    enabled: PHONE_TRANSLATION_ENABLED,
+    enabled: PHONE_TRANSLATION_ENABLED && missingConfig().length === 0,
     callerId: "provider-configured",
     maxMinutes: PHONE_BETA_MAX_MS / 60000,
     note: "This is a provider-routed internet call, not a translated SIM call."
@@ -1105,6 +1121,7 @@ app.post("/api/call", async (req, res) => {
     const s = {
       id, token, to, language, direction, voice, created: Date.now(),
       callTimeout: null,
+      clientDisconnectTimer: null,
       answered: false,
       answeredAt: null,
       callControlId: null,
@@ -1144,15 +1161,11 @@ app.post("/api/call", async (req, res) => {
 
     s.callControlId = result.data?.call_control_id || null;
     s.callTimeout = setTimeout(async () => {
-      if (sessions.get(id) !== s) return;
-      try {
-        if (s.callControlId) await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/hangup", {
-          method: "POST", body: { command_id: crypto.randomUUID() }
-        });
-      } catch (e) { console.error("Phone beta timeout hangup failed:", e.message); }
-      finally { cleanup(id, "completed"); }
+      await hangupPhoneSession(s);
     }, PHONE_BETA_MAX_MS);
     s.callTimeout.unref?.();
+    s.clientDisconnectTimer = setTimeout(() => hangupPhoneSession(s, "lost"), PHONE_CLIENT_GRACE_MS);
+    s.clientDisconnectTimer.unref?.();
     res.json({ sessionId: id, token, status: "initiated", language, direction, voice });
   } catch (e) {
     if (pendingSessionId) cleanup(pendingSessionId, "ended");
@@ -1163,15 +1176,7 @@ app.post("/api/call", async (req, res) => {
 app.post("/api/hangup", async (req, res) => {
   const s = sessions.get(String(req.body.sessionId || ""));
   if (!s || req.body.token !== s.token) return res.status(401).json({ error: "Sesiune invalidă" });
-  try {
-    if (s.callControlId) {
-      await telnyx("/calls/" + encodeURIComponent(s.callControlId) + "/actions/hangup", {
-        method: "POST",
-        body: { command_id: crypto.randomUUID() }
-      });
-    }
-  } catch {}
-  cleanup(s.id, "completed");
+  await hangupPhoneSession(s);
   res.json({ ok: true });
 });
 
@@ -1234,6 +1239,9 @@ clientWss.on("connection", (ws, req) => {
   const s = sessions.get(id);
   if (!s || token !== s.token) return ws.close(1008, "Invalid session");
 
+  if (s.clientDisconnectTimer) clearTimeout(s.clientDisconnectTimer);
+  s.clientDisconnectTimer = null;
+  if (s.client && s.client !== ws) closeSocket(s.client);
   s.client = ws;
   safeSend(ws, { type: "status", status: s.answered ? "call-audio-live" : "app-connected" });
   if (s.answeredAt) safeSend(ws, { type: "call-start", at: s.answeredAt });
@@ -1256,7 +1264,11 @@ clientWss.on("connection", (ws, req) => {
   });
 
   ws.on("close", () => {
-    if (s.client === ws) s.client = null;
+    if (s.client !== ws || sessions.get(id) !== s) return;
+    s.client = null;
+    // Navigation or a network drop must not leave a paid call running unattended.
+    s.clientDisconnectTimer = setTimeout(() => hangupPhoneSession(s, "lost"), PHONE_CLIENT_GRACE_MS);
+    s.clientDisconnectTimer.unref?.();
   });
 });
 
