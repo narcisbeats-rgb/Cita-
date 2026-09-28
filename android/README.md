@@ -1,8 +1,8 @@
 # Traducere Live — Android MVP
 
 A minimal Android WebView shell for the existing HTTPS Render app.
-It opens /interpreter.html by default. The bottom navigation has three modes:
-face-to-face interpretation, provider-routed translated calls (beta), and native
+It opens the translated-call screen at / by default. The bottom navigation has three modes:
+provider-routed translated calls (beta), face-to-face interpretation, and native
 SIM dialing. The AI phone agent is NOT in public navigation. No API keys are
 stored in the APK.
 
