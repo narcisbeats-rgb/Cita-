@@ -51,8 +51,8 @@ public final class MainActivity extends Activity {
         navBar.setGravity(Gravity.CENTER);
         navBar.setPadding(dp(10), dp(8), dp(10), dp(8));
         navBar.setBackgroundColor(Color.rgb(17, 28, 47));
-        addNav(navBar, "Interpret", "◉", "/interpreter.html", true);
-        addNav(navBar, "Apel tradus", "⇄", "/phone-beta.html", false);
+        addNav(navBar, "Apel tradus", "⇄", "/", true);
+        addNav(navBar, "Interpret", "◉", "/interpreter.html", false);
         addNav(navBar, "Sună cu SIM", "☎", "sim:", false);
         layout.addView(navBar, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(72)));
@@ -92,7 +92,7 @@ public final class MainActivity extends Activity {
                 if (pendingMicrophoneRequest == request) pendingMicrophoneRequest = null;
             }
         });
-        webView.loadUrl(ORIGIN + "/interpreter.html");
+        webView.loadUrl(ORIGIN + "/");
     }
 
     private int dp(float value) {
@@ -140,7 +140,7 @@ public final class MainActivity extends Activity {
 
     private void selectNav(String path) {
         if (navBar == null) return;
-        String active = ("/".equals(path) || "/phone-beta.html".equals(path)) ? "/phone-beta.html" : "/interpreter.html";
+        String active = ("/".equals(path) || "/phone-beta.html".equals(path)) ? "/" : "/interpreter.html";
         for (int i = 0; i < navBar.getChildCount(); i++) {
             View child = navBar.getChildAt(i);
             boolean selected = active.equals(child.getTag());
