@@ -184,6 +184,7 @@ button:disabled{opacity:.42;cursor:not-allowed}
   let callStartAt=0,timer=null,realtimeUsd=0,previewAudio=null;
   let currentStatusCode="ready",currentPhaseCode="waiting";
   let phoneTranslationEnabled=false,callAvailabilityKnown=false;
+  let reconnectTimer=null,disconnectedAt=0;
   function updateCallEnabled(){call.disabled=!phoneTranslationEnabled||!providerConsent.checked||!!sid;}
   async function loadCallAvailability(){
     try{
@@ -356,10 +357,12 @@ button:disabled{opacity:.42;cursor:not-allowed}
 
   function connectAppSocket(){
     const scheme=location.protocol==="https:"?"wss":"ws";
-    ws=new WebSocket(scheme+"://"+location.host+"/client?sid="+encodeURIComponent(sid)+"&token="+encodeURIComponent(token));
-    ws.onmessage=e=>{
+    const socket=new WebSocket(scheme+"://"+location.host+"/client?sid="+encodeURIComponent(sid)+"&token="+encodeURIComponent(token));
+    ws=socket;
+    socket.onmessage=e=>{
       let m;try{m=JSON.parse(e.data)}catch{return}
       if(m.type==="status"){
+        disconnectedAt=0;clearTimeout(reconnectTimer);reconnectTimer=null;
         if(m.status==="call-audio-live"){
           live=true;mute.disabled=false;setPhase("listening");
         }
@@ -385,7 +388,14 @@ button:disabled{opacity:.42;cursor:not-allowed}
         if(String(m.message||"").toLowerCase().includes("credits"))setPhase("credit");
       }
     };
-    ws.onclose=()=>{if(sid&&live){setStatusCode("lost");setPhase("reconnecting")}};
+    socket.onclose=()=>{
+      if(ws!==socket||!sid)return;
+      live=false;
+      setStatusCode("lost");setPhase("reconnecting");
+      if(!disconnectedAt)disconnectedAt=Date.now();
+      if(Date.now()-disconnectedAt>=14000){setError(t("connectionLost"));finishUi();return;}
+      reconnectTimer=setTimeout(()=>{if(sid&&ws===socket)connectAppSocket()},1200);
+    };
   }
 
   function fmtTime(seconds){
@@ -429,8 +439,8 @@ button:disabled{opacity:.42;cursor:not-allowed}
       setStatusCode("initiated");
       setPhase("waiting");
     }catch(e){
+      finishUi();
       setError(e.message||String(e));
-      updateCallEnabled();language.disabled=false;direction.disabled=false;voice.disabled=false;preview.disabled=false;
     }
   }
 
@@ -453,9 +463,15 @@ button:disabled{opacity:.42;cursor:not-allowed}
 
   function finishUi(){
     live=false;localSpeaking=false;muted=false;
+    clearTimeout(reconnectTimer);reconnectTimer=null;disconnectedAt=0;
     clearInterval(timer);
     finalizeReply();
     clearPlayback();
+    if(ws){const old=ws;ws=null;try{old.close()}catch{}}
+    if(mic){mic.getTracks().forEach(track=>track.stop());mic=null}
+    try{src?.disconnect();proc?.disconnect();gain?.disconnect()}catch{}
+    src=null;proc=null;gain=null;
+    if(ctx){const old=ctx;ctx=null;old.close().catch(()=>{})}
     mute.disabled=true;mute.classList.remove("active");mute.textContent=t("muteOff");
     hang.disabled=true;sid=null;token=null;updateCallEnabled();language.disabled=false;direction.disabled=false;voice.disabled=false;preview.disabled=false;
   }

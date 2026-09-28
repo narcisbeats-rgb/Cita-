@@ -27,6 +27,10 @@ jobs:
           node --check interpreter.js
           node scripts/check-interpreter-ui.mjs
           node scripts/check-phone-beta.mjs
+      - name: Check unattended call hangup
+        run: |
+          npm install --ignore-scripts
+          node scripts/integration-phone-disconnect.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
