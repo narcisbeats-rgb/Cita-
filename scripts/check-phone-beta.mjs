@@ -5,6 +5,7 @@ import { Script } from "node:vm";
 const read = path => readFileSync(new URL("../" + path, import.meta.url), "utf8");
 const html = read("index.html");
 const beta = read("public/phone-beta.html");
+const account = read("public/account.html");
 const server = read("server.js");
 const activity = read("android/app/src/main/java/com/traducerelive/mobile/MainActivity.java");
 const script = html.match(/<script>([\s\S]*?)<\/script>/);
@@ -13,6 +14,9 @@ new Script(script[1], { filename: "index.html" });
 const betaScript=beta.split("<script>")[1]?.split("</script>")[0];
 assert.ok(betaScript,"Beta entry script exists");
 new Script(betaScript,{filename:"public/phone-beta.html"});
+const accountScript=account.split("<script>")[1]?.split("</script>")[0];
+assert.ok(accountScript,"Account page script exists");
+new Script(accountScript,{filename:"public/account.html"});
 assert.match(beta,/data\.enabled===true&&data\.callerId==="verified-user-number"/,"Entry is fail closed");
 for (const id of ["call", "providerConsent", "callAvailability", "phone", "myCallerId", "hang"]) {
   assert.match(html, new RegExp('id="' + id + '"'), "Missing call control: " + id);
