@@ -16,10 +16,18 @@ services:
       - key: TELNYX_API_KEY
         sync: false
       - key: TELNYX_FROM_NUMBER
-        value: +4581948173
+        sync: false
       - key: TELNYX_APP_NAME
         value: Traducere Live
       - key: APP_PIN
+        sync: false
+      - key: PUBLIC_CALLER_ACCOUNTS_ENABLED
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: SIGNUP_INVITE_CODE
         sync: false
       - key: PUBLIC_BASE_URL
         sync: false
