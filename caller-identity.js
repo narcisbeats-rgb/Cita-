@@ -1,10 +1,10 @@
 // Own-number identity guard for provider-routed translated calls.
 // Provider verification is necessary but never replaces binding the number to an authenticated user.
-export const E164 = /^\\+[1-9]\\d{7,14}$/;
+export const E164 = /^\+[1-9]\d{7,14}$/;
 
 export function normalizeE164(input) {
   if (typeof input !== "string" || input.length > 40) return null;
-  const number = input.replace(/[\\s().-]/g, "");
+  const number = input.replace(/[\s().-]/g, "");
   return E164.test(number) ? number : null;
 }
 
@@ -51,7 +51,7 @@ export function createTelnyxVerifiedNumbers({ apiKey, fetchImpl = fetch, baseUrl
       return request("POST", "", { phone_number: number, verification_method: method });
     },
     submit(number, code) {
-      if (!normalizeE164(number) || typeof code !== "string" || !/^\\d{4,8}$/.test(code)) throw Error("Invalid verification code");
+      if (!normalizeE164(number) || typeof code !== "string" || !/^\d{4,8}$/.test(code)) throw Error("Invalid verification code");
       return request("POST", "/" + encodeURIComponent(number) + "/actions/verify", { verification_code: code });
     },
     lookup(number) {
