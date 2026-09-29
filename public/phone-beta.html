@@ -29,7 +29,7 @@ a.link{margin-top:10px;background:#253b52;color:#e3eef8;text-decoration:none}
   <div class="notice" id="notice">Audio este procesat pentru traducere. Pot exista costuri de telefonie și AI. Informează interlocutorul înainte de a începe.</div>
   <p id="availability" role="status" aria-live="polite">Verific disponibilitatea…</p>
   <button id="continue" disabled>Deschide apelul tradus</button>
-  <a class="link" id="back" href="/interpreter.html">Înapoi la interpret</a>
+  <a class="link" id="back" href="/account.html">Înapoi la interpret</a>
 </main>
 <script>
 (()=>{
@@ -51,7 +51,7 @@ $("continue").addEventListener("click",()=>{if(!$("continue").disabled)location.
 fetch("/api/phone-translation-availability",{cache:"no-store"})
   .then(async response=>{if(!response.ok)throw new Error("unavailable");return response.json()})
   .then(data=>{
-    const enabled=data.enabled===true&&data.callerId==="provider-configured";
+    const enabled=data.enabled===true&&data.callerId==="verified-user-number";
     $("continue").disabled=!enabled;
     $("availability").textContent=enabled?m.available:m.disabled;
   }).catch(()=>{$("continue").disabled=true;$("availability").textContent=m.error;});
