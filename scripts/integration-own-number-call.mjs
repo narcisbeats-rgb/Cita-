@@ -43,6 +43,13 @@ try {
   const confirmed=await post("/api/account/number/confirm",{verificationCode:"123456"},cookie);
   assert.equal(confirmed.status,200,JSON.stringify(confirmed.data));
   assert.equal(confirmed.data.phoneNumber,number);
+  const second=await post("/api/account/register",{email:"other@example.test",password:"second correct horse battery staple",invite:"local-testing-only-very-long-invite-code-12345"});
+  assert.equal(second.status,201);
+  const otherCookie=second.cookie?.split(";")[0];
+  const duplicateBinding=await post("/api/account/number/start",{phoneNumber:number,method:"sms",verificationConsent:true},otherCookie);
+  assert.equal(duplicateBinding.status,409,"Number binding is unique between accounts.");
+  const otherCall=await post("/api/call",{to:"+4552520302",providerConsent:true},otherCookie);
+  assert.equal(otherCall.status,409,"Second account cannot use the first account's caller ID.");
   const spoofed=await post("/api/call",{to:"+4552520302",from:"+4599999999",providerConsent:true},cookie);
   assert.equal(spoofed.status,400,"Client-supplied caller ID is rejected.");
   const attempt=await post("/api/call",{to:"+4552520302",providerConsent:true},cookie);
