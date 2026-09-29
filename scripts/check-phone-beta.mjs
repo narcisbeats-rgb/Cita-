@@ -13,7 +13,7 @@ new Script(script[1], { filename: "index.html" });
 const betaScript=beta.split("<script>")[1]?.split("</script>")[0];
 assert.ok(betaScript,"Beta entry script exists");
 new Script(betaScript,{filename:"public/phone-beta.html"});
-assert.match(beta,/data\.enabled===true&&data\.callerId==="provider-configured"/,"Entry is fail closed");
+assert.match(beta,/data\.enabled===true&&data\.callerId==="verified-user-number"/,"Entry is fail closed");
 for (const id of ["call", "providerConsent", "callAvailability", "phone", "myCallerId", "hang"]) {
   assert.match(html, new RegExp('id="' + id + '"'), "Missing call control: " + id);
 }
