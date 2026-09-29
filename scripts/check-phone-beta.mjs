@@ -25,8 +25,9 @@ assert.match(server, /req\.body\?\.providerConsent !== true/, "Server requires e
 assert.match(server, /const PHONE_BETA_MAX_SESSIONS = 1/, "Single call beta guard");
 assert.match(server, /const PHONE_BETA_MAX_MS = 10 \* 60 \* 1000/, "Paid call timeout guard");
 assert.match(server, /from: TELNYX_FROM_NUMBER/, "Provider number is configured by server");
-assert.match(activity, /"Apel tradus", "⇄", "\/", true/, "Translated calls are the Android home screen");
-assert.match(activity, /webView\.loadUrl\(ORIGIN \+ "\/"\)/, "Android opens translated calling by default");
+assert.match(activity, /"Apel tradus", "⇄", "\/phone-beta\.html", true/, "Translated calls start at the guarded beta entry");
+assert.match(activity, /webView\.loadUrl\(ORIGIN \+ "\/phone-beta\.html"\)/, "Android opens the fail-closed translated-call entry");
 assert.match(activity, /"Sună cu SIM", "☎", "sim:", false/, "Native SIM tab remains distinct");
+assert.match(activity, /location\.assign\("\/"\)/, "Beta entry controls navigation to the calling form");
 assert.doesNotMatch(activity, /addNav\([^\n]*"\/agent"/, "Private agent absent in Android public navigation");
 console.log("Translated-call beta UI and safety smoke checks passed.");
