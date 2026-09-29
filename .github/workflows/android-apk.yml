@@ -10,6 +10,7 @@ on:
       - 'index.html'
       - 'scripts/**'
       - 'server.js'
+      - 'telnyx-webhook.js'
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,6 +26,8 @@ jobs:
         run: |
           node --check server.js
           node --check interpreter.js
+          node --check telnyx-webhook.js
+          node scripts/check-telnyx-webhook.mjs
           node scripts/check-interpreter-ui.mjs
           node scripts/check-phone-beta.mjs
       - name: Check unattended call hangup
