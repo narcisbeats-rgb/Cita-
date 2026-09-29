@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ro">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1220">
+<title>Traducere Live — Numărul meu</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#0b1220;color:#eff7ff}*{box-sizing:border-box}
+body{margin:0 auto;max-width:660px;padding:24px 16px 60px}
+h1{font-size:1.9rem;line-height:1.1;margin:14px 0 8px}h2{font-size:1.16rem}
+p,.hint{color:#b7cce0}a{color:#88dec9}section{background:#142237;border:1px solid #345068;border-radius:22px;padding:20px;margin:15px 0}
+label{display:block;font-size:.88rem;color:#c9d9e8;margin:10px 0 5px}
+input,select,button{font:inherit;width:100%;padding:12px;min-height:48px;border-radius:12px}
+input,select{border:1px solid #426079;background:#0c1625;color:#fff}button{border:0;background:#66e0bb;color:#08251f;font-weight:800;margin-top:13px}
+button:disabled{opacity:.5}button.secondary{background:#29415b;color:#f3f8fe}
+.hidden{display:none}.note{font-size:.85rem}.status{border-radius:12px;background:#0f2d39;padding:12px;margin-top:12px;white-space:pre-wrap}
+.badge{display:inline-block;background:#173d36;color:#a1edd1;padding:5px 11px;border-radius:20px;font-size:.73rem;font-weight:800}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:500px){.row{display:block}}
+</style></head><body>
+<a href="/phone-beta.html">← Înapoi la apel tradus</a>
+<h1>Numărul meu pentru apeluri</h1>
+<p>Interlocutorul ar trebui să vadă numărul tău verificat, nu un număr comun al aplicației. Afișarea finală depinde de operatorul destinatarului.</p>
+<div class="badge">BETA • ACCES CU INVITAȚIE</div>
+<div id="status" class="status" role="status" aria-live="polite">Verific configurarea…</div>
+<section id="loginBox" class="hidden"><h2>Intră în cont</h2>
+<form id="loginForm"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="email" required maxlength="255">
+<label for="loginPassword">Parola</label><input id="loginPassword" type="password" autocomplete="current-password" required>
+<button>Autentifică-te</button></form>
+<details><summary>Ai o invitație? Creează cont</summary>
+<form id="registerForm"><label for="registerEmail">Email</label><input id="registerEmail" type="email" autocomplete="email" required>
+<label for="registerPassword">Parolă (minimum 12 caractere)</label><input id="registerPassword" type="password" autocomplete="new-password" minlength="12" required>
+<label for="invite">Cod invitație beta</label><input id="invite" type="password" autocomplete="off" required>
+<button>Creează contul</button></form></details>
+</section>
+<section id="profileBox" class="hidden"><h2>Identitatea de apelare</h2>
+<p id="email"></p><p id="numberState">Niciun număr verificat.</p>
+<form id="startForm"><label for="ownNumber">Numărul tău, cu prefix internațional</label>
+<input id="ownNumber" inputmode="tel" type="tel" placeholder="+45…" autocomplete="tel" required>
+<label for="method">Cum primești codul?</label><select id="method"><option value="sms">SMS</option><option value="call">Apel vocal</option></select>
+<label class="note"><input id="verificationConsent" type="checkbox" required style="width:auto;min-height:auto"> Confirm că numărul îmi aparține și accept costul eventual al verificării Telnyx. Trimite codul doar când apăs butonul.</label>
+<button>Trimite codul de verificare</button></form>
+<form id="codeForm"><label for="verificationCode">Codul primit</label><input id="verificationCode" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="one-time-code" required>
+<button>Confirmă numărul</button></form>
+<button id="refresh" class="secondary" type="button">Verifică din nou statutul la Telnyx</button>
+<button id="logout" class="secondary" type="button">Ieși din cont</button>
+<p class="hint note">Apelurile traduse necesită internet și pot genera costuri de telefonie și AI. Apelarea prin SIM rămâne separată și nu traduce conversația.</p>
+</section>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const status=message=>{$("status").textContent=message};
+async function request(path,body){
+  const response=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify(body),cache:"no-store"});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(data.error||"Cererea nu a putut fi finalizată.");
+  return data;
+}
+async function refresh(){
+  const available=await fetch("/api/account/availability",{cache:"no-store"}).then(r=>r.json());
+  if(!available.enabled){$("loginBox").classList.add("hidden");$("profileBox").classList.add("hidden");status("Conturile beta nu sunt configurate pe server. Niciun apel cu numărul altcuiva nu va fi pornit.");return}
+  const r=await fetch("/api/account/me",{cache:"no-store",credentials:"same-origin"});if(!r.ok)throw Error("Profilul nu poate fi verificat.");
+  const me=await r.json();
+  $("loginBox").classList.toggle("hidden",!!me.authenticated);
+  $("profileBox").classList.toggle("hidden",!me.authenticated);
+  if(me.authenticated){
+    $("email").textContent=me.email;
+    $("numberState").textContent=me.callerId?("Număr: "+me.callerId+" • statut: "+me.verificationStatus):"Nu ai încă un număr verificat.";
+    status(me.verificationStatus==="verified"?"Numărul a fost confirmat la ultima verificare. Îl reconfirmăm automat înainte de fiecare apel.":"Cont activ. Verifică numărul înainte să suni.");
+  }else status("Autentifică-te sau creează un cont beta cu invitație.");
+}
+function on(form,callback){$(form).addEventListener("submit",async event=>{event.preventDefault();const button=event.target.querySelector("button");button.disabled=true;try{await callback()}catch(e){status(e.message)}finally{button.disabled=false}})}
+on("registerForm",async()=>{await request("/api/account/register",{email:$("registerEmail").value,password:$("registerPassword").value,invite:$("invite").value});$("registerPassword").value="";$("invite").value="";await refresh()});
+on("loginForm",async()=>{await request("/api/account/login",{email:$("loginEmail").value,password:$("loginPassword").value});$("loginPassword").value="";await refresh()});
+on("startForm",async()=>{const data=await request("/api/account/number/start",{phoneNumber:$("ownNumber").value,method:$("method").value,verificationConsent:$("verificationConsent").checked});status(data.message||"Codul a fost solicitat. Completează-l mai jos.");});
+on("codeForm",async()=>{await request("/api/account/number/confirm",{verificationCode:$("verificationCode").value});$("verificationCode").value="";await refresh();});
+$("refresh").addEventListener("click",async()=>{try{const data=await request("/api/account/number/refresh",{});status(data.verified?"Telnyx confirmă numărul propriu.":"Telnyx nu mai confirmă numărul. Este necesară reverificarea.");await refresh();}catch(e){status(e.message)}});
+$("logout").addEventListener("click",async()=>{try{await request("/api/account/logout",{});await refresh()}catch(e){status(e.message)}});
+refresh().catch(e=>status(e.message));
+})();
+</script></body></html>
