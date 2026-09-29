@@ -18,13 +18,14 @@ for (const id of ["call", "providerConsent", "callAvailability", "phone", "myCal
   assert.match(html, new RegExp('id="' + id + '"'), "Missing call control: " + id);
 }
 assert.match(html, /href="\/interpreter\.html"/, "Public navigation returns to interpreter");
+assert.match(html, /href="\/account\.html"/, "User account is reachable from phone page");
 assert.doesNotMatch(html, /href="\/agent"/, "Private agent is not linked in public phone UI");
 assert.match(server, /PHONE_TRANSLATION_ENABLED = process\.env\.PHONE_TRANSLATION_ENABLED === "true"/, "Paid calls default off");
 assert.match(server, /if \(!PHONE_TRANSLATION_ENABLED\) return res\.status\(503\)/, "Server rejects disabled calls");
 assert.match(server, /req\.body\?\.providerConsent !== true/, "Server requires explicit per-call consent");
 assert.match(server, /const PHONE_BETA_MAX_SESSIONS = 1/, "Single call beta guard");
 assert.match(server, /const PHONE_BETA_MAX_MS = 10 \* 60 \* 1000/, "Paid call timeout guard");
-assert.match(server, /from: caller\\.number/, "Provider number comes from verified user profile");
+assert.match(server, /from: caller\.number/, "Provider number comes from verified user profile");
 assert.match(activity, /"Apel tradus", "⇄", "\/phone-beta\.html", true/, "Translated calls start at the guarded beta entry");
 assert.match(activity, /webView\.loadUrl\(ORIGIN \+ "\/phone-beta\.html"\)/, "Android opens the fail-closed translated-call entry");
 assert.match(activity, /"Sună cu SIM", "☎", "sim:", false/, "Native SIM tab remains distinct");
