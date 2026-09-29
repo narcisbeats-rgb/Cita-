@@ -28,6 +28,6 @@ assert.match(server, /from: TELNYX_FROM_NUMBER/, "Provider number is configured 
 assert.match(activity, /"Apel tradus", "⇄", "\/phone-beta\.html", true/, "Translated calls start at the guarded beta entry");
 assert.match(activity, /webView\.loadUrl\(ORIGIN \+ "\/phone-beta\.html"\)/, "Android opens the fail-closed translated-call entry");
 assert.match(activity, /"Sună cu SIM", "☎", "sim:", false/, "Native SIM tab remains distinct");
-assert.match(activity, /location\.assign\("\/"\)/, "Beta entry controls navigation to the calling form");
+assert.match(beta, /location\.assign\("\/"\)/, "Beta entry controls navigation to the calling form");
 assert.doesNotMatch(activity, /addNav\([^\n]*"\/agent"/, "Private agent absent in Android public navigation");
 console.log("Translated-call beta UI and safety smoke checks passed.");
