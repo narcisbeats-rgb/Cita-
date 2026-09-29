@@ -14,7 +14,7 @@ const betaScript=beta.split("<script>")[1]?.split("</script>")[0];
 assert.ok(betaScript,"Beta entry script exists");
 new Script(betaScript,{filename:"public/phone-beta.html"});
 assert.match(beta,/data\.enabled===true&&data\.callerId==="provider-configured"/,"Entry is fail closed");
-for (const id of ["call", "providerConsent", "callAvailability", "phone", "pin", "hang"]) {
+for (const id of ["call", "providerConsent", "callAvailability", "phone", "myCallerId", "hang"]) {
   assert.match(html, new RegExp('id="' + id + '"'), "Missing call control: " + id);
 }
 assert.match(html, /href="\/interpreter\.html"/, "Public navigation returns to interpreter");
@@ -24,7 +24,7 @@ assert.match(server, /if \(!PHONE_TRANSLATION_ENABLED\) return res\.status\(503\
 assert.match(server, /req\.body\?\.providerConsent !== true/, "Server requires explicit per-call consent");
 assert.match(server, /const PHONE_BETA_MAX_SESSIONS = 1/, "Single call beta guard");
 assert.match(server, /const PHONE_BETA_MAX_MS = 10 \* 60 \* 1000/, "Paid call timeout guard");
-assert.match(server, /from: TELNYX_FROM_NUMBER/, "Provider number is configured by server");
+assert.match(server, /from: caller\\.number/, "Provider number comes from verified user profile");
 assert.match(activity, /"Apel tradus", "⇄", "\/phone-beta\.html", true/, "Translated calls start at the guarded beta entry");
 assert.match(activity, /webView\.loadUrl\(ORIGIN \+ "\/phone-beta\.html"\)/, "Android opens the fail-closed translated-call entry");
 assert.match(activity, /"Sună cu SIM", "☎", "sim:", false/, "Native SIM tab remains distinct");
