@@ -4,6 +4,7 @@ import path from "node:path";
 import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import { createInterpreter } from "./interpreter.js";
+import { createCallerAccounts } from "./caller-accounts.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -25,7 +26,7 @@ const PHONE_TRANSLATION_ENABLED = process.env.PHONE_TRANSLATION_ENABLED === "tru
 const PHONE_BETA_MAX_MS = 10 * 60 * 1000;
 const PHONE_BETA_MAX_SESSIONS = 1;
 const PHONE_CLIENT_GRACE_MS = 15000;
-const phonePinFailures = new Map();
+const callerAccounts = createCallerAccounts(app);
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
 
 const VOICES = new Set(["alloy","ash","ballad","coral","echo","sage","shimmer","verse","marin","cedar"]);
@@ -1081,8 +1082,9 @@ app.post("/agent-webhook", async (req, res) => {
 
 app.get("/api/phone-translation-availability", (_req, res) => {
   res.set("Cache-Control", "no-store").json({
-    enabled: PHONE_TRANSLATION_ENABLED && missingConfig().length === 0,
-    callerId: "provider-configured",
+    enabled: PHONE_TRANSLATION_ENABLED && missingConfig().length === 0 && callerAccounts.enabled,
+    callerId: "verified-user-number",
+    accountRequired: true,
     maxMinutes: PHONE_BETA_MAX_MS / 60000,
     note: "This is a provider-routed internet call, not a translated SIM call."
   });
@@ -1092,22 +1094,13 @@ app.post("/api/call", async (req, res) => {
   let pendingSessionId = null;
   try {
     if (!PHONE_TRANSLATION_ENABLED) return res.status(503).json({ error: "Apelurile traduse sunt dezactivate până la verificarea operatorului telefonic." });
+    if (!callerAccounts.enabled) return res.status(503).json({ error: "Apelarea cu numărul propriu nu este configurată. Nu folosim numărul global." });
     if (sessions.size >= PHONE_BETA_MAX_SESSIONS) return res.status(429).json({ error: "Un apel de test este deja activ." });
     if (req.body?.providerConsent !== true) return res.status(400).json({ error: "Confirmă că apelul este procesat de furnizorul telefonic și poate genera costuri." });
-    const now = Date.now();
-    const ip = req.ip || "unknown";
-    const previous = phonePinFailures.get(ip);
-    const failure = previous && previous.expires > now ? previous : { count: 0, expires: now + 15 * 60 * 1000 };
-    if (failure.count >= 10) return res.status(429).json({ error: "Prea multe încercări PIN. Încearcă mai târziu." });
+    const caller = await callerAccounts.resolveCaller(req);
+    if (!caller.number) return res.status(caller.status).json({ error: caller.error });
     const missing = missingConfig();
     if (missing.length) return res.status(503).json({ error: "Missing config: " + missing.join(", ") });
-    if (!APP_PIN || !crypto.timingSafeEqual(Buffer.from(crypto.createHash("sha256").update(String(req.body.pin || "")).digest()), Buffer.from(crypto.createHash("sha256").update(APP_PIN).digest()))) {
-      failure.count++;
-      phonePinFailures.set(ip, failure);
-      return res.status(401).json({ error: "PIN greșit" });
-    }
-    phonePinFailures.delete(ip);
-
     const to = normalizePhone(req.body.to);
     if (!to) return res.status(400).json({ error: "Numărul trebuie scris internațional, de exemplu +45..." });
 
@@ -1119,7 +1112,7 @@ app.post("/api/call", async (req, res) => {
     const token = crypto.randomBytes(24).toString("hex");
 
     const s = {
-      id, token, to, language, direction, voice, created: Date.now(),
+      id, token, to, callerUserId: caller.userId, from: caller.number, language, direction, voice, created: Date.now(),
       callTimeout: null,
       clientDisconnectTimer: null,
       answered: false,
@@ -1146,7 +1139,7 @@ app.post("/api/call", async (req, res) => {
       body: {
         connection_id: connectionId,
         to,
-        from: TELNYX_FROM_NUMBER,
+        from: caller.number,
         webhook_url: PUBLIC_BASE_URL + "/telnyx-webhook?sid=" + encodeURIComponent(id),
         stream_url: wsBase() + "/telnyx-media?sid=" + encodeURIComponent(id) + "&token=" + encodeURIComponent(token),
         stream_track: "inbound_track",
@@ -1166,7 +1159,7 @@ app.post("/api/call", async (req, res) => {
     s.callTimeout.unref?.();
     s.clientDisconnectTimer = setTimeout(() => hangupPhoneSession(s, "lost"), PHONE_CLIENT_GRACE_MS);
     s.clientDisconnectTimer.unref?.();
-    res.json({ sessionId: id, token, status: "initiated", language, direction, voice });
+    res.json({ sessionId: id, token, status: "initiated", callerId: caller.number, language, direction, voice });
   } catch (e) {
     if (pendingSessionId) cleanup(pendingSessionId, "ended");
     res.status(500).json({ error: e.message || "Nu am putut porni apelul" });
@@ -1388,6 +1381,8 @@ setInterval(() => {
     }
   }
 }, 60000).unref();
+
+await callerAccounts.init();
 
 server.listen(PORT, async () => {
   console.log("Live RO/ES↔DA translator listening on :" + PORT);
