@@ -10,12 +10,30 @@ on:
       - 'index.html'
       - 'scripts/**'
       - 'server.js'
+      - 'caller-identity.js'
+      - 'caller-accounts.js'
+      - 'public/account.html'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   apk:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/caller_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: caller_test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d caller_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,12 +43,15 @@ jobs:
         run: |
           node --check server.js
           node --check interpreter.js
+          node --check caller-identity.js
+          node --check caller-accounts.js
+          node scripts/check-own-number.mjs
           node scripts/check-interpreter-ui.mjs
           node scripts/check-phone-beta.mjs
-      - name: Check unattended call hangup
+      - name: Test own-number call flow without charging provider
         run: |
           npm install --ignore-scripts
-          node scripts/integration-phone-disconnect.mjs
+          node scripts/integration-own-number-call.mjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
