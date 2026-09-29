@@ -135,7 +135,7 @@ export function createCallerAccounts(app, {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = req.body?.password;
     const invite = req.body?.invite;
-    if (!/^[^\\s@]{1,64}@[^\\s@]{1,190}\\.[^\\s@]{2,}$/.test(email) || typeof password !== "string" || password.length < 12 || password.length > 128) {
+    if (!/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(email) || typeof password !== "string" || password.length < 12 || password.length > 128) {
       return json(res, 400, "Email invalid sau parolă mai scurtă de 12 caractere.");
     }
     if (typeof invite !== "string" ||
@@ -232,7 +232,7 @@ export function createCallerAccounts(app, {
   app.post("/api/account/number/confirm", active, safeOrigin, authenticated, async (req, res) => {
     const userId = req.callerUser.id;
     const code = req.body?.verificationCode;
-    if (typeof code !== "string" || !/^\\d{4,8}$/.test(code)) return json(res, 400, "Cod invalid.");
+    if (typeof code !== "string" || !/^\d{4,8}$/.test(code)) return json(res, 400, "Cod invalid.");
     if (!allow("code:" + userId, 7)) return json(res, 429, "Prea multe coduri încercate.");
     try {
       const changed = await pool.query(`UPDATE caller_numbers SET code_attempts=code_attempts+1
