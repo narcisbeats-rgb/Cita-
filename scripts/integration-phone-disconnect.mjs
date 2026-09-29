@@ -7,7 +7,7 @@ const log = '/tmp/traducere-phone-log-' + process.pid;
 writeFileSync(stub, `import {appendFileSync} from 'node:fs';\nglobalThis.fetch=async (url,options={})=>{if(String(url).endsWith('/call_control_applications?page[size]=100'))return new Response(JSON.stringify({data:[{id:'conn-1',application_name:'Traducere Live'}]}),{status:200});appendFileSync(${JSON.stringify(log)}, String(url)+'\\n');return new Response(JSON.stringify({data:{call_control_id:'call-1'}}),{status:200});};`);
 const port = 23000 + Math.floor(Math.random() * 10000);
 const child = spawn(process.execPath, ['--import', stub, 'server.js'], {
-  env: {...process.env, PORT: String(port), PHONE_TRANSLATION_ENABLED: 'true', OPENAI_API_KEY: 'test', TELNYX_API_KEY: 'test', TELNYX_FROM_NUMBER: '+4512345678', APP_PIN: 'test-pin', PUBLIC_BASE_URL: 'https://example.test'},
+  env: {...process.env, PORT: String(port), PHONE_TRANSLATION_ENABLED: 'true', OPENAI_API_KEY: 'test', TELNYX_API_KEY: 'test', TELNYX_PUBLIC_KEY: Buffer.alloc(32, 1).toString('base64'), TELNYX_FROM_NUMBER: '+4512345678', APP_PIN: 'test-pin', PUBLIC_BASE_URL: 'https://example.test'},
   stdio: 'ignore'
 });
 try {

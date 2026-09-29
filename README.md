@@ -23,6 +23,7 @@ Aplicație mobilă pentru apeluri telefonice traduse în timp real prin Telnyx +
 
 ## Environment
 - TELNYX_API_KEY
+- TELNYX_PUBLIC_KEY (cheia publică Ed25519 de semnare a webhook-urilor, base64)
 - TELNYX_FROM_NUMBER
 - TELNYX_APP_NAME
 - OPENAI_API_KEY
@@ -31,3 +32,5 @@ Aplicație mobilă pentru apeluri telefonice traduse în timp real prin Telnyx +
 - PUBLIC_BASE_URL
 
 Cheile rămân doar în variabilele de mediu Render și nu sunt trimise în browser.
+
+**Înainte de merge/deploy:** obține cheia publică de semnare Telnyx din Mission Control → Keys & Credentials → Public Key și seteaz-o drept `TELNYX_PUBLIC_KEY` în Render. Ambele endpoint-uri de webhook verifică semnătura Ed25519 a corpului JSON original și un timestamp în fereastra de 5 minute. Fără cheia publică, apelurile prin Telnyx sunt refuzate; interpretul față în față rămâne separat. Nu introduce cheia API sau PIN-ul în GitHub.
