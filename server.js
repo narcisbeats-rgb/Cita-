@@ -4,10 +4,16 @@ import path from "node:path";
 import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import { createInterpreter } from "./interpreter.js";
+import { verifyTelnyxWebhook } from "./telnyx-webhook.js";
 
 const app = express();
 app.set("trust proxy", 1);
-app.use(express.json({ limit: "3mb" }));
+app.use(express.json({
+  limit: "3mb",
+  verify(req, _res, body) {
+    if (req.path === "/telnyx-webhook" || req.path === "/agent-webhook") req.rawBody = Buffer.from(body);
+  }
+}));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static("public"));
 
@@ -15,6 +21,7 @@ const PORT = Number(process.env.PORT || 3000);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-2.1-mini";
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY || "";
+const TELNYX_PUBLIC_KEY = process.env.TELNYX_PUBLIC_KEY || "";
 const TELNYX_CONNECTION_ID = process.env.TELNYX_CONNECTION_ID || "";
 const TELNYX_FROM_NUMBER = process.env.TELNYX_FROM_NUMBER || "+4581948173";
 const TELNYX_APP_NAME = process.env.TELNYX_APP_NAME || "Traducere Live";
@@ -37,6 +44,21 @@ function missingConfig() {
   const req = { OPENAI_API_KEY, TELNYX_API_KEY, TELNYX_FROM_NUMBER, APP_PIN, PUBLIC_BASE_URL };
   return Object.entries(req).filter(([, v]) => !v).map(([k]) => k);
 }
+function requireTelnyxWebhookRequest(req, res, next) {
+  if (!TELNYX_PUBLIC_KEY) {
+    console.error("Missing TELNYX_PUBLIC_KEY; refusing unsigned webhook.");
+    return res.sendStatus(503);
+  }
+  const valid = verifyTelnyxWebhook({
+    rawBody: req.rawBody,
+    signature: req.get("telnyx-signature-ed25519"),
+    timestamp: req.get("telnyx-timestamp"),
+    publicKey: TELNYX_PUBLIC_KEY
+  });
+  if (!valid) return res.sendStatus(401);
+  next();
+}
+
 function safeSend(ws, data) {
   if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
 }
@@ -886,6 +908,7 @@ app.post("/api/voice-preview", async (req, res) => {
 app.post("/api/agent-call", async (req, res) => {
   try {
     if (!AGENT_PRIVATE_PIN) return res.status(404).json({ error: "Agentul privat nu este activat." });
+    if (!TELNYX_PUBLIC_KEY) return res.status(503).json({ error: "Webhook verification is not configured." });
     const missing = missingConfig();
     if (missing.length) return res.status(503).json({ error: "Missing config: " + missing.join(", ") });
     if (String(req.body.pin || "") !== AGENT_PRIVATE_PIN) return res.status(401).json({ error: "PIN privat greșit" });
@@ -1007,7 +1030,7 @@ app.post("/api/agent-hangup", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/agent-webhook", async (req, res) => {
+app.post("/agent-webhook", requireTelnyxWebhookRequest, async (req, res) => {
   res.sendStatus(204);
   const id = String(req.query.sid || "");
   const s = agentSessions.get(id);
@@ -1081,7 +1104,7 @@ app.post("/agent-webhook", async (req, res) => {
 
 app.get("/api/phone-translation-availability", (_req, res) => {
   res.set("Cache-Control", "no-store").json({
-    enabled: PHONE_TRANSLATION_ENABLED && missingConfig().length === 0,
+    enabled: PHONE_TRANSLATION_ENABLED && missingConfig().length === 0 && Boolean(TELNYX_PUBLIC_KEY),
     callerId: "provider-configured",
     maxMinutes: PHONE_BETA_MAX_MS / 60000,
     note: "This is a provider-routed internet call, not a translated SIM call."
@@ -1092,6 +1115,7 @@ app.post("/api/call", async (req, res) => {
   let pendingSessionId = null;
   try {
     if (!PHONE_TRANSLATION_ENABLED) return res.status(503).json({ error: "Apelurile traduse sunt dezactivate până la verificarea operatorului telefonic." });
+    if (!TELNYX_PUBLIC_KEY) return res.status(503).json({ error: "Webhook verification is not configured." });
     if (sessions.size >= PHONE_BETA_MAX_SESSIONS) return res.status(429).json({ error: "Un apel de test este deja activ." });
     if (req.body?.providerConsent !== true) return res.status(400).json({ error: "Confirmă că apelul este procesat de furnizorul telefonic și poate genera costuri." });
     const now = Date.now();
@@ -1180,7 +1204,7 @@ app.post("/api/hangup", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/telnyx-webhook", async (req, res) => {
+app.post("/telnyx-webhook", requireTelnyxWebhookRequest, async (req, res) => {
   res.sendStatus(204);
   const id = String(req.query.sid || "");
   const s = sessions.get(id);
