@@ -74,6 +74,9 @@ export function registerIptv(app, env = process.env) {
     const added = env.IPTV_EXTRA_CHANNELS_JSON
       ? playlistData({ IPTV_CHANNELS_JSON: env.IPTV_EXTRA_CHANNELS_JSON })
       : [];
+    const extraRadio = env.IPTV_CARLO_CHANNELS_JSON
+      ? playlistData({ IPTV_CHANNELS_JSON: env.IPTV_CARLO_CHANNELS_JSON })
+      : [];
     const imported = await getRomanianChannels(importEnabled);
     const seen = new Set();
     const distinct = (items) => items.filter(c => {
@@ -84,9 +87,9 @@ export function registerIptv(app, env = process.env) {
       seen.add(key);
       return true;
     });
-    const custom = distinct(manual.concat(added));
+    const custom = distinct(manual.concat(added,extraRadio));
     const extra = distinct(imported.channels);
-    return { manual, added, imported, extra, all: custom.concat(extra) };
+    return { manual, added:added.concat(extraRadio), imported, extra, all: custom.concat(extra) };
   }
 
   function adminOnly(req,res,next) {
