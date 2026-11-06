@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { playlistData, makeM3u, registerIptv } from '../iptv/router.js';
+
+const demo = playlistData({});
+assert.equal(demo.length,1);
+assert.match(makeM3u(demo),/^#EXTM3U\n/);
+assert.match(makeM3u(demo),/test-streams.mux.dev/);
+const channels=playlistData({IPTV_CHANNELS_JSON:JSON.stringify([{name:'TV Test',url:'https://example.org/live.m3u8',group:'RO'}])});
+assert.equal(channels[0].name,'TV Test');
+assert.match(makeM3u(channels),/group-title="RO"/);
+assert.throws(()=>playlistData({IPTV_CHANNELS_JSON:'bad'}),/JSON valid/);
+assert.throws(()=>playlistData({IPTV_CHANNELS_JSON:JSON.stringify([{name:'Bad',url:'file:///etc/passwd'}])}),/invalid/);
+
+const routes = new Map();
+const app={get(path,...handlers){routes.set(path,handlers);}};
+const env={IPTV_ADMIN_PASSWORD:'A-strong-test-password-123',IPTV_PLAYLIST_TOKEN:'a-strong-test-token-12345678901234',PUBLIC_BASE_URL:'https://example.org/'};
+registerIptv(app,env);
+assert.equal(routes.size,3);
+function res(){return {code:200,headers:{},body:'',set(k,v){this.headers[k]=v;return this;},status(n){this.code=n;return this;},send(v){this.body=v;return this;},json(v){this.body=v;return this;}};}
+const getPlaylist=routes.get('/iptv/playlist.m3u')[0];
+let response=res();
+getPlaylist({query:{token:'incorrect'}},response);
+assert.equal(response.code,403);
+response=res();getPlaylist({query:{token:env.IPTV_PLAYLIST_TOKEN}},response);
+assert.equal(response.code,200);assert.match(response.body,/^#EXTM3U/);
+const auth=routes.get('/iptv/api/config')[0];response=res();
+auth({headers:{}},response,()=>{});assert.equal(response.code,401);
+response=res();
+auth({headers:{authorization:'Basic '+Buffer.from('narcis:'+env.IPTV_ADMIN_PASSWORD).toString('base64')}},response,()=>{response.code=200;});
+assert.equal(response.code,200);
+console.log('SmartOne IPTV route smoke tests passed');
