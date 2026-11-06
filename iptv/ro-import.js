@@ -48,7 +48,12 @@ export function parseRomanianPlaylist(text) {
   for (const raw of rows) {
     const line = raw.trim();
     if (line.startsWith('#EXTINF:')) {
-      const comma = line.indexOf(',');
+      // M3U metadata can contain commas inside quoted attributes (e.g. user-agent).
+      let comma = -1, inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') inQuotes = !inQuotes;
+        else if (line[i] === ',' && !inQuotes) { comma = i; break; }
+      }
       if (comma < 0) { current = null; continue; }
       current = {
         name: clean(line.slice(comma+1)),
