@@ -50,6 +50,9 @@ button.secondary,a.button.secondary{background:#354b65}button.danger{background:
 <section>
 <h2>2. Lista completă SmartOne <span id="totalCount"></span></h2>
 <p class="muted">Playlistul combină canalele tale cu lista comunitară IPTV-org România. Lista publică se actualizează automat la aproximativ 30 de minute și este clasificată în categoriile din SmartOne. Unele linkuri pot fi indisponibile, geoblocate sau fără drepturi confirmate de folosire; includerea aici nu garantează licențierea.</p>
+<details><summary>Canale noi din fișierul încărcat <span id="addedCount"></span></summary>
+<div id="addedChannels"></div>
+</details>
 <details><summary>Vezi toate canalele importate din IPTV-org <span id="remoteCount"></span></summary>
 <p class="muted" id="importSource"></p>
 <div id="remoteChannels"></div>
@@ -80,6 +83,18 @@ button.secondary,a.button.secondary{background:#354b65}button.danger{background:
 const el=id=>document.getElementById(id);
 let channels=[];
 let imported=[];
+let added=[];
+function renderAdded(){
+  el('addedCount').textContent='('+added.length+')';
+  const target=el('addedChannels');target.replaceChildren();
+  for(const channel of added){
+    const item=document.createElement('div');item.className='channel';
+    const title=document.createElement('strong');title.textContent=channel.name;
+    const details=document.createElement('small');details.textContent=channel.group+' · '+channel.url;
+    const left=document.createElement('div');left.append(title,details);item.append(left);target.append(item);
+  }
+  if(added.length===0)target.textContent='Nu sunt canale suplimentare în această secțiune.';
+}
 function showImported(){
   el('remoteCount').textContent='('+imported.length+')';
   const list=el('remoteChannels');list.replaceChildren();
@@ -128,9 +143,10 @@ try{
   const data=await r.json();if(data.error)throw Error(data.error);
   channels=data.channels;
   imported=data.importedChannels || [];
+  added=data.addedChannels || [];
   el('totalCount').textContent='('+data.totalChannels+' canale)';
   el('importSource').textContent=(data.importedSource||'IPTV-org România')+(data.importError?' · '+data.importError:'');
-  el('playlist').value=data.playlistUrl;render();showImported();
+  el('playlist').value=data.playlistUrl;render();showImported();renderAdded();
   status('Gata. Copiază linkul în SmartOne.');
 }catch(e){status('Eroare: '+e.message);el('channels').textContent='Verifică variabilele din Render.';}
 })();
