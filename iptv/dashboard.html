@@ -63,7 +63,7 @@ button.secondary,a.button.secondary{background:#354b65}button.danger{background:
 <div class="grid">
 <div><label for="name">Nume canal</label><input id="name" placeholder="Canal legal" maxlength="120"></div>
 <div><label for="group">Categorie</label><input id="group" value="România" maxlength="100"></div>
-<div><label for="url">URL HLS / M3U8 direct, HTTPS</label><input id="url" placeholder="https://.../master.m3u8"></div>
+<div><label for="url">URL HLS / M3U8 direct, HTTP sau HTTPS</label><input id="url" placeholder="https://.../master.m3u8"></div>
 <div><label for="logo">Logo HTTPS (opțional)</label><input id="logo" placeholder="https://.../logo.png"></div>
 </div>
 <button id="add">Adaugă în editor</button>
@@ -108,7 +108,7 @@ function showImported(){
   if(imported.length===0)list.textContent='Niciun canal importat.';
 }
 function status(message){el('status').textContent=message;}
-function validUrl(s){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}}
+function validUrl(s, allowHttp=false){try{const u=new URL(s);return (u.protocol==='https:'||(allowHttp&&u.protocol==='http:'))&&!u.username&&!u.password;}catch{return false;}}
 function render(){
   const target=el('channels');target.replaceChildren();el('count').textContent='('+channels.length+')';
   channels.forEach((c,i)=>{
@@ -132,7 +132,7 @@ el('copyLink').onclick=()=>copy(el('playlist').value);
 el('copyJson').onclick=()=>copy(el('json').value);
 el('add').onclick=()=>{
   const name=el('name').value.trim(),url=el('url').value.trim(),group=el('group').value.trim(),logo=el('logo').value.trim();
-  if(!name||!validUrl(url)||(logo&&!validUrl(logo))){status('Numele, URL-ul HTTPS și logo-ul trebuie să fie valide.');return;}
+  if(!name||!validUrl(url,true)||(logo&&!validUrl(logo))){status('Numele și URL-ul HTTP(S) trebuie să fie valide; logo-ul trebuie să fie HTTPS.');return;}
   if(channels.length>=200){status('Maxim 200 canale.');return;}
   channels.push({name,url,group:group||'Altele',tvgId:'',logo});
   render();status('Adăugat în editor. Copiază JSON-ul în Render pentru salvare.');el('name').value='';el('url').value='';
