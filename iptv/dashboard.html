@@ -37,7 +37,13 @@ button.secondary,a.button.secondary{background:#354b65}button.danger{background:
 <p class="muted">Pentru a le pune ca programe TV în SmartOne este necesar câte un URL direct de streaming pe care furnizorul îl autorizează pentru player extern. Nu adăuga linkurile web de mai sus în câmpul M3U8.</p>
 </section>
 <section>
-<h2>2. Lista canalelor <span id="count"></span></h2>
+<h2>2. Lista completă SmartOne <span id="totalCount"></span></h2>
+<p class="muted">Playlistul combină canalele tale cu lista comunitară IPTV-org România. Lista publică se actualizează automat la aproximativ 30 de minute și este clasificată în categoriile din SmartOne. Unele linkuri pot fi indisponibile, geoblocate sau fără drepturi confirmate de folosire; includerea aici nu garantează licențierea.</p>
+<details><summary>Vezi toate canalele importate din IPTV-org <span id="remoteCount"></span></summary>
+<p class="muted" id="importSource"></p>
+<div id="remoteChannels"></div>
+</details>
+<h2>Canalele configurate manual <span id="count"></span></h2>
 <div id="channels">Se încarcă...</div>
 <h2>Adaugă un flux autorizat</h2>
 <div class="grid">
@@ -62,6 +68,19 @@ button.secondary,a.button.secondary{background:#354b65}button.danger{background:
 'use strict';
 const el=id=>document.getElementById(id);
 let channels=[];
+let imported=[];
+function showImported(){
+  el('remoteCount').textContent='('+imported.length+')';
+  const list=el('remoteChannels');list.replaceChildren();
+  for(const c of imported){
+    const row=document.createElement('div');row.className='channel';
+    const left=document.createElement('div');
+    const name=document.createElement('strong');name.textContent=c.name;
+    const info=document.createElement('small');info.textContent=c.group+' · '+c.url;
+    left.append(name,info);row.append(left);list.append(row);
+  }
+  if(imported.length===0)list.textContent='Niciun canal importat.';
+}
 function status(message){el('status').textContent=message;}
 function validUrl(s){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}}
 function render(){
@@ -96,7 +115,11 @@ el('add').onclick=()=>{
 try{
   const r=await fetch('/iptv/api/config',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
   const data=await r.json();if(data.error)throw Error(data.error);
-  channels=data.channels;el('playlist').value=data.playlistUrl;render();
+  channels=data.channels;
+  imported=data.importedChannels || [];
+  el('totalCount').textContent='('+data.totalChannels+' canale)';
+  el('importSource').textContent=(data.importedSource||'IPTV-org România')+(data.importError?' · '+data.importError:'');
+  el('playlist').value=data.playlistUrl;render();showImported();
   status('Gata. Copiază linkul în SmartOne.');
 }catch(e){status('Eroare: '+e.message);el('channels').textContent='Verifică variabilele din Render.';}
 })();
