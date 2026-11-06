@@ -4,12 +4,14 @@ import path from "node:path";
 import express from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import { createInterpreter } from "./interpreter.js";
+import { registerIptv } from "./iptv/router.js";
 
 const app = express();
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "3mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static("public"));
+registerIptv(app);
 
 const PORT = Number(process.env.PORT || 3000);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
