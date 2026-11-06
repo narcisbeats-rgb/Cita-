@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { getRomanianChannels, ROMANIAN_PLAYLIST_URL } from './ro-import.js';
 
 const DEMO_CHANNELS = [{
   name: 'TEST – Big Buck Bunny (nu este TV live)',
@@ -56,6 +57,23 @@ export function registerIptv(app, env = process.env) {
   const adminPassword = env.IPTV_ADMIN_PASSWORD || '';
   const playlistToken = env.IPTV_PLAYLIST_TOKEN || '';
   const configured = adminPassword.length >= 16 && playlistToken.length >= 24;
+  const importEnabled = env.IPTV_IMPORT_RO_PUBLIC === 'true';
+  if (importEnabled) getRomanianChannels(true).then(r =>
+    console.log('IPTV Romania import:', r.channels.length, 'entries, source:', r.source || 'unavailable', r.lastError || '')
+  ).catch(e => console.error('IPTV Romania import error:', e.message));
+
+  async function combinedChannels() {
+    const manual = playlistData(env);
+    const imported = await getRomanianChannels(importEnabled);
+    const seen = new Set(manual.map(c => c.name.toLowerCase() + '\\x00' + c.url));
+    const extra = imported.channels.filter(c => {
+      const key = c.name.toLowerCase() + '\\x00' + c.url;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return { manual, imported, extra, all: manual.concat(extra) };
+  }
 
   function adminOnly(req,res,next) {
     privateHeaders(res);
@@ -77,16 +95,18 @@ export function registerIptv(app, env = process.env) {
   }
 
   app.get('/iptv',adminOnly,(_req,res) => res.sendFile(path.resolve('iptv/dashboard.html')));
-  app.get('/iptv/api/config',adminOnly,(req,res) => {
+  app.get('/iptv/api/config',adminOnly,async (req,res) => {
     try {
-      const channels = playlistData(env);
+      const { manual, imported, extra, all } = await combinedChannels();
       const base = safeHttpsUrl(env.PUBLIC_BASE_URL || '') || ('https://' + req.get('host') + '/');
       const url = new URL('/iptv/playlist.m3u',base);
       url.searchParams.set('token',playlistToken);
-      res.json({ channels, playlistUrl:url.href });
+      res.json({ channels:manual, importedChannels:extra, totalChannels:all.length,
+        importedSource:imported.source || ROMANIAN_PLAYLIST_URL,
+        importError:imported.lastError, importedUpdatedAt:imported.refreshedAt, playlistUrl:url.href });
     } catch(e) {res.status(422).json({error:e.message});}
   });
-  app.get('/iptv/playlist.m3u',(req,res) => {
+  app.get('/iptv/playlist.m3u',async (req,res) => {
     privateHeaders(res);
     if (!configured) return res.status(503).send('IPTV neconfigurat');
     if (typeof req.query.token !== 'string' || !secureEqual(req.query.token,playlistToken)) {
@@ -94,7 +114,8 @@ export function registerIptv(app, env = process.env) {
     }
     try {
       res.set('Content-Type','application/vnd.apple.mpegurl; charset=utf-8');
-      res.send(makeM3u(playlistData(env)));
+      const { all } = await combinedChannels();
+      res.send(makeM3u(all));
     } catch(e) {res.status(422).send(e.message);}
   });
 }
