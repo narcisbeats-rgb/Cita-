@@ -19,9 +19,9 @@ assert.equal(routes.size,3);
 function res(){return {code:200,headers:{},body:'',set(k,v){this.headers[k]=v;return this;},status(n){this.code=n;return this;},send(v){this.body=v;return this;},json(v){this.body=v;return this;}};}
 const getPlaylist=routes.get('/iptv/playlist.m3u')[0];
 let response=res();
-getPlaylist({query:{token:'incorrect'}},response);
+await getPlaylist({query:{token:'incorrect'}},response);
 assert.equal(response.code,403);
-response=res();getPlaylist({query:{token:env.IPTV_PLAYLIST_TOKEN}},response);
+response=res();await getPlaylist({query:{token:env.IPTV_PLAYLIST_TOKEN}},response);
 assert.equal(response.code,200);assert.match(response.body,/^#EXTM3U/);
 const auth=routes.get('/iptv/api/config')[0];response=res();
 auth({headers:{}},response,()=>{});assert.equal(response.code,401);
