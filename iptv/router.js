@@ -57,11 +57,11 @@ export function makeM3u(channels) {
 // requested channel, leaving every other stream and alternate in its old order.
 export function pinFavoriteChannels(channels) {
   const patterns = [
-    /^pro\\s*tv(?:\\s+(?:hd|fhd|uhd|4k))?$/,
-    /^antena\\s*1(?:\\s+(?:hd|fhd|uhd|4k))?$/,
-    /^antena\\s*3(?:\\s+cnn)?(?:\\s+(?:hd|fhd|uhd|4k))?$/,
-    /^kanal\\s*d(?:\\s+(?:hd|fhd|uhd|4k))?$/,
-    /^romania\\s*tv(?:\\s+(?:hd|fhd|uhd|4k))?$/
+    /^pro\s*tv(?:\s+(?:hd|fhd|uhd|4k))?$/,
+    /^antena\s*1(?:\s+(?:hd|fhd|uhd|4k))?$/,
+    /^antena\s*3(?:\s+cnn)?(?:\s+(?:hd|fhd|uhd|4k))?$/,
+    /^kanal\s*d(?:\s+(?:hd|fhd|uhd|4k))?$/,
+    /^romania\s*tv(?:\s+(?:hd|fhd|uhd|4k))?$/
   ];
   const rest = [...channels];
   const pinned = [];
@@ -69,12 +69,12 @@ export function pinFavoriteChannels(channels) {
     let best = -1, bestQuality = -1;
     for (let i = 0; i < rest.length; i++) {
       const name = String(rest[i].name || '').normalize('NFD')
-        .replace(/[\\u0300-\\u036f]/g, '').replace(/\\s*\\([^)]*\\)/g, '')
-        .toLowerCase().replace(/\\s+/g, ' ').trim();
+        .replace(/[\u0300-\u036f]/g, '').replace(/\s*\([^)]*\)/g, '')
+        .toLowerCase().replace(/\s+/g, ' ').trim();
       if (!pattern.test(name)) continue;
-      const quality = /(?:4k|uhd)(?:\\b|$)/.test(name) ? 4
-        : /\\b(?:fhd|full hd)\\b|\\(1080p\\)|\\(1440p\\)/i.test(rest[i].name) ? 3
-        : /\\bhd\\b|\\(1080i\\)|\\(720p\\)/i.test(rest[i].name) ? 2
+      const quality = /(?:4k|uhd)(?:\b|$)/.test(name) ? 4
+        : /\b(?:fhd|full hd)\b|\(1080p\)|\(1440p\)/i.test(rest[i].name) ? 3
+        : /\bhd\b|\(1080i\)|\(720p\)/i.test(rest[i].name) ? 2
         : 1;
       if (quality > bestQuality) { best = i; bestQuality = quality; }
     }
