@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { playlistData, makeM3u, registerIptv, pinFavoriteChannels } from '../iptv/router.js';
+import { playlistData, makeM3u, registerIptv, pinFavoriteChannels, preferHigherQualityVariants } from '../iptv/router.js';
 
 const demo = playlistData({});
 assert.equal(demo.length,1);
@@ -32,6 +32,28 @@ assert.deepEqual(pinned.slice(5).map(c=>c.name),[
   'TVR 1', 'PRO TV International', 'Kanal D2', 'Antena 1', 'TVR 2'
 ]);
 assert.deepEqual(pinFavoriteChannels([{name:'Altele',url:'https://example.org/test'}]).map(c=>c.name),['Altele']);
+
+// Public source lists SD first for some channels (e.g. Super TV).
+// Put higher resolution first but keep both alternatives, including their URLs.
+const variants = [
+  {name:'Super TV (576p)',tvgId:'SuperTV.ro@SD',url:'https://test.invalid/sd'},
+  {name:'TVR 1 (1440p)',tvgId:'TVR1.ro@SD',url:'https://test.invalid/tvr'},
+  {name:'Super TV (1080i) [Not 24/7]',tvgId:'SuperTV.ro@SD',url:'https://test.invalid/hd'},
+  {name:'Super TV',tvgId:'SuperTV.ro@SD',url:'https://test.invalid/unknown'}
+];
+const qualityFirst = preferHigherQualityVariants(variants);
+assert.deepEqual(qualityFirst.map(c=>c.name),[
+  'Super TV (1080i) [Not 24/7]',
+  'TVR 1 (1440p)',
+  'Super TV (576p)',
+  'Super TV'
+]);
+assert.equal(qualityFirst[0].url,'https://test.invalid/hd');
+assert.equal(qualityFirst[2].url,'https://test.invalid/sd');
+assert.deepEqual(variants.map(c=>c.name),[
+  'Super TV (576p)','TVR 1 (1440p)',
+  'Super TV (1080i) [Not 24/7]','Super TV'
+]);
 
 const routes = new Map();
 const app={get(path,...handlers){routes.set(path,handlers);}};
