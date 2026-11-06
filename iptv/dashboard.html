@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Narcis IPTV · SmartOne</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#e8edf6;background:#091522}
+*{box-sizing:border-box}body{margin:0;padding:24px}main{max-width:920px;margin:auto}
+h1{margin-bottom:6px}h2{font-size:20px}.muted{color:#a8b8cf;line-height:1.6}
+section{background:#17253c;border:1px solid #304762;border-radius:16px;padding:20px;margin:17px 0}
+label{display:block;margin:10px 0 5px;color:#b9c9dd}
+input,textarea{width:100%;background:#0c1b2f;color:#fff;border:1px solid #405b7a;border-radius:8px;padding:12px}
+textarea{height:130px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+button,a.button{display:inline-block;color:#fff;background:#3271d5;border:0;border-radius:8px;padding:11px 14px;cursor:pointer;text-decoration:none;margin:8px 6px 0 0}
+button.secondary,a.button.secondary{background:#354b65}button.danger{background:#883549;padding:7px 10px}
+.channel{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #314359;padding:12px 0}
+.channel strong,.channel small{display:block}.channel small{color:#9bb2d0;overflow-wrap:anywhere}
+#status{color:#93dfb6}code{color:#b7dcff;overflow-wrap:anywhere}
+</style></head><body><main>
+<h1>📺 Narcis IPTV</h1>
+<p class="muted">Serverul personal pentru SmartOne pe Samsung. Render găzduiește lista M3U, nu retransmite video.</p>
+<section>
+<h2>1. Conectează SmartOne IPTV</h2>
+<p class="muted">În SmartOne pe TV notează TV MAC; pe pagina SmartOne apasă <b>M3u Playlist</b>, introdu TV MAC și linkul de mai jos. Salvează și dă Reload pe televizor.</p>
+<label for="playlist">Linkul tău M3U privat</label>
+<input id="playlist" readonly placeholder="Se încarcă..." autocomplete="off">
+<button id="copyLink">Copiază playlist M3U</button>
+<a class="button secondary" target="_blank" rel="noreferrer" href="https://www.smartone-iptv.com/plugin/smart_one/main_generate">Adaugă la SmartOne</a>
+<p class="muted">Lista inițială include numai un clip demonstrativ (Big Buck Bunny), nu posturi TV. Nu publica linkul: tokenul de acces se transmite către SmartOne când îl înregistrezi.</p>
+</section>
+<section>
+<h2>2. Lista canalelor <span id="count"></span></h2>
+<div id="channels">Se încarcă...</div>
+<h2>Adaugă un flux autorizat</h2>
+<div class="grid">
+<div><label for="name">Nume canal</label><input id="name" placeholder="Canal legal" maxlength="120"></div>
+<div><label for="group">Categorie</label><input id="group" value="România" maxlength="100"></div>
+<div><label for="url">URL HLS / M3U8 direct, HTTPS</label><input id="url" placeholder="https://.../master.m3u8"></div>
+<div><label for="logo">Logo HTTPS (opțional)</label><input id="logo" placeholder="https://.../logo.png"></div>
+</div>
+<button id="add">Adaugă în editor</button>
+<p class="muted"><b>Important:</b> editorul este local. Pentru salvare permanentă, copiază textul de mai jos în Render → serviciul Cita- → Environment → <code>IPTV_CHANNELS_JSON</code>. Render va reporni aplicația după aplicarea variabilei. Dacă lista nu există, folosește testul implicit.</p>
+<button class="secondary" id="copyJson">Copiază JSON pentru Render</button>
+<textarea id="json" readonly></textarea><p id="status" role="status"></p>
+</section>
+<section>
+<h2>3. Vizionare legală în browser</h2>
+<p class="muted">Paginile oficiale următoare nu sunt fluxuri M3U8 și nu pot fi introduse ca atare în SmartOne. Disponibilitatea în Danemarca variază.</p>
+<a class="button secondary" rel="noreferrer" target="_blank" href="https://tvrplus.ro/">TVR+</a>
+<a class="button secondary" rel="noreferrer" target="_blank" href="https://www.digi24.ro/live/digi24">Digi24 LIVE</a>
+<a class="button secondary" rel="noreferrer" target="_blank" href="https://www.euronews.ro/live">Euronews RO</a>
+</section></main>
+<script>
+'use strict';
+const el=id=>document.getElementById(id);
+let channels=[];
+function status(message){el('status').textContent=message;}
+function validUrl(s){try{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password;}catch{return false;}}
+function render(){
+  const target=el('channels');target.replaceChildren();el('count').textContent='('+channels.length+')';
+  channels.forEach((c,i)=>{
+    const row=document.createElement('div');row.className='channel';
+    const left=document.createElement('div');
+    const name=document.createElement('strong');name.textContent=c.name;
+    const info=document.createElement('small');info.textContent=(c.group||'Altele')+' · '+c.url;
+    left.append(name,info);
+    const del=document.createElement('button');del.className='danger';del.textContent='Șterge';
+    del.onclick=()=>{channels.splice(i,1);render();status('Copiază JSON-ul în Render pentru salvare.');};
+    row.append(left,del);target.append(row);
+  });
+  if(channels.length===0)target.textContent='Niciun canal.';
+  el('json').value=JSON.stringify(channels,null,2);
+}
+async function copy(text){
+  try{await navigator.clipboard.writeText(text);status('Copiat.');}
+  catch{status('Selectează și copiază manual textul din câmp.');}
+}
+el('copyLink').onclick=()=>copy(el('playlist').value);
+el('copyJson').onclick=()=>copy(el('json').value);
+el('add').onclick=()=>{
+  const name=el('name').value.trim(),url=el('url').value.trim(),group=el('group').value.trim(),logo=el('logo').value.trim();
+  if(!name||!validUrl(url)||(logo&&!validUrl(logo))){status('Numele, URL-ul HTTPS și logo-ul trebuie să fie valide.');return;}
+  if(channels.length>=200){status('Maxim 200 canale.');return;}
+  channels.push({name,url,group:group||'Altele',tvgId:'',logo});
+  render();status('Adăugat în editor. Copiază JSON-ul în Render pentru salvare.');el('name').value='';el('url').value='';
+};
+(async()=>{
+try{
+  const r=await fetch('/iptv/api/config',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);
+  const data=await r.json();if(data.error)throw Error(data.error);
+  channels=data.channels;el('playlist').value=data.playlistUrl;render();
+  status('Gata. Copiază linkul în SmartOne.');
+}catch(e){status('Eroare: '+e.message);el('channels').textContent='Verifică variabilele din Render.';}
+})();
+</script></body></html>
