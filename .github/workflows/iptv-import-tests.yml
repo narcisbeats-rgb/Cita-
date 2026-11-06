@@ -1,0 +1,22 @@
+name: IPTV playlist smoke tests
+on:
+  pull_request:
+    paths:
+      - 'iptv/**'
+      - 'scripts/check-iptv.mjs'
+      - 'scripts/check-ro-import.mjs'
+  push:
+    branches: [main]
+    paths:
+      - 'iptv/**'
+      - 'scripts/check-ro-import.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/check-iptv.mjs
+      - run: node scripts/check-ro-import.mjs
