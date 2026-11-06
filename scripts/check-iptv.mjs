@@ -29,7 +29,8 @@ assert.equal(response.code,200);assert.match(response.body,/^#EXTM3U/);
 // Additional uploaded channels must appear alongside existing custom channels.
 const extraEnv={...env,
   IPTV_CHANNELS_JSON:JSON.stringify([{name:'Original',url:'https://example.org/original.m3u8',group:'Generale'}]),
-  IPTV_EXTRA_CHANNELS_JSON:JSON.stringify([{name:'Moldova TV',url:'https://moldovatv.ro/live-tv/live.m3u8',group:'Generale'}])
+  IPTV_EXTRA_CHANNELS_JSON:JSON.stringify([{name:'Moldova TV',url:'https://moldovatv.ro/live-tv/live.m3u8',group:'Generale'}]),
+  IPTV_CARLO_CHANNELS_JSON:JSON.stringify([{name:'Pro FM',url:'https://example.org/radio.mp3',group:'Muzica'}])
 };
 const routes2=new Map();
 registerIptv({get(p,...handlers){routes2.set(p,handlers);}},extraEnv);
@@ -38,11 +39,12 @@ const extraResult=res();
 await extraPlaylist({query:{token:extraEnv.IPTV_PLAYLIST_TOKEN}},extraResult);
 assert.match(extraResult.body,/Original/);
 assert.match(extraResult.body,/Moldova TV/);
+assert.match(extraResult.body,/Pro FM/);
 const extraConfig=routes2.get('/iptv/api/config')[1];
 const extraConfigResult=res();
 await extraConfig({get:()=> 'example.org'},extraConfigResult);
-assert.equal(extraConfigResult.body.addedChannels.length,1);
-assert.equal(extraConfigResult.body.totalChannels,2);
+assert.equal(extraConfigResult.body.addedChannels.length,2);
+assert.equal(extraConfigResult.body.totalChannels,3);
 
 const auth=routes.get('/iptv/api/config')[0];response=res();
 auth({headers:{}},response,()=>{});assert.equal(response.code,401);
