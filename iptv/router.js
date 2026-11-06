@@ -146,7 +146,10 @@ export function registerIptv(app, env = process.env) {
       return true;
     });
     const custom = distinct(manual.concat(added,extraRadio,digiSportTest));
-    const extra = preferHigherQualityVariants(distinct(imported.channels));
+    const importedDistinct = distinct(imported.channels);
+    const extra = env.IPTV_PREFER_HIGHEST_RESOLUTION === 'true'
+      ? preferHigherQualityVariants(importedDistinct)
+      : importedDistinct;
     return { manual, added:added.concat(extraRadio,digiSportTest), imported, extra, all: pinFavoriteChannels(custom.concat(extra)) };
   }
 
