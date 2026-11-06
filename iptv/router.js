@@ -64,15 +64,23 @@ export function registerIptv(app, env = process.env) {
 
   async function combinedChannels() {
     const manual = playlistData(env);
+    // Separate environment variable: never overwrite the user's existing custom playlist.
+    const added = env.IPTV_EXTRA_CHANNELS_JSON
+      ? playlistData({ IPTV_CHANNELS_JSON: env.IPTV_EXTRA_CHANNELS_JSON })
+      : [];
     const imported = await getRomanianChannels(importEnabled);
-    const seen = new Set(manual.map(c => c.name.toLowerCase() + '\\x00' + c.url));
-    const extra = imported.channels.filter(c => {
-      const key = c.name.toLowerCase() + '\\x00' + c.url;
+    const seen = new Set();
+    const distinct = (items) => items.filter(c => {
+      const key = c.tvgId
+        ? 'id:' + c.tvgId.toLowerCase() + ':' + c.url
+        : 'name:' + c.name.toLowerCase() + ':' + c.url;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-    return { manual, imported, extra, all: manual.concat(extra) };
+    const custom = distinct(manual.concat(added));
+    const extra = distinct(imported.channels);
+    return { manual, added, imported, extra, all: custom.concat(extra) };
   }
 
   function adminOnly(req,res,next) {
@@ -97,11 +105,11 @@ export function registerIptv(app, env = process.env) {
   app.get('/iptv',adminOnly,(_req,res) => res.sendFile(path.resolve('iptv/dashboard.html')));
   app.get('/iptv/api/config',adminOnly,async (req,res) => {
     try {
-      const { manual, imported, extra, all } = await combinedChannels();
+      const { manual, added, imported, extra, all } = await combinedChannels();
       const base = safeHttpsUrl(env.PUBLIC_BASE_URL || '') || ('https://' + req.get('host') + '/');
       const url = new URL('/iptv/playlist.m3u',base);
       url.searchParams.set('token',playlistToken);
-      res.json({ channels:manual, importedChannels:extra, totalChannels:all.length,
+      res.json({ channels:manual, addedChannels:added, importedChannels:extra, totalChannels:all.length,
         importedSource:imported.source || ROMANIAN_PLAYLIST_URL,
         importError:imported.lastError, importedUpdatedAt:imported.refreshedAt, playlistUrl:url.href });
     } catch(e) {res.status(422).json({error:e.message});}
