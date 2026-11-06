@@ -83,6 +83,31 @@ export function pinFavoriteChannels(channels) {
   return pinned.concat(rest);
 }
 
+// Prefer higher resolution alternatives from the same TV channel ID in the public
+// source. Never delete lower-quality variants: they remain as playback fallbacks.
+// Do not reorder user-supplied/manual entries, which may require specific access.
+export function preferHigherQualityVariants(channels) {
+  const positionsById = new Map();
+  channels.forEach((channel, i) => {
+    const id = String(channel.tvgId || '').trim().toLowerCase().split('@')[0];
+    if (!id) return;
+    if (!positionsById.has(id)) positionsById.set(id, []);
+    positionsById.get(id).push(i);
+  });
+  const result = [...channels];
+  const score = (channel) => {
+    const matched = String(channel.name || '').match(/\((\d{3,4})([pi])\)/i);
+    if (!matched) return 0; // Ignore unproven 4K/FHD marketing labels.
+    return Number(matched[1]) * 2 + (matched[2].toLowerCase() === 'p' ? 1 : 0);
+  };
+  for (const positions of positionsById.values()) {
+    if (positions.length < 2) continue;
+    const sorted = positions.map(i => channels[i]).sort((a,b) => score(b) - score(a));
+    positions.forEach((position, j) => { result[position] = sorted[j]; });
+  }
+  return result;
+}
+
 function privateHeaders(res) {
   res.set('Cache-Control','private, no-store, max-age=0');
   res.set('Referrer-Policy','no-referrer');
@@ -121,7 +146,7 @@ export function registerIptv(app, env = process.env) {
       return true;
     });
     const custom = distinct(manual.concat(added,extraRadio,digiSportTest));
-    const extra = distinct(imported.channels);
+    const extra = preferHigherQualityVariants(distinct(imported.channels));
     return { manual, added:added.concat(extraRadio,digiSportTest), imported, extra, all: pinFavoriteChannels(custom.concat(extra)) };
   }
 
