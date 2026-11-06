@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { playlistData, makeM3u, registerIptv } from '../iptv/router.js';
+import { playlistData, makeM3u, registerIptv, pinFavoriteChannels } from '../iptv/router.js';
 
 const demo = playlistData({});
 assert.equal(demo.length,1);
@@ -13,6 +13,25 @@ assert.throws(()=>playlistData({IPTV_CHANNELS_JSON:JSON.stringify([{name:'Bad',u
 assert.equal(playlistData({IPTV_CHANNELS_JSON:JSON.stringify([{name:'Test HTTP',url:'http://example.org/stream.m3u8'}])})[0].url,
   'http://example.org/stream.m3u8');
 
+
+// Favorites must be the first five entries, in the requested order.
+// Preserve every entry, including HD alternatives and similarly named channels.
+const favoriteFixture = [
+  'TVR 1', 'PRO TV International', 'Kanal D2', 'Antena 1',
+  'Romania TV (576p)', 'Kanal D (480p)', 'Antena 3 CNN (1080p)',
+  'PRO TV HD (1080p)', 'Antena 1 HD (1440p)', 'TVR 2'
+].map((name,i)=>({name,url:'https://example.org/channel-'+i+'.m3u8',group:'RO',tvgId:'id-'+i,logo:''}));
+const pinned=pinFavoriteChannels(favoriteFixture);
+assert.deepEqual(pinned.slice(0,5).map(c=>c.name),[
+  'PRO TV HD (1080p)', 'Antena 1 HD (1440p)',
+  'Antena 3 CNN (1080p)', 'Kanal D (480p)', 'Romania TV (576p)'
+]);
+assert.equal(pinned.length,favoriteFixture.length);
+assert.equal(new Set(pinned.map(c=>c.url)).size,favoriteFixture.length);
+assert.deepEqual(pinned.slice(5).map(c=>c.name),[
+  'TVR 1', 'PRO TV International', 'Kanal D2', 'Antena 1', 'TVR 2'
+]);
+assert.deepEqual(pinFavoriteChannels([{name:'Altele',url:'https://example.org/test'}]).map(c=>c.name),['Altele']);
 
 const routes = new Map();
 const app={get(path,...handlers){routes.set(path,handlers);}};
