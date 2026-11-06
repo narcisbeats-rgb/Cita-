@@ -10,6 +10,9 @@ assert.equal(channels[0].name,'TV Test');
 assert.match(makeM3u(channels),/group-title="RO"/);
 assert.throws(()=>playlistData({IPTV_CHANNELS_JSON:'bad'}),/JSON valid/);
 assert.throws(()=>playlistData({IPTV_CHANNELS_JSON:JSON.stringify([{name:'Bad',url:'file:///etc/passwd'}])}),/invalid/);
+assert.equal(playlistData({IPTV_CHANNELS_JSON:JSON.stringify([{name:'Test HTTP',url:'http://example.org/stream.m3u8'}])})[0].url,
+  'http://example.org/stream.m3u8');
+
 
 const routes = new Map();
 const app={get(path,...handlers){routes.set(path,handlers);}};
