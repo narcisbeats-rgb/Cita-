@@ -17,6 +17,12 @@ function safeHttpsUrl(value) {
     return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
   } catch { return ''; }
 }
+function safeStreamUrl(value) {
+  try {
+    const url = new URL(String(value ?? '').trim());
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : '';
+  } catch { return ''; }
+}
 function secureEqual(a,b) {
   const x = crypto.createHash('sha256').update(String(a)).digest();
   const y = crypto.createHash('sha256').update(String(b)).digest();
@@ -31,8 +37,8 @@ export function playlistData(env = process.env) {
   if (!Array.isArray(raw) || raw.length > 200) throw new Error('IPTV_CHANNELS_JSON trebuie sa fie o lista de maxim 200 canale');
   return raw.map((item,i) => {
     if (!item || typeof item !== 'object') throw new Error('Canalul ' + (i+1) + ' nu este un obiect');
-    const name = safeText(item.name), url = safeHttpsUrl(item.url);
-    if (!name || !url) throw new Error('Canalul ' + (i+1) + ' are nume sau URL HTTPS invalid');
+    const name = safeText(item.name), url = safeStreamUrl(item.url);
+    if (!name || !url) throw new Error('Canalul ' + (i+1) + ' are nume sau URL HTTP(S) invalid');
     return {
       name, url, group: safeText(item.group || 'Altele',100),
       tvgId: safeText(item.tvgId,100), logo: safeHttpsUrl(item.logo)
