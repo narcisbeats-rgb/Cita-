@@ -62,7 +62,10 @@ export function pinFavoriteChannels(channels) {
     /^antena\s*1(?:\s+(?:hd|fhd|uhd|4k))?$/,
     /^antena\s*3(?:\s+cnn)?(?:\s+(?:hd|fhd|uhd|4k))?$/,
     /^kanal\s*d(?:\s+(?:hd|fhd|uhd|4k))?$/,
-    /^romania\s*tv(?:\s+(?:hd|fhd|uhd|4k))?$/
+    /^romania\s*tv(?:\s+(?:hd|fhd|uhd|4k))?$/,
+    /^digi\s*sport\s*1(?:\s+(?:hd|fhd|uhd|4k))?$/,
+    /^digi\s*sport\s*2(?:\s+(?:hd|fhd|uhd|4k))?$/,
+    /^digi\s*sport\s*3(?:\s+(?:hd|fhd|uhd|4k))?$/
   ];
   const rest = [...channels];
   const pinned = [];
