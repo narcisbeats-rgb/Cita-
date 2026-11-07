@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { playlistData, makeM3u, registerIptv, pinFavoriteChannels, preferHigherQualityVariants } from '../iptv/router.js';
+import { isPublicIpv4, deduplicateChannels, createHealthMonitor, probeStream } from '../iptv/health.js';
 
 const demo = playlistData({});
 assert.equal(demo.length,1);
@@ -59,7 +60,7 @@ const routes = new Map();
 const app={get(path,...handlers){routes.set(path,handlers);}};
 const env={IPTV_ADMIN_PASSWORD:'A-strong-test-password-123',IPTV_PLAYLIST_TOKEN:'a-strong-test-token-12345678901234',PUBLIC_BASE_URL:'https://example.org/'};
 registerIptv(app,env);
-assert.equal(routes.size,3);
+assert.equal(routes.size,4);
 function res(){return {code:200,headers:{},body:'',set(k,v){this.headers[k]=v;return this;},status(n){this.code=n;return this;},send(v){this.body=v;return this;},json(v){this.body=v;return this;}};}
 const getPlaylist=routes.get('/iptv/playlist.m3u')[0];
 let response=res();
@@ -96,3 +97,26 @@ response=res();
 auth({headers:{authorization:'Basic '+Buffer.from('narcis:'+env.IPTV_ADMIN_PASSWORD).toString('base64')}},response,()=>{response.code=200;});
 assert.equal(response.code,200);
 console.log('SmartOne IPTV route smoke tests passed');
+
+// IPTV 2.0: dedup preserves backup streams but removes exact playback-URL copies.
+const duplicates = deduplicateChannels([
+  {name:'TVR A',url:'https://example.org/same.m3u8'},
+  {name:'TVR A HD',url:'https://example.org/backup.m3u8'},
+  {name:'TVR copied',url:'https://example.org/same.m3u8'}
+]);
+assert.deepEqual(duplicates.map(c=>c.name),['TVR A','TVR A HD']);
+for (const ip of ['127.0.0.1','10.1.2.3','172.16.0.4','192.168.1.1','169.254.169.254','100.64.1.1','203.0.113.7'])
+  assert.equal(isPublicIpv4(ip),false,ip);
+assert.equal(isPublicIpv4('8.8.8.8'),true);
+assert.equal((await probeStream('http://127.0.0.1/internal')).state,'unknown');
+assert.equal((await probeStream('http://localhost/')).state,'unknown');
+const monitor=createHealthMonitor({probe:async url=>({state:url.endsWith('ok')?'live':'offline',reason:'Test'})});
+const mockChannels=[{url:'https://example.org/ok'},{url:'https://example.org/bad'}];
+monitor.schedule(mockChannels);
+assert.equal(monitor.snapshot(mockChannels).counts.unknown,2);
+await monitor.runBatch(2);
+assert.deepEqual(monitor.snapshot(mockChannels).counts,{live:1,offline:1,restricted:0,unknown:0});
+assert.equal(monitor.requestScan(mockChannels).accepted,true);
+assert.equal(monitor.requestScan(mockChannels).accepted,false);
+assert.equal(routes.get('/iptv/api/health').length,2);
+console.log('IPTV 2.0 health, URL dedup and safety smoke tests passed');
