@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>Narcis IPTV · SmartOne</title>
+<meta name="robots" content="noindex,nofollow"><title>Narcis IPTV 2.0 · SmartOne</title>
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#e8edf6;background:#091522}
 *{box-sizing:border-box}body{margin:0;padding:24px}main{max-width:920px;margin:auto}
@@ -14,8 +14,18 @@ button.secondary,a.button.secondary{background:#354b65}button.danger{background:
 .channel{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #314359;padding:12px 0}
 .channel strong,.channel small{display:block}.channel small{color:#9bb2d0;overflow-wrap:anywhere}
 #status{color:#93dfb6}code{color:#b7dcff;overflow-wrap:anywhere}
+select{width:100%;background:#0c1b2f;color:#fff;border:1px solid #405b7a;border-radius:8px;padding:12px}
+.health-pill{display:inline-block;margin-top:6px;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#425068;color:#e7eef9}
+.health-pill.live{background:#16482f;color:#b6f9cf}.health-pill.offline{background:#612c33;color:#ffd0d6}
+.health-pill.restricted{background:#634b22;color:#ffe5a4}.health-pill.unknown{background:#35445b;color:#d2deee}
+.health-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}
+.health-stat{padding:11px 5px;text-align:center;border:1px solid #3c536d;background:#0e1d32;border-radius:10px}
+.health-stat strong{display:block;font-size:22px}.health-stat span{font-size:12px;color:#bdcde1}
+.channel>div:first-child{min-width:0}.filter-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+@media(max-width:550px){body{padding:12px}section{padding:14px}.filter-grid{grid-template-columns:1fr}.health-stats{grid-template-columns:repeat(2,1fr)}}
+
 </style></head><body><main>
-<h1>📺 Narcis IPTV</h1>
+<h1>📺 Narcis IPTV 2.0</h1>
 <p class="muted">Serverul personal pentru SmartOne pe Samsung. Render găzduiește lista M3U, nu retransmite video.</p>
 <section>
 <h2>1. Conectează SmartOne IPTV</h2>
@@ -46,6 +56,22 @@ button.secondary,a.button.secondary{background:#354b65}button.danger{background:
 <div><strong>Digi Sport 4 HD – Digi TV</strong><p><a class="button secondary" href="https://www.digionline.ro/sport/digisport-4" target="_blank" rel="noopener noreferrer">Pagina oficială</a></p></div>
 </div>
 <p class="muted">Pentru redare în SmartOne este necesar un playlist M3U licențiat pentru utilizare într-un player extern. DIGI nu oferă unul public pentru aceste patru canale.</p>
+</section>
+<section>
+<h2>Monitorizare canale</h2>
+<p class="muted">Testăm periodic doar răspunsul fluxului, fără retransmisie. <b>LIVE</b> = sursa răspunde din Render, nu garantăm imagine pe televizor. <b>RESTRICȚIONAT</b> poate însemna autentificare sau geoblocare. Verificările rulează în fundal, aproximativ una la 90 secunde.</p>
+<div class="health-stats" aria-live="polite">
+  <div class="health-stat"><strong id="liveCount">0</strong><span>LIVE</span></div>
+  <div class="health-stat"><strong id="offlineCount">0</strong><span>OFFLINE</span></div>
+  <div class="health-stat"><strong id="restrictedCount">0</strong><span>RESTRICȚIONATE</span></div>
+  <div class="health-stat"><strong id="unknownCount">—</strong><span>NEVERIFICATE / NECONCLUDENTE</span></div>
+</div>
+<button id="refreshHealth">Verifică acum maximum 8 surse</button>
+<p class="muted" id="healthMessage" role="status">Se încarcă situația canalelor...</p>
+<div class="filter-grid">
+  <div><label for="searchChannels">Caută canal după nume sau categorie</label><input id="searchChannels" placeholder="De exemplu: TVR, sport, știri"></div>
+  <div><label for="filterStatus">Filtrează după status</label><select id="filterStatus"><option value="all">Toate</option><option value="live">LIVE</option><option value="offline">OFFLINE</option><option value="restricted">Restricționate</option><option value="unknown">Neverificate</option></select></div>
+</div>
 </section>
 <section>
 <h2>2. Lista completă SmartOne <span id="totalCount"></span></h2>
@@ -84,14 +110,34 @@ const el=id=>document.getElementById(id);
 let channels=[];
 let imported=[];
 let added=[];
+let health=new Map();
+const healthLabels={live:'● LIVE',offline:'● OFFLINE',restricted:'● RESTRICȚIONAT',unknown:'● NEVERIFICAT'};
+function matches(c){
+  const q=el('searchChannels').value.toLowerCase().trim();
+  const state=el('filterStatus').value;
+  const actual=(health.get(c.url)||{}).state||'unknown';
+  return (state==='all'||state===actual) &&
+    (!q||(String(c.name||'')+' '+String(c.group||'')).toLowerCase().includes(q));
+}
+function paintBadge(b,url){
+  const data=health.get(url)||{state:'unknown',reason:'Neverificat'};
+  const state=healthLabels[data.state]?data.state:'unknown';
+  b.className='health-pill '+state;b.textContent=healthLabels[state];
+  b.title=(data.reason||'')+(data.checkedAt?' · Ultima verificare: '+new Date(data.checkedAt).toLocaleString('ro-RO'):'');
+}
+function addBadge(parent,c){
+  const b=document.createElement('span');
+  b.dataset.url=c.url;paintBadge(b,c.url);parent.append(b);
+}
 function renderAdded(){
   el('addedCount').textContent='('+added.length+')';
   const target=el('addedChannels');target.replaceChildren();
   for(const channel of added){
+    if(!matches(channel))continue;
     const item=document.createElement('div');item.className='channel';
     const title=document.createElement('strong');title.textContent=channel.name;
     const details=document.createElement('small');details.textContent=channel.group+' · '+channel.url;
-    const left=document.createElement('div');left.append(title,details);item.append(left);target.append(item);
+    const left=document.createElement('div');left.append(title,details);addBadge(left,channel);item.append(left);target.append(item);
   }
   if(added.length===0)target.textContent='Nu sunt canale suplimentare în această secțiune.';
 }
@@ -99,11 +145,12 @@ function showImported(){
   el('remoteCount').textContent='('+imported.length+')';
   const list=el('remoteChannels');list.replaceChildren();
   for(const c of imported){
+    if(!matches(c))continue;
     const row=document.createElement('div');row.className='channel';
     const left=document.createElement('div');
     const name=document.createElement('strong');name.textContent=c.name;
     const info=document.createElement('small');info.textContent=c.group+' · '+c.url;
-    left.append(name,info);row.append(left);list.append(row);
+    left.append(name,info);addBadge(left,c);row.append(left);list.append(row);
   }
   if(imported.length===0)list.textContent='Niciun canal importat.';
 }
@@ -112,11 +159,12 @@ function validUrl(s, allowHttp=false){try{const u=new URL(s);return (u.protocol=
 function render(){
   const target=el('channels');target.replaceChildren();el('count').textContent='('+channels.length+')';
   channels.forEach((c,i)=>{
+    if(!matches(c))return;
     const row=document.createElement('div');row.className='channel';
     const left=document.createElement('div');
     const name=document.createElement('strong');name.textContent=c.name;
     const info=document.createElement('small');info.textContent=(c.group||'Altele')+' · '+c.url;
-    left.append(name,info);
+    left.append(name,info);addBadge(left,c);
     const del=document.createElement('button');del.className='danger';del.textContent='Șterge';
     del.onclick=()=>{channels.splice(i,1);render();status('Copiază JSON-ul în Render pentru salvare.');};
     row.append(left,del);target.append(row);
@@ -128,6 +176,27 @@ async function copy(text){
   try{await navigator.clipboard.writeText(text);status('Copiat.');}
   catch{status('Selectează și copiază manual textul din câmp.');}
 }
+async function refreshHealth(manual=false){
+  try{
+    const r=await fetch('/iptv/api/health'+(manual?'?check=1':''),{cache:'no-store'});
+    if(!r.ok)throw Error('HTTP '+r.status);
+    const data=await r.json();
+    if(data.error)throw Error(data.error);
+    health=new Map((data.channels||[]).map(c=>[c.url,c]));
+    const c=data.counts||{};
+    for(const key of ['live','offline','restricted','unknown'])
+      el(key+'Count').textContent=c[key]||0;
+    if(manual && data.scan)el('healthMessage').textContent=data.scan.reason;
+    else el('healthMessage').textContent='Monitorizare activă · '+(data.queued||0)+' fluxuri în așteptare'+(data.running?' · verificare în curs':'');
+    // Updating existing badges does not disturb the list while the user scrolls.
+    if(el('filterStatus').value==='all')
+      document.querySelectorAll('.health-pill[data-url]').forEach(b=>paintBadge(b,b.dataset.url));
+    else {render();showImported();renderAdded();}
+  }catch(e){el('healthMessage').textContent='Nu se poate încărca statusul: '+e.message;}
+}
+el('refreshHealth').onclick=()=>refreshHealth(true);
+for(const id of ['searchChannels','filterStatus'])
+  el(id).addEventListener('input',()=>{render();showImported();renderAdded();});
 el('copyLink').onclick=()=>copy(el('playlist').value);
 el('copyJson').onclick=()=>copy(el('json').value);
 el('add').onclick=()=>{
@@ -148,6 +217,8 @@ try{
   el('importSource').textContent=(data.importedSource||'IPTV-org România')+(data.importError?' · '+data.importError:'');
   el('playlist').value=data.playlistUrl;render();showImported();renderAdded();
   status('Gata. Copiază linkul în SmartOne.');
+  await refreshHealth();
+  setInterval(()=>refreshHealth(),30000);
 }catch(e){status('Eroare: '+e.message);el('channels').textContent='Verifică variabilele din Render.';}
 })();
 </script></body></html>
