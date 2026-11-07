@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { createHealthMonitor, deduplicateChannels } from './health.js';
 import { getRomanianChannels, ROMANIAN_PLAYLIST_URL } from './ro-import.js';
 
 const DEMO_CHANNELS = [{
@@ -119,6 +120,7 @@ export function registerIptv(app, env = process.env) {
   const playlistToken = env.IPTV_PLAYLIST_TOKEN || '';
   const configured = adminPassword.length >= 16 && playlistToken.length >= 24;
   const importEnabled = env.IPTV_IMPORT_RO_PUBLIC === 'true';
+  const healthMonitor = createHealthMonitor();
   if (importEnabled) getRomanianChannels(true).then(r =>
     console.log('IPTV Romania import:', r.channels.length, 'entries, source:', r.source || 'unavailable', r.lastError || '')
   ).catch(e => console.error('IPTV Romania import error:', e.message));
@@ -150,7 +152,7 @@ export function registerIptv(app, env = process.env) {
     const extra = env.IPTV_PREFER_HIGHEST_RESOLUTION === 'true'
       ? preferHigherQualityVariants(importedDistinct)
       : importedDistinct;
-    return { manual, added:added.concat(extraRadio,digiSportTest), imported, extra, all: pinFavoriteChannels(custom.concat(extra)) };
+    return { manual, added:added.concat(extraRadio,digiSportTest), imported, extra:deduplicateChannels(extra), all: pinFavoriteChannels(deduplicateChannels(custom.concat(extra))) };
   }
 
   function adminOnly(req,res,next) {
@@ -184,6 +186,14 @@ export function registerIptv(app, env = process.env) {
         importError:imported.lastError, importedUpdatedAt:imported.refreshedAt, playlistUrl:url.href });
     } catch(e) {res.status(422).json({error:e.message});}
   });
+  app.get('/iptv/api/health',adminOnly,async (req,res) => {
+    try {
+      const { all } = await combinedChannels();
+      const scan = req.query.check === '1' ? healthMonitor.requestScan(all) : null;
+      if (!scan) healthMonitor.schedule(all);
+      res.json({...healthMonitor.snapshot(all),scan,totalChannels:all.length});
+    } catch(e) {res.status(422).json({error:e.message});}
+  });
   app.get('/iptv/playlist.m3u',async (req,res) => {
     privateHeaders(res);
     if (!configured) return res.status(503).send('IPTV neconfigurat');
@@ -196,4 +206,8 @@ export function registerIptv(app, env = process.env) {
       res.send(makeM3u(all));
     } catch(e) {res.status(422).send(e.message);}
   });
+  // Reuse the existing translator web-service process: one tiny probe every 90 seconds.
+  // The timer is unref'd so it will not keep tests or shutdowns running.
+  if (configured && env.IPTV_HEALTH_CHECKS !== 'false')
+    healthMonitor.start(async () => (await combinedChannels()).all);
 }
