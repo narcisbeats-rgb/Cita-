@@ -34,6 +34,18 @@ assert.deepEqual(pinned.slice(5).map(c=>c.name),[
 ]);
 assert.deepEqual(pinFavoriteChannels([{name:'Altele',url:'https://example.org/test'}]).map(c=>c.name),['Altele']);
 
+
+const requestedSix = [
+  'TVR 1', 'Digi Sport 3 HD', 'PRO TV HD (1080p)', 'Antena 3 CNN (1080p)',
+  'Digi Sport 2 HD', 'Kanal D', 'Antena 1 HD (1440p)', 'Digi Sport 1 HD', 'Romania TV'
+].map((name,i)=>({name,url:'https://example.org/six-'+i+'.m3u8',group:'RO',tvgId:'six-'+i,logo:''}));
+assert.deepEqual(pinFavoriteChannels(requestedSix).slice(0,6).map(c=>c.name),[
+  'PRO TV HD (1080p)','Antena 1 HD (1440p)','Antena 3 CNN (1080p)',
+  'Digi Sport 1 HD','Digi Sport 2 HD','Digi Sport 3 HD'
+]);
+// Do not fabricate absent Digi Sport channels or promote placeholder TEST names.
+assert.equal(pinFavoriteChannels([{name:'Digi Sport 1 – TEST',url:'https://example.org/demo.m3u8'}]).length,1);
+
 // Public source lists SD first for some channels (e.g. Super TV).
 // Put higher resolution first but keep both alternatives, including their URLs.
 const variants = [
