@@ -281,7 +281,7 @@ export function registerIptv(app, env = process.env) {
   // Do not proxy or transcode content on the translator server.
   app.get(/^\/live\/([^/]+)\/([^/]+)\/(\d+)\.(?:ts|m3u8)$/,async(req,res)=>{
     privateHeaders(res);
-    const [username,password,rawId]=req.params;
+    const username=req.params[0], password=req.params[1], rawId=req.params[2];
     if(!authorizedXtream(username,password))
       return res.status(403).send('Acces refuzat');
     const id=Number(rawId);
