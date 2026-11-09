@@ -46,6 +46,17 @@ select{width:100%;background:#0c1b2f;color:#fff;border:1px solid #405b7a;border-
 <p id="setTestResult" class="muted" role="status">Verifică dacă lista de pe server se descarcă și începe corect cu #EXTM3U.</p>
 <a class="button secondary" target="_blank" rel="noopener noreferrer" href="https://setsysteme.com/set.app?lang=en">Deschide configurarea SET IPTV</a>
 <p class="muted">Linkul conține cheia privată a listei; nu îl distribui public. Încearcă întâi perioada gratuită de test a aplicației.</p>
+<h2>Alternativă: Xtream Codes (dacă M3U nu se importă)</h2>
+<p class="muted">În pagina SET IPTV alege <b>Xtream Codes</b>, nu M3U Link. Copiază separat cele trei valori. Folosește site-ul oficial SETSYSTEME. Fără server suplimentar și fără retransmisie video.</p>
+<label for="xtreamServer">Server URL</label>
+<input id="xtreamServer" readonly placeholder="Se încarcă..." autocomplete="off">
+<button class="secondary" id="copyXtreamServer">Copiază serverul</button>
+<label for="xtreamUser">Username</label>
+<input id="xtreamUser" readonly placeholder="Se încarcă..." autocomplete="off">
+<button class="secondary" id="copyXtreamUser">Copiază utilizatorul</button>
+<label>Password (cheia privată, ascunsă)</label>
+<button class="secondary" id="copyXtreamPassword">Copiază parola Xtream</button>
+<p class="muted" id="xtreamStatus" role="status">Această metodă folosește API-ul Xtream pentru lista de canale LIVE; nu oferă EPG sau VOD. Dacă o sursă este restricționată, SET IPTV nu va putea reda acel canal.</p>
 </section>
 <section>
 <h2>Canale populare · acces oficial</h2>
@@ -122,6 +133,7 @@ let channels=[];
 let imported=[];
 let added=[];
 let health=new Map();
+let xtreamPassword='';
 const healthLabels={live:'● LIVE',offline:'● OFFLINE',restricted:'● RESTRICȚIONAT',unknown:'● NEVERIFICAT'};
 function matches(c){
   const q=el('searchChannels').value.toLowerCase().trim();
@@ -210,6 +222,9 @@ for(const id of ['searchChannels','filterStatus'])
   el(id).addEventListener('input',()=>{render();showImported();renderAdded();});
 el('copyLink').onclick=()=>copy(el('playlist').value);
 el('copySetIptv').onclick=()=>copy(el('setIptv').value);
+el('copyXtreamServer').onclick=()=>copy(el('xtreamServer').value);
+el('copyXtreamUser').onclick=()=>copy(el('xtreamUser').value);
+el('copyXtreamPassword').onclick=()=>copy(xtreamPassword);
 el('testSetIptv').onclick=async()=>{
   const target=el('setTestResult');
   const link=el('setIptv').value;
@@ -248,6 +263,12 @@ try{
   el('importSource').textContent=(data.importedSource||'IPTV-org România')+(data.importError?' · '+data.importError:'');
   el('playlist').value=data.playlistUrl;
   el('setIptv').value=data.setIptvUrl || '';
+  el('xtreamServer').value=data.xtreamInfo?.serverUrl||'';
+  el('xtreamUser').value=data.xtreamInfo?.username||'';
+  xtreamPassword=data.xtreamInfo?.password||'';
+  el('xtreamStatus').textContent=xtreamPassword
+    ? 'Xtream configurat · 3 date de conectare disponibile. Parola nu este afișată; o poți copia.'
+    : 'Xtream indisponibil: actualizează pagina.';
   render();showImported();renderAdded();
   status('Gata. Copiază linkul în SmartOne.');
   await refreshHealth();
