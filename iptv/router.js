@@ -184,9 +184,17 @@ export function registerIptv(app, env = process.env) {
       const base = safeHttpsUrl(env.PUBLIC_BASE_URL || '') || ('https://' + req.get('host') + '/');
       const url = new URL('/iptv/playlist.m3u',base);
       url.searchParams.set('token',playlistToken);
+      // SET IPTV validates the classic Xtream-style get.php URL even for M3U links.
+      // Reuse our existing private playlist token; no new credentials or service needed.
+      const setIptvUrl = new URL('/get.php',base);
+      setIptvUrl.searchParams.set('username','narcis');
+      setIptvUrl.searchParams.set('password',playlistToken);
+      setIptvUrl.searchParams.set('type','m3u_plus');
+      setIptvUrl.searchParams.set('output','ts');
       res.json({ channels:manual, addedChannels:added, importedChannels:extra, totalChannels:all.length,
         importedSource:imported.source || ROMANIAN_PLAYLIST_URL,
-        importError:imported.lastError, importedUpdatedAt:imported.refreshedAt, playlistUrl:url.href });
+        importError:imported.lastError, importedUpdatedAt:imported.refreshedAt,
+        playlistUrl:url.href, setIptvUrl:setIptvUrl.href });
     } catch(e) {res.status(422).json({error:e.message});}
   });
   app.get('/iptv/api/health',adminOnly,async (req,res) => {
@@ -197,17 +205,31 @@ export function registerIptv(app, env = process.env) {
       res.json({...healthMonitor.snapshot(all),scan,totalChannels:all.length});
     } catch(e) {res.status(422).json({error:e.message});}
   });
+  async function sendPlaylist(res) {
+    try {
+      res.set('Content-Type','application/vnd.apple.mpegurl; charset=utf-8');
+      const { all } = await combinedChannels();
+      res.send(makeM3u(all));
+    } catch(e) {res.status(422).send(e.message);}
+  }
   app.get('/iptv/playlist.m3u',async (req,res) => {
     privateHeaders(res);
     if (!configured) return res.status(503).send('IPTV neconfigurat');
     if (typeof req.query.token !== 'string' || !secureEqual(req.query.token,playlistToken)) {
       return res.status(403).send('Token incorect');
     }
-    try {
-      res.set('Content-Type','application/vnd.apple.mpegurl; charset=utf-8');
-      const { all } = await combinedChannels();
-      res.send(makeM3u(all));
-    } catch(e) {res.status(422).send(e.message);}
+    await sendPlaylist(res);
+  });
+  // SET IPTV expects /get.php?username=...&password=..., not a token-only M3U URL.
+  // This is a playlist-format adapter, NOT a full Xtream Codes API.
+  app.get('/get.php',async (req,res) => {
+    privateHeaders(res);
+    if (!configured) return res.status(503).send('IPTV neconfigurat');
+    if (req.query.username !== 'narcis' || typeof req.query.password !== 'string'
+        || !secureEqual(req.query.password,playlistToken)) {
+      return res.status(403).send('Acces refuzat');
+    }
+    await sendPlaylist(res);
   });
   // Reuse the existing translator web-service process: one tiny probe every 90 seconds.
   // The timer is unref'd so it will not keep tests or shutdowns running.
