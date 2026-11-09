@@ -9,6 +9,14 @@ const DEMO_CHANNELS = [{
   group: '00 • Test SmartOne'
 }];
 
+// Public community links (availability and playback are not guaranteed).
+// Keep these independent of user-provided channels and the translator.
+const DIGI_SPORT_CHANNELS = [
+  { name: 'Digi Sport 1', url: 'https://top2.mizhls.ru/top2/premium400/index.m3u8', group: '▪●★ Sport ★●▪' },
+  { name: 'Digi Sport 2', url: 'https://top2.mizhls.ru/top2/premium401/index.m3u8', group: '▪●★ Sport ★●▪' },
+  { name: 'Digi Sport 3', url: 'https://top2.mizhls.ru/top2/premium402/index.m3u8', group: '▪●★ Sport ★●▪' }
+];
+
 function safeText(value, max = 120) {
   return String(value ?? '').replace(/[\r\n\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 }
@@ -150,7 +158,7 @@ export function registerIptv(app, env = process.env) {
       seen.add(key);
       return true;
     });
-    const custom = distinct(manual.concat(added,extraRadio,digiSportTest));
+    const custom = distinct(manual.concat(added,extraRadio,digiSportTest,DIGI_SPORT_CHANNELS));
     const importedDistinct = distinct(imported.channels);
     const extra = env.IPTV_PREFER_HIGHEST_RESOLUTION === 'true'
       ? preferHigherQualityVariants(importedDistinct)
