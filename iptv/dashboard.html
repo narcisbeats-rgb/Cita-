@@ -42,6 +42,8 @@ select{width:100%;background:#0c1b2f;color:#fff;border:1px solid #405b7a;border-
 <label for="setIptv">Link privat special pentru SET IPTV</label>
 <input id="setIptv" readonly placeholder="Se încarcă..." autocomplete="off">
 <button id="copySetIptv">Copiază link SET IPTV</button>
+<button class="secondary" id="testSetIptv">Testează lista SET IPTV</button>
+<p id="setTestResult" class="muted" role="status">Verifică dacă lista de pe server se descarcă și începe corect cu #EXTM3U.</p>
 <a class="button secondary" target="_blank" rel="noopener noreferrer" href="https://setsysteme.com/set.app?lang=en">Deschide configurarea SET IPTV</a>
 <p class="muted">Linkul conține cheia privată a listei; nu îl distribui public. Încearcă întâi perioada gratuită de test a aplicației.</p>
 </section>
@@ -208,6 +210,25 @@ for(const id of ['searchChannels','filterStatus'])
   el(id).addEventListener('input',()=>{render();showImported();renderAdded();});
 el('copyLink').onclick=()=>copy(el('playlist').value);
 el('copySetIptv').onclick=()=>copy(el('setIptv').value);
+el('testSetIptv').onclick=async()=>{
+  const target=el('setTestResult');
+  const link=el('setIptv').value;
+  if(!link){target.textContent='Linkul SET IPTV nu s-a încărcat. Reîmprospătează panoul.';return;}
+  target.textContent='Verific linkul privat de pe server...';
+  try{
+    const r=await fetch(link,{cache:'no-store',credentials:'same-origin',redirect:'follow'});
+    if(!r.ok){target.textContent='EROARE SERVER: HTTP '+r.status+
+      (r.status===403?' – cheia privată este respinsă.':' – serverul nu a furnizat lista.');return;}
+    const body=await r.text();
+    if(!body.startsWith('#EXTM3U')){
+      target.textContent='FORMAT INVALID: serverul nu a returnat o listă M3U (HTTP '+r.status+').';return;
+    }
+    const count=(body.match(/^#EXTINF:/gm)||[]).length;
+    target.textContent=count>0
+      ? 'LISTA OK: HTTP '+r.status+' · '+count+' canale M3U. Dacă SET IPTV refuză încă lista, problema este la importul aplicației/site-ului SET IPTV.'
+      : 'FORMAT M3U VALID, dar fără canale. Verifică sursele din panou.';
+  }catch(e){target.textContent='Nu pot descărca lista: '+e.message;}
+};
 el('copyJson').onclick=()=>copy(el('json').value);
 el('add').onclick=()=>{
   const name=el('name').value.trim(),url=el('url').value.trim(),group=el('group').value.trim(),logo=el('logo').value.trim();
