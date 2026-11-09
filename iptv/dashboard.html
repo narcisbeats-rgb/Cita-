@@ -37,6 +37,15 @@ select{width:100%;background:#0c1b2f;color:#fff;border:1px solid #405b7a;border-
 <p class="muted">În SmartOne apar doar fluxurile M3U8 din lista configurată pe server. Nu publica linkul: conține tokenul privat de acces.</p>
 </section>
 <section>
+<h2>Conectează SET IPTV pe Samsung</h2>
+<p class="muted">Pe iPhone, deschide configurarea SET IPTV, introdu codul MAC de pe televizor, alege <b>M3U link</b> și lipește linkul de mai jos la <b>Playlist URL</b>. Este un link compatibil cu verificarea /get.php a aplicației, dar folosește exact aceleași canale ca SmartOne.</p>
+<label for="setIptv">Link privat special pentru SET IPTV</label>
+<input id="setIptv" readonly placeholder="Se încarcă..." autocomplete="off">
+<button id="copySetIptv">Copiază link SET IPTV</button>
+<a class="button secondary" target="_blank" rel="noopener noreferrer" href="https://setsysteme.com/set.app?lang=en">Deschide configurarea SET IPTV</a>
+<p class="muted">Linkul conține cheia privată a listei; nu îl distribui public. Încearcă întâi perioada gratuită de test a aplicației.</p>
+</section>
+<section>
 <h2>Canale populare · acces oficial</h2>
 <p class="muted">Aceste trei televiziuni se pot urmări pe platformele lor oficiale. Linkurile de mai jos NU sunt fluxuri M3U8 și nu apar ca posturi redate în SmartOne. VOYO și AntenaPLAY pot necesita abonament și verificarea disponibilității în Danemarca.</p>
 <div class="grid">
@@ -198,6 +207,7 @@ el('refreshHealth').onclick=()=>refreshHealth(true);
 for(const id of ['searchChannels','filterStatus'])
   el(id).addEventListener('input',()=>{render();showImported();renderAdded();});
 el('copyLink').onclick=()=>copy(el('playlist').value);
+el('copySetIptv').onclick=()=>copy(el('setIptv').value);
 el('copyJson').onclick=()=>copy(el('json').value);
 el('add').onclick=()=>{
   const name=el('name').value.trim(),url=el('url').value.trim(),group=el('group').value.trim(),logo=el('logo').value.trim();
@@ -215,7 +225,9 @@ try{
   added=data.addedChannels || [];
   el('totalCount').textContent='('+data.totalChannels+' canale)';
   el('importSource').textContent=(data.importedSource||'IPTV-org România')+(data.importError?' · '+data.importError:'');
-  el('playlist').value=data.playlistUrl;render();showImported();renderAdded();
+  el('playlist').value=data.playlistUrl;
+  el('setIptv').value=data.setIptvUrl || '';
+  render();showImported();renderAdded();
   status('Gata. Copiază linkul în SmartOne.');
   await refreshHealth();
   setInterval(()=>refreshHealth(),30000);
