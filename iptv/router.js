@@ -194,7 +194,8 @@ export function registerIptv(app, env = process.env) {
       res.json({ channels:manual, addedChannels:added, importedChannels:extra, totalChannels:all.length,
         importedSource:imported.source || ROMANIAN_PLAYLIST_URL,
         importError:imported.lastError, importedUpdatedAt:imported.refreshedAt,
-        playlistUrl:url.href, setIptvUrl:setIptvUrl.href });
+        playlistUrl:url.href, setIptvUrl:setIptvUrl.href,
+        xtreamInfo: { serverUrl:base.replace(/\/$/,''),username:'narcis',password:playlistToken } });
     } catch(e) {res.status(422).json({error:e.message});}
   });
   app.get('/iptv/api/health',adminOnly,async (req,res) => {
@@ -230,6 +231,69 @@ export function registerIptv(app, env = process.env) {
       return res.status(403).send('Acces refuzat');
     }
     await sendPlaylist(res);
+  });
+  // Minimal Xtream Codes player API compatibility for SET IPTV (live TV only).
+  // The service does not relay media bytes; live links redirect to the original source.
+  function authorizedXtream(username, password) {
+    return configured && username === 'narcis' && typeof password === 'string'
+      && secureEqual(password,playlistToken);
+  }
+  app.get('/player_api.php',async (req,res) => {
+    privateHeaders(res);
+    if(!authorizedXtream(req.query.username,req.query.password))
+      return res.status(401).json({user_info:{auth:0,status:'Disabled'}});
+    try{
+      const {all}=await combinedChannels();
+      const groups=[...new Set(all.map(c=>c.group||'Altele'))];
+      const categoryId=(c)=>String(groups.indexOf(c.group||'Altele')+1);
+      const action=String(req.query.action||'');
+      if(action==='get_live_categories')
+        return res.json(groups.map((name,i)=>({category_id:String(i+1),category_name:name,parent_id:0})));
+      if(action==='get_live_streams'){
+        const selected=all.map((c,i)=>({c,id:i+1})).filter(o=>
+          !req.query.category_id || categoryId(o.c)===String(req.query.category_id));
+        return res.json(selected.map(({c,id},i)=>({
+          num:id,name:c.name,stream_type:'live',stream_id:id,
+          stream_icon:c.logo||'',epg_channel_id:c.tvgId||'',
+          added:'',category_id:categoryId(c),custom_sid:'',
+          tv_archive:0,direct_source:c.url,tv_archive_duration:0
+        })));
+      }
+      if(action==='get_short_epg')return res.json({epg_listings:[]});
+      if(action==='get_simple_data_table')return res.json({epg_listings:[]});
+      if(['get_vod_categories','get_vod_streams','get_series_categories','get_series'].includes(action))
+        return res.json([]);
+      if(action)return res.status(400).json({error:'Unsupported Xtream API action'});
+      const now=new Date();
+      const base=safeHttpsUrl(env.PUBLIC_BASE_URL||'')||('https://'+req.get('host')+'/');
+      const publicUrl=new URL(base);
+      return res.json({
+        user_info:{username:'narcis',password:playlistToken,auth:1,status:'Active',
+          exp_date:null,is_trial:'0',active_cons:'0',created_at:'0',
+          max_connections:'1',allowed_output_formats:['m3u8','ts']},
+        server_info:{url:publicUrl.hostname,port:'443',https_port:'443',
+          server_protocol:'https',rtmp_port:'0',timezone:'Europe/Copenhagen',
+          timestamp_now:Math.floor(now.getTime()/1000),time_now:now.toISOString().slice(0,19).replace('T',' ')}
+      });
+    }catch(e){return res.status(422).json({error:e.message});}
+  });
+  // Supply a redirect so the TV streams directly from the channel provider.
+  // Do not proxy or transcode content on the translator server.
+  app.get(/^\/live\/([^/]+)\/([^/]+)\/(\d+)\.(?:ts|m3u8)$/,async(req,res)=>{
+    privateHeaders(res);
+    const [username,password,rawId]=req.params;
+    if(!authorizedXtream(username,password))
+      return res.status(403).send('Acces refuzat');
+    const id=Number(rawId);
+    if(!Number.isSafeInteger(id)||id<1)return res.status(404).end();
+    try{
+      const {all}=await combinedChannels();
+      const channel=all[id-1];
+      if(!channel)return res.status(404).end();
+      const url=safeStreamUrl(channel.url);
+      if(!url)return res.status(404).end();
+      res.redirect(302,url);
+    }catch(e){res.status(422).send(e.message);}
   });
   // Reuse the existing translator web-service process: one tiny probe every 90 seconds.
   // The timer is unref'd so it will not keep tests or shutdowns running.
