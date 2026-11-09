@@ -12,9 +12,9 @@ const DEMO_CHANNELS = [{
 // Public community links (availability and playback are not guaranteed).
 // Keep these independent of user-provided channels and the translator.
 const DIGI_SPORT_CHANNELS = [
-  { name: 'Digi Sport 1', url: 'https://top2.mizhls.ru/top2/premium400/index.m3u8', group: '▪●★ Sport ★●▪' },
-  { name: 'Digi Sport 2', url: 'https://top2.mizhls.ru/top2/premium401/index.m3u8', group: '▪●★ Sport ★●▪' },
-  { name: 'Digi Sport 3', url: 'https://top2.mizhls.ru/top2/premium402/index.m3u8', group: '▪●★ Sport ★●▪' }
+  { name: 'Digi Sport 1', url: 'https://vps-bc4b65e2.vps.ovh.net:8080/channel/ustv/400', group: '▪●★ Sport ★●▪' },
+  { name: 'Digi Sport 2', url: 'https://vps-bc4b65e2.vps.ovh.net:8080/channel/ustv/401', group: '▪●★ Sport ★●▪' },
+  { name: 'Digi Sport 3', url: 'https://vps-bc4b65e2.vps.ovh.net:8080/channel/ustv/402', group: '▪●★ Sport ★●▪' }
 ];
 
 function safeText(value, max = 120) {
