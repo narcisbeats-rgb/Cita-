@@ -15,7 +15,8 @@ const DEMO_CHANNELS = [{
 const DIGI_SPORT_CHANNELS = [
   { name: 'Digi Sport 1', url: 'http://315e5a5d.ottrast.com/iptv/MM4E93NGF5LADZ/2523/index.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
   { name: 'Digi Sport 2', url: 'http://fr01.spr24.net/22382/index.m3u8?token=BQF9PmuRpcxUqR', group: '▪●★ Sport ★●▪', tvgId: 'digisport2', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
-  { name: 'Digi Sport 3', url: 'https://dokagents.site/live/digisport3/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
+  { name: 'Digi Sport 3', url: 'https://dokagents.site/live/digisport3/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' },
+  { name: 'Digi Sport 1 Alternativ', url: 'https://7nyaler.streamhostingcdn.top/stream/79/index.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' }
 ];
 
 // Omit any older copies of these three channels from manual, extra and imported
