@@ -17,6 +17,21 @@ Fără `IPTV_CHANNELS_JSON`, playlistul conține doar un clip HLS de test (Big B
 
 Test local: `node scripts/check-iptv.mjs`.
 
+## 100 de conturi fără bază de date
+
+În panoul administratorului există un selector pentru conturile 1–100, de la `narcis001` la `narcis100`. Fiecare cont primește o parolă unică de 24 caractere, derivată prin HMAC-SHA256 din `IPTV_ADMIN_PASSWORD`, `IPTV_PLAYLIST_TOKEN` și versiunea conturilor. Parolele nu sunt scrise în repository și nu necesită costuri pentru o bază de date.
+
+- `GET /iptv/api/account?slot=1` (autentificare administrator obligatorie) întoarce datele contului selectat, nu toate cele 100.
+- Logarea se face pe același `https://cita-fd42.onrender.com` prin `player_api.php` (Xtream) sau `get.php` (M3U).
+- Contul vechi `narcis` și parola lui rămân funcționale.
+- `IPTV_DISABLED_USERS` (opțional) este lista de numere dezactivate, de exemplu `2,7,25`. Modificarea variabilei în Render este necesară pentru dezactivare.
+- `IPTV_ACCOUNTS_VERSION` (opțional, implicit `1`) schimbă simultan toate parolele conturilor 1–100, fără a modifica autentificarea veche. Schimbarea parolei administratorului sau a tokenului playlistului le modifică și ea.
+- Nu există evidența conexiunilor, aplicația nu limitează simultaneitatea sau revocă URL-uri video deja obținute. Streamingul este direct de la furnizor, iar drepturile de distribuție și limitele sursei rămân în responsabilitatea deținătorului.
+- Aceste conturi sunt pentru controlul accesului la lista IPTV, nu pentru vânzarea ori redistribuirea canalelor fără licență.
+
+Nu a fost adăugat niciun server, abonament, nouă dependență npm sau o bază de date. **Ținta de 7 USD/lună nu este garantată:** Render poate factura suplimentar traficul sau depășiri de cotă. Verifică Billing și Metrics înainte de distribuire largă.
+
+
 ## Narcis IPTV 2.0 — monitorizare, status și deduplicare
 
 Totul rulează în **același** Render web service cu aplicația de traducere.
