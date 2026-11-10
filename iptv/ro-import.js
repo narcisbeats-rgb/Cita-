@@ -113,7 +113,7 @@ async function getQualityUpgrades(baseChannels) {
   try {
     const alternatives = await download(QUALITY_URL);
     const normId = c => String(c.tvgId || '').toLowerCase().split('@')[0];
-    const score = c => Number(String(c.name || '').match(/\\((\\d{3,4})p\\)/i)?.[1] || 0);
+    const score = c => Number(String(c.name || '').match(/\((\d{3,4})p\)/i)?.[1] || 0);
     const upgrades = [];
     for (const candidate of alternatives) {
       const id = normId(candidate);
