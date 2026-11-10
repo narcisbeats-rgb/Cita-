@@ -9,13 +9,13 @@ const DEMO_CHANNELS = [{
   group: '00 • Test SmartOne'
 }];
 
-// Digi Sport 1–3 from carloclim/romania-iptv-list's curated.m3u (2026-11-10).
+// Digi Sport 1–3: public playlist candidates (2026-11-10).
 // These public playlist entries are unverified for playback and may be geo-blocked.
 // Direct-to-player links only; our server never relays or bypasses access controls.
 const DIGI_SPORT_CHANNELS = [
-  { name: 'Digi Sport 1', url: 'https://live3.cdn.dejacast.com/digisport1/digisport1_0.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
-  { name: 'Digi Sport 2', url: 'https://live3.cdn.dejacast.com/digisport2/digisport2_0.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport2', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
-  { name: 'Digi Sport 3', url: 'https://live3.cdn.dejacast.com/digisport3/digisport3_0.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
+  { name: 'Digi Sport 1', url: 'http://315e5a5d.ottrast.com/iptv/MM4E93NGF5LADZ/2523/index.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
+  { name: 'Digi Sport 2', url: 'http://fr01.spr24.net/22382/index.m3u8?token=BQF9PmuRpcxUqR', group: '▪●★ Sport ★●▪', tvgId: 'digisport2', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
+  { name: 'Digi Sport 3', url: 'https://dokagents.site/live/digisport3/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
 ];
 
 // Omit any older copies of these three channels from manual, extra and imported
