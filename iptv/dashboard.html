@@ -59,6 +59,21 @@ select{width:100%;background:#0c1b2f;color:#fff;border:1px solid #405b7a;border-
 <p class="muted" id="xtreamStatus" role="status">Această metodă folosește API-ul Xtream pentru lista de canale LIVE; nu oferă EPG sau VOD. Dacă o sursă este restricționată, SET IPTV nu va putea reda acel canal.</p>
 </section>
 <section>
+<h2>100 de conturi IPTV separate</h2>
+<p class="muted">Conturile narcis001–narcis100 (fără spațiu) au fiecare propria parolă Xtream. Alege numărul persoanei și copiază-i doar datele ei. Parolele sunt calculate securizat în Render; nu sunt salvate în GitHub.</p>
+<div class="grid">
+<div><label for="accountSlot">Numărul contului (1–100)</label><input id="accountSlot" type="number" min="1" max="100" step="1" value="1"></div>
+<div><label for="accountUser">Username separat</label><input id="accountUser" readonly placeholder="Apasă Încarcă contul" autocomplete="off"></div>
+</div>
+<button id="loadAccount">Încarcă contul</button>
+<button class="secondary" id="copyAccountUser">Copiază username</button>
+<button class="secondary" id="copyAccountPassword">Copiază parola</button>
+<button class="secondary" id="copyAccountXtream">Copiază toate datele Xtream</button>
+<button class="secondary" id="copyAccountM3u">Copiază link M3U</button>
+<p class="muted" id="accountStatus" role="status">Parola este disponibilă numai administratorului. Nu distribui parola de administrare sau playlistul principal.</p>
+<p class="muted">Fiecare cont controlează accesul la lista de canale, dar redarea video se face direct de la sursele externe. Nu există o limită tehnică de vizionări simultane și trebuie să ai drepturi de distribuire a canalelor.</p>
+</section>
+<section>
 <h2>Canale populare · acces oficial</h2>
 <p class="muted">Aceste trei televiziuni se pot urmări pe platformele lor oficiale. Linkurile de mai jos NU sunt fluxuri M3U8 și nu apar ca posturi redate în SmartOne. VOYO și AntenaPLAY pot necesita abonament și verificarea disponibilității în Danemarca.</p>
 <div class="grid">
@@ -134,6 +149,7 @@ let imported=[];
 let added=[];
 let health=new Map();
 let xtreamPassword='';
+let selectedAccount=null;
 const healthLabels={live:'● LIVE',offline:'● OFFLINE',restricted:'● RESTRICȚIONAT',unknown:'● NEVERIFICAT'};
 function matches(c){
   const q=el('searchChannels').value.toLowerCase().trim();
@@ -225,6 +241,47 @@ el('copySetIptv').onclick=()=>copy(el('setIptv').value);
 el('copyXtreamServer').onclick=()=>copy(el('xtreamServer').value);
 el('copyXtreamUser').onclick=()=>copy(el('xtreamUser').value);
 el('copyXtreamPassword').onclick=()=>copy(xtreamPassword);
+function accountM3uUrl(a) {
+  const url = new URL('/get.php',a.serverUrl);
+  url.searchParams.set('username',a.username);
+  url.searchParams.set('password',a.password);
+  url.searchParams.set('type','m3u_plus');
+  url.searchParams.set('output','ts');
+  return url.href;
+}
+function copySelectedAccount(getText) {
+  if(!selectedAccount || !selectedAccount.enabled) {
+    el('accountStatus').textContent='Încarcă mai întâi un cont activ.';
+    return;
+  }
+  void copy(getText(selectedAccount));
+  el('accountStatus').textContent='Datele contului '+selectedAccount.username+' au fost trimise către clipboard.';
+}
+el('loadAccount').onclick=async()=>{
+  const slot=Number(el('accountSlot').value);
+  selectedAccount=null;
+  el('accountUser').value='';
+  if(!Number.isInteger(slot)||slot<1||slot>100) {
+    el('accountStatus').textContent='Introdu un număr întreg de la 1 la 100.';
+    return;
+  }
+  el('accountStatus').textContent='Se încarcă contul...';
+  try {
+    const res=await fetch('/iptv/api/account?slot='+slot,{cache:'no-store'});
+    if(!res.ok)throw Error('HTTP '+res.status);
+    const account=await res.json();
+    if(account.error)throw Error(account.error);
+    selectedAccount=account;
+    el('accountUser').value=account.username;
+    el('accountStatus').textContent=account.enabled
+      ? 'Contul '+account.username+' este activ. Folosește propriile date de conectare.'
+      : 'Contul '+account.username+' este dezactivat în Render.';
+  }catch(e){el('accountStatus').textContent='Nu pot încărca utilizatorul: '+e.message;}
+};
+el('copyAccountUser').onclick=()=>copySelectedAccount(a=>a.username);
+el('copyAccountPassword').onclick=()=>copySelectedAccount(a=>a.password);
+el('copyAccountXtream').onclick=()=>copySelectedAccount(a=>'Server: '+a.serverUrl+'\nUsername: '+a.username+'\nPassword: '+a.password);
+el('copyAccountM3u').onclick=()=>copySelectedAccount(accountM3uUrl);
 el('testSetIptv').onclick=async()=>{
   const target=el('setTestResult');
   const link=el('setIptv').value;
