@@ -9,12 +9,13 @@ const DEMO_CHANNELS = [{
   group: '00 • Test SmartOne'
 }];
 
-// Public community links (availability and playback are not guaranteed).
-// Keep these independent of user-provided channels and the translator.
+// Public community links from Kasta Sports TV's playlist.m3u (2026-10-29).
+// The video remains served by the upstream, not by this Render app.
+// Playback depends on the external source; these URLs are not verified live.
 const DIGI_SPORT_CHANNELS = [
-  { name: 'Digi Sport 1', url: 'https://vps-bc4b65e2.vps.ovh.net:8080/channel/ustv/400', group: '▪●★ Sport ★●▪' },
-  { name: 'Digi Sport 2', url: 'https://vps-bc4b65e2.vps.ovh.net:8080/channel/ustv/401', group: '▪●★ Sport ★●▪' },
-  { name: 'Digi Sport 3', url: 'https://vps-bc4b65e2.vps.ovh.net:8080/channel/ustv/402', group: '▪●★ Sport ★●▪' }
+  { name: 'Digi Sport 1', url: 'https://ua.kasta-sports-tv.workers.dev/play/nl/digi-1/tracks-v1a1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
+  { name: 'Digi Sport 2', url: 'https://ua.kasta-sports-tv.workers.dev/play/nl/digi-2/tracks-v1a1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport2', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
+  { name: 'Digi Sport 3', url: 'https://ua.kasta-sports-tv.workers.dev/play/nl/digi-3/tracks-v1a1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
 ];
 
 function safeText(value, max = 120) {
