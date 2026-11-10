@@ -131,6 +131,27 @@ export function registerIptv(app, env = process.env) {
   const adminPassword = env.IPTV_ADMIN_PASSWORD || '';
   const playlistToken = env.IPTV_PLAYLIST_TOKEN || '';
   const configured = adminPassword.length >= 16 && playlistToken.length >= 24;
+  // Stateless 100-user account credentials; no extra database or server.
+  const accountsVersion = String(env.IPTV_ACCOUNTS_VERSION || '1').slice(0,64);
+  const disabledAccounts = new Set(String(env.IPTV_DISABLED_USERS || '')
+    .split(',').map(x=>Number(x.trim())).filter(n=>Number.isInteger(n)&&n>=1&&n<=100));
+  function getAccount(number) {
+    const slot = Number(number);
+    if(!Number.isInteger(slot) || slot < 1 || slot > 100) return null;
+    const username = 'narcis' + String(slot).padStart(3,'0');
+    const password = crypto.createHmac('sha256',adminPassword)
+      .update('narcis-iptv-account-v1:' + accountsVersion + ':' + playlistToken + ':' + username)
+      .digest('base64url').slice(0,24);
+    return {slot,username,password,enabled:!disabledAccounts.has(slot)};
+  }
+  function authorizedXtream(username,password) {
+    if(!configured || typeof username!=='string' || typeof password!=='string') return false;
+    if(username==='narcis') return secureEqual(password,playlistToken); // Original TV login
+    const found = /^narcis(\d{3})$/.exec(username);
+    if(!found) return false;
+    const account = getAccount(Number(found[1]));
+    return Boolean(account && account.enabled && secureEqual(password,account.password));
+  }
   const importEnabled = env.IPTV_IMPORT_RO_PUBLIC === 'true';
   const healthMonitor = createHealthMonitor();
   if (importEnabled) getRomanianChannels(true).then(r =>
@@ -207,6 +228,16 @@ export function registerIptv(app, env = process.env) {
         xtreamInfo: { serverUrl:base.replace(/\/$/,''),username:'narcis',password:playlistToken } });
     } catch(e) {res.status(422).json({error:e.message});}
   });
+  // Credentials appear only in responses requiring the admin password.
+  app.get('/iptv/api/account',adminOnly,(req,res) => {
+    if(!configured) return res.status(503).json({error:'IPTV neconfigurat'});
+    const slot = String(req.query.slot || '');
+    if(!/^(?:[1-9]|[1-9]\d|100)$/.test(slot))
+      return res.status(400).json({error:'Alege un număr între 1 și 100'});
+    const account = getAccount(Number(slot));
+    const base = safeHttpsUrl(env.PUBLIC_BASE_URL || '') || ('https://' + req.get('host') + '/');
+    return res.json({...account,serverUrl:base.replace(/\/$/,'')});
+  });
   app.get('/iptv/api/health',adminOnly,async (req,res) => {
     try {
       const { all } = await combinedChannels();
@@ -235,18 +266,13 @@ export function registerIptv(app, env = process.env) {
   app.get('/get.php',async (req,res) => {
     privateHeaders(res);
     if (!configured) return res.status(503).send('IPTV neconfigurat');
-    if (req.query.username !== 'narcis' || typeof req.query.password !== 'string'
-        || !secureEqual(req.query.password,playlistToken)) {
+    if (!authorizedXtream(req.query.username,req.query.password)) {
       return res.status(403).send('Acces refuzat');
     }
     await sendPlaylist(res);
   });
   // Minimal Xtream Codes player API compatibility for SET IPTV (live TV only).
   // The service does not relay media bytes; live links redirect to the original source.
-  function authorizedXtream(username, password) {
-    return configured && username === 'narcis' && typeof password === 'string'
-      && secureEqual(password,playlistToken);
-  }
   app.get('/player_api.php',async (req,res) => {
     privateHeaders(res);
     if(!authorizedXtream(req.query.username,req.query.password))
@@ -277,9 +303,10 @@ export function registerIptv(app, env = process.env) {
       const base=safeHttpsUrl(env.PUBLIC_BASE_URL||'')||('https://'+req.get('host')+'/');
       const publicUrl=new URL(base);
       return res.json({
-        user_info:{username:'narcis',password:playlistToken,auth:1,status:'Active',
+        user_info:{username:req.query.username,password:req.query.password,auth:1,status:'Active',
           exp_date:null,is_trial:'0',active_cons:'0',created_at:'0',
-          max_connections:'1',allowed_output_formats:['m3u8','ts']},
+          // This service does not limit direct upstream playback connections.
+          max_connections:'0',allowed_output_formats:['m3u8','ts']},
         server_info:{url:publicUrl.hostname,port:'443',https_port:'443',
           server_protocol:'https',rtmp_port:'0',timezone:'Europe/Copenhagen',
           timestamp_now:Math.floor(now.getTime()/1000),time_now:now.toISOString().slice(0,19).replace('T',' ')}
