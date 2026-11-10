@@ -9,14 +9,24 @@ const DEMO_CHANNELS = [{
   group: '00 • Test SmartOne'
 }];
 
-// Public community links from Kasta Sports TV's playlist.m3u (2026-10-29).
-// The video remains served by the upstream, not by this Render app.
-// Playback depends on the external source; these URLs are not verified live.
+// Digi Sport 1–3 from carloclim/romania-iptv-list's curated.m3u (2026-11-10).
+// These public playlist entries are unverified for playback and may be geo-blocked.
+// Direct-to-player links only; our server never relays or bypasses access controls.
 const DIGI_SPORT_CHANNELS = [
-  { name: 'Digi Sport 1', url: 'https://ua.kasta-sports-tv.workers.dev/play/nl/digi-1/tracks-v1a1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
-  { name: 'Digi Sport 2', url: 'https://ua.kasta-sports-tv.workers.dev/play/nl/digi-2/tracks-v1a1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport2', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
-  { name: 'Digi Sport 3', url: 'https://ua.kasta-sports-tv.workers.dev/play/nl/digi-3/tracks-v1a1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
+  { name: 'Digi Sport 1', url: 'https://live3.cdn.dejacast.com/digisport1/digisport1_0.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
+  { name: 'Digi Sport 2', url: 'https://live3.cdn.dejacast.com/digisport2/digisport2_0.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport2', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
+  { name: 'Digi Sport 3', url: 'https://live3.cdn.dejacast.com/digisport3/digisport3_0.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
 ];
+
+// Omit any older copies of these three channels from manual, extra and imported
+// sources so the replacement is visible exactly once in the generated playlist.
+function isReplacedDigiSport(channel) {
+  const id = String(channel.tvgId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const name = String(channel.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+  return /^(?:digisport[123](?:ro)?|digi[123])$/.test(id) ||
+    /^digisport[123](?:hd|fhd|uhd|4k|1080p|720p)?$/.test(name);
+}
 
 function safeText(value, max = 120) {
   return String(value ?? '').replace(/[\r\n\x00-\x1f\x7f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -180,8 +190,11 @@ export function registerIptv(app, env = process.env) {
       seen.add(key);
       return true;
     });
-    const custom = distinct(manual.concat(added,extraRadio,digiSportTest,DIGI_SPORT_CHANNELS));
-    const importedDistinct = distinct(imported.channels);
+    const custom = distinct(
+      manual.concat(added,extraRadio,digiSportTest).filter(c => !isReplacedDigiSport(c))
+        .concat(DIGI_SPORT_CHANNELS)
+    );
+    const importedDistinct = distinct(imported.channels.filter(c => !isReplacedDigiSport(c)));
     const extra = env.IPTV_PREFER_HIGHEST_RESOLUTION === 'true'
       ? preferHigherQualityVariants(importedDistinct)
       : importedDistinct;
