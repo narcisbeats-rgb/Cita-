@@ -1,6 +1,11 @@
 // Public community list. Keep streams direct-to-player: never proxy the video.
 export const ROMANIAN_PLAYLIST_URL = 'https://iptv-org.github.io/iptv/countries/ro.m3u';
 const BACKUP_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/master/streams/ro.m3u';
+// Verified-working public-channel upgrades only; no premium Digi Sport relays.
+// The source reports resolution in the channel name; playback is still checked
+// separately by our existing health monitor.
+const QUALITY_URL = 'https://raw.githubusercontent.com/carloclim/romania-iptv-list/main/dist/romania_working.m3u';
+const FREE_HIGH_RES_IDS = new Set(['antena3cnn.ro','tvrsport.ro','tvrcultural.ro','tvrfolclor.ro']);
 const TTL_MS = 30 * 60 * 1000;
 let snapshot = { channels: [], refreshedAt: null, lastError: '', source: '' };
 let expiresAt = 0;
@@ -102,6 +107,30 @@ async function download(url) {
   } finally { clearTimeout(timer); }
 }
 
+// Compare known broadcaster/public channels by their *declared* resolution.
+// Never overwrite existing entries or add a source merely because it says HD.
+async function getQualityUpgrades(baseChannels) {
+  try {
+    const alternatives = await download(QUALITY_URL);
+    const normId = c => String(c.tvgId || '').toLowerCase().split('@')[0];
+    const score = c => Number(String(c.name || '').match(/\\((\\d{3,4})p\\)/i)?.[1] || 0);
+    const upgrades = [];
+    for (const candidate of alternatives) {
+      const id = normId(candidate);
+      if (!FREE_HIGH_RES_IDS.has(id) || score(candidate) < 1080) continue;
+      const previous = baseChannels.concat(upgrades).filter(c => normId(c) === id);
+      if (previous.some(c => c.url === candidate.url)) continue;
+      if (previous.length && score(candidate) <= Math.max(...previous.map(score))) continue;
+      upgrades.push({ ...candidate, source: 'carloclim-working' });
+    }
+    return upgrades;
+  } catch (error) {
+    // Keep the original, working importer unchanged if the optional feed fails.
+    console.warn('IPTV public quality upgrades unavailable:', String(error.message || error).slice(0,110));
+    return [];
+  }
+}
+
 export async function getRomanianChannels(enabled = false) {
   if (!enabled) return {channels:[], refreshedAt:null, lastError:'', source:''};
   if (pending) return pending;
@@ -110,7 +139,8 @@ export async function getRomanianChannels(enabled = false) {
     for (const url of [ROMANIAN_PLAYLIST_URL, BACKUP_URL]) {
       try {
         const channels = await download(url);
-        snapshot = { channels, refreshedAt:new Date().toISOString(), lastError:'', source:url };
+        const upgrades = await getQualityUpgrades(channels);
+        snapshot = { channels: upgrades.concat(channels), refreshedAt:new Date().toISOString(), lastError:'', source:url + (upgrades.length ? ' + carloclim-working' : '') };
         expiresAt = Date.now() + TTL_MS;
         return snapshot;
       } catch (e) {
