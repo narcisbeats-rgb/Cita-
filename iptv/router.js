@@ -19,6 +19,16 @@ const DIGI_SPORT_CHANNELS = [
   { name: 'Digi Sport 1 Alternativ', url: 'https://dokagents.site/live/digisport1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' }
 ];
 
+
+// S3-IPTV public playlist candidates, added as separate test alternatives.
+// Upstream streams may require authorization, change tokens or stop working.
+// Keep the current Digi Sport channels intact until playback is verified.
+const S3_DIGI_SPORT_CHANNELS = [
+  { name: 'Digi Sport 1 (S3)', url: 'http://lb.wisp.cat/lb0/DigiSport_1_HD_RO/mpegts?token=nPfO4rRaax', group: '▪●★ Sport ★●▪', tvgId: 'digisport1-s3', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
+  { name: 'Digi Sport 2 (S3)', url: 'http://lb.wisp.cat/lb0/DigiSport_2_HD_RO/mpegts?token=nPfO4rRaax', group: '▪●★ Sport ★●▪', tvgId: 'digisport2-s3', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
+  { name: 'Digi Sport 3 (S3)', url: 'http://lb.wisp.cat/lb0/DigiSport3FHDRO/mpegts?token=nPfO4rRaax', group: '▪●★ Sport ★●▪', tvgId: 'digisport3-s3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
+];
+
 // Omit any older copies of these three channels from manual, extra and imported
 // sources so the replacement is visible exactly once in the generated playlist.
 function isReplacedDigiSport(channel) {
@@ -193,7 +203,7 @@ export function registerIptv(app, env = process.env) {
     });
     const custom = distinct(
       manual.concat(added,extraRadio,digiSportTest).filter(c => !isReplacedDigiSport(c))
-        .concat(DIGI_SPORT_CHANNELS)
+        .concat(DIGI_SPORT_CHANNELS, S3_DIGI_SPORT_CHANNELS)
     );
     const importedDistinct = distinct(imported.channels.filter(c => !isReplacedDigiSport(c)));
     const extra = env.IPTV_PREFER_HIGHEST_RESOLUTION === 'true'
