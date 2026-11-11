@@ -9,34 +9,12 @@ const DEMO_CHANNELS = [{
   group: '00 • Test SmartOne'
 }];
 
-// Digi Sport 1–3: public playlist candidates (2026-11-10).
-// These public playlist entries are unverified for playback and may be geo-blocked.
-// Direct-to-player links only; our server never relays or bypasses access controls.
-const DIGI_SPORT_CHANNELS = [
-  { name: 'Digi Sport 1', url: 'http://315e5a5d.ottrast.com/iptv/MM4E93NGF5LADZ/2523/index.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
-  { name: 'Digi Sport 2', url: 'http://fr01.spr24.net/22382/index.m3u8?token=BQF9PmuRpcxUqR', group: '▪●★ Sport ★●▪', tvgId: 'digisport2', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
-  { name: 'Digi Sport 3', url: 'https://dokagents.site/live/digisport3/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport3', logo: 'https://epg.iptvx.one/picons/digisport3.png' },
-  { name: 'Digi Sport 1 Alternativ', url: 'https://dokagents.site/live/digisport1/mono.m3u8', group: '▪●★ Sport ★●▪', tvgId: 'digisport1', logo: 'https://epg.iptvx.one/picons/digisport1.png' }
-];
-
-
-// S3-IPTV public playlist candidates, added as separate test alternatives.
-// Upstream streams may require authorization, change tokens or stop working.
-// Keep the current Digi Sport channels intact until playback is verified.
-const S3_DIGI_SPORT_CHANNELS = [
-  { name: 'Digi Sport 1 (S3)', url: 'http://lb.wisp.cat/lb0/DigiSport_1_HD_RO/mpegts?token=nPfO4rRaax', group: '▪●★ Sport ★●▪', tvgId: 'digisport1-s3', logo: 'https://epg.iptvx.one/picons/digisport1.png' },
-  { name: 'Digi Sport 2 (S3)', url: 'http://lb.wisp.cat/lb0/DigiSport_2_HD_RO/mpegts?token=nPfO4rRaax', group: '▪●★ Sport ★●▪', tvgId: 'digisport2-s3', logo: 'https://epg.iptvx.one/picons/digisport2.png' },
-  { name: 'Digi Sport 3 (S3)', url: 'http://lb.wisp.cat/lb0/DigiSport3FHDRO/mpegts?token=nPfO4rRaax', group: '▪●★ Sport ★●▪', tvgId: 'digisport3-s3', logo: 'https://epg.iptvx.one/picons/digisport3.png' }
-];
-
-// Omit any older copies of these three channels from manual, extra and imported
-// sources so the replacement is visible exactly once in the generated playlist.
-function isReplacedDigiSport(channel) {
-  const id = String(channel.tvgId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const name = String(channel.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]/g, '');
-  return /^(?:digisport[123](?:ro)?|digi[123])$/.test(id) ||
-    /^digisport[123](?:hd|fhd|uhd|4k|1080p|720p)?$/.test(name);
+// Remove Digi Sport 1, 2 and 3 from all sources, including S1/S2/S3 variants.
+function isDigiSport123(channel) {
+  const compact = value => String(value || '').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return [compact(channel.name), compact(channel.tvgId)]
+    .some(value => /digisport[123](?![0-9])/.test(value));
 }
 
 function safeText(value, max = 120) {
@@ -91,9 +69,6 @@ export function pinFavoriteChannels(channels) {
     /^pro\s*tv(?:\s+(?:hd|fhd|uhd|4k))?$/,
     /^antena\s*1(?:\s+(?:hd|fhd|uhd|4k))?$/,
     /^antena\s*3(?:\s+cnn)?(?:\s+(?:hd|fhd|uhd|4k))?$/,
-    /^digi\s*sport\s*1(?:\s+(?:hd|fhd|uhd|4k))?$/,
-    /^digi\s*sport\s*2(?:\s+(?:hd|fhd|uhd|4k))?$/,
-    /^digi\s*sport\s*3(?:\s+(?:hd|fhd|uhd|4k))?$/,
     /^kanal\s*d(?:\s+(?:hd|fhd|uhd|4k))?$/,
     /^romania\s*tv(?:\s+(?:hd|fhd|uhd|4k))?$/
   ];
@@ -180,17 +155,17 @@ export function registerIptv(app, env = process.env) {
   ).catch(e => console.error('IPTV Romania import error:', e.message));
 
   async function combinedChannels() {
-    const manual = playlistData(env);
-    // Separate environment variable: never overwrite the user's existing custom playlist.
-    const added = env.IPTV_EXTRA_CHANNELS_JSON
+    const manual = playlistData(env).filter(c => !isDigiSport123(c));
+    // Preserve the saved configurations but hide Digi Sport 1-3 in admin and players.
+    const added = (env.IPTV_EXTRA_CHANNELS_JSON
       ? playlistData({ IPTV_CHANNELS_JSON: env.IPTV_EXTRA_CHANNELS_JSON })
-      : [];
-    const extraRadio = env.IPTV_CARLO_CHANNELS_JSON
+      : []).filter(c => !isDigiSport123(c));
+    const extraRadio = (env.IPTV_CARLO_CHANNELS_JSON
       ? playlistData({ IPTV_CHANNELS_JSON: env.IPTV_CARLO_CHANNELS_JSON })
-      : [];
-    const digiSportTest = env.IPTV_DIGISPORT_TEST_JSON
+      : []).filter(c => !isDigiSport123(c));
+    const digiSportTest = (env.IPTV_DIGISPORT_TEST_JSON
       ? playlistData({ IPTV_CHANNELS_JSON: env.IPTV_DIGISPORT_TEST_JSON })
-      : [];
+      : []).filter(c => !isDigiSport123(c));
     const imported = await getRomanianChannels(importEnabled);
     const seen = new Set();
     const distinct = (items) => items.filter(c => {
@@ -201,11 +176,8 @@ export function registerIptv(app, env = process.env) {
       seen.add(key);
       return true;
     });
-    const custom = distinct(
-      manual.concat(added,extraRadio,digiSportTest).filter(c => !isReplacedDigiSport(c))
-        .concat(DIGI_SPORT_CHANNELS, S3_DIGI_SPORT_CHANNELS)
-    );
-    const importedDistinct = distinct(imported.channels.filter(c => !isReplacedDigiSport(c)));
+    const custom = distinct(manual.concat(added, extraRadio, digiSportTest));
+    const importedDistinct = distinct(imported.channels.filter(c => !isDigiSport123(c)));
     const extra = env.IPTV_PREFER_HIGHEST_RESOLUTION === 'true'
       ? preferHigherQualityVariants(importedDistinct)
       : importedDistinct;
